@@ -5,7 +5,11 @@ Auth via httpOnly cookie (dikirim backend) — tidak ada token di JS.
 
 ## Untuk Juri/Panitia (quickstart)
 
-Prasyarat: **Docker**, dan **backend sudah jalan** (repo `backend/`, `docker-compose up -d` — API di `localhost:8080`).
+> **Cara termudah:** dari root `project/`, jalankan `docker-compose up -d` — itu menyalakan
+> db + api + web sekaligus (lihat `project/README.md`). Bagian ini untuk menjalankan
+> frontend saja.
+
+Prasyarat: **Docker**, dan **backend sudah jalan** (`backend/`, `docker-compose up -d` — API di `localhost:8080`).
 
 ```bash
 docker-compose up -d

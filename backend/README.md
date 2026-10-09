@@ -5,6 +5,10 @@ Auth: long-lived JWT via httpOnly cookie (no refresh token). Logout = clear cook
 
 ## Untuk Juri/Panitia (quickstart)
 
+> **Cara termudah:** dari root `project/`, jalankan `docker-compose up -d` — itu menyalakan
+> db + api + web sekaligus (lihat `project/README.md`). Bagian ini untuk menjalankan
+> backend saja.
+
 Prasyarat: **Docker saja**.
 
 ```bash
