@@ -24,8 +24,11 @@ type Config struct {
 // Load reads configuration from environment variables with sane defaults.
 func Load() (Config, error) {
 	cfg := Config{
-		Port:        getEnv("PORT", "8080"),
-		DatabaseURL: getEnv("DATABASE_URL", "postgres://postgres:postgres@localhost:5432/hackathon?sslmode=disable"),
+		Port: getEnv("PORT", "8080"),
+		// 127.0.0.1 + port 5433: hindari Postgres native di host yang biasanya
+		// memakai 5432 (dan bisa nabrak resolusi localhost→IPv6 ::1).
+		// Port 5433 = port host default container db (lihat project/docker-compose.yml).
+		DatabaseURL: getEnv("DATABASE_URL", "postgres://postgres:postgres@127.0.0.1:5433/hackathon?sslmode=disable"),
 		JWTSecret:   getEnv("JWT_SECRET", "dev-secret-change-me-in-prod"),
 		CORSOrigins: strings.Split(getEnv("CORS_ORIGINS", "http://localhost:5173,http://localhost:3000"), ","),
 		LogLevel:    getEnv("LOG_LEVEL", "info"),

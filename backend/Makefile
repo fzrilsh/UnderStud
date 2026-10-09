@@ -1,5 +1,5 @@
 # Backend Makefile — hackathon starter kit
-DATABASE_URL ?= postgres://postgres:postgres@localhost:5432/hackathon?sslmode=disable
+DATABASE_URL ?= postgres://postgres:postgres@127.0.0.1:5433/hackathon?sslmode=disable
 GOOSE_DIR    ?= internal/db/migrations
 
 .PHONY: dev run sqlc migrate-up migrate-down migrate-new migrate-status smoke compose-up compose-down compose-logs tidy help

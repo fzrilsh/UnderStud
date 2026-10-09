@@ -11,7 +11,11 @@ services:
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: hackathon
     ports:
-      - "5432:5432"
+      # Host port default 5433 (bukan 5432): 5432 hampir selalu dipakai Postgres
+      # native di mesin dev, dan port-forward kalah → dev mode nyambung ke DB salah.
+      # Container internal tetap 5432; api→db lewat network compose, tidak terpengaruh.
+      # Override: DB_PORT=5432 docker-compose up -d
+      - "${DB_PORT:-5433}:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:

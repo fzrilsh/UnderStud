@@ -16,7 +16,7 @@ docker-compose up -d
 ```
 
 - API: http://localhost:8080 — health di `GET /healthz`
-- Postgres di `localhost:5432` (db `hackathon`, user/pass `postgres`/`postgres`)
+- Postgres di `127.0.0.1:5433` (db `hackathon`, user/pass `postgres`/`postgres`)
 - Migrations **otomatis** dijalankan saat service start.
 
 ### Endpoint Auth
@@ -79,7 +79,7 @@ make compose-up     # docker: api + postgres
 | Env | Default | Keterangan |
 |---|---|---|
 | PORT | 8080 | port API |
-| DATABASE_URL | postgres://postgres:postgres@localhost:5432/hackathon?sslmode=disable | koneksi DB |
+| DATABASE_URL | postgres://postgres:postgres@127.0.0.1:5433/hackathon?sslmode=disable | koneksi DB |
 | JWT_SECRET | dev-secret-change-me-in-prod | HS256 secret |
 | AUTH_TOKEN_TTL | 87600h | TTL token & cookie (10 tahun) |
 | CORS_ORIGINS | http://localhost:5173,http://localhost:3000 | origins yang diizinkan (credentials) |
