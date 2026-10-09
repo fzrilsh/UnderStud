@@ -1,0 +1,12 @@
+# binaries
+bin/
+*.exe
+
+# env
+.env
+
+# air hot-reload artifacts
+tmp/
+
+# OS
+.DS_Store

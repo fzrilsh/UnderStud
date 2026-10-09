@@ -1,0 +1,10 @@
+# OS
+.DS_Store
+
+# Root compose volume data (kalau ada)
+pgdata/
+
+# Local env overrides
+.env
+.env.*
+!.env.example
