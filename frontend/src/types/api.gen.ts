@@ -166,6 +166,314 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/reports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** BK sidebar queue (PIN ∪ DRAFT ∪ ANTREAN; excludes 'dilewati') */
+        get: {
+            parameters: {
+                query?: {
+                    limit?: number;
+                    offset?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Queue */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data?: components["schemas"]["ReportItem"][];
+                            meta?: components["schemas"]["Meta"];
+                        };
+                    };
+                };
+                403: components["responses"]["ErrorResponse"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/reports/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** BK history (skipped 'dilewati' + hidden_by_staff_at) */
+        get: {
+            parameters: {
+                query?: {
+                    limit?: number;
+                    offset?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description History */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data?: components["schemas"]["ReportItem"][];
+                            meta?: components["schemas"]["Meta"];
+                        };
+                    };
+                };
+                403: components["responses"]["ErrorResponse"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/reports/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Report detail (messages + attachments) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Detail */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data?: components["schemas"]["ReportDetail"];
+                        };
+                    };
+                };
+                404: components["responses"]["ErrorResponse"];
+            };
+        };
+        put?: never;
+        post?: never;
+        /** Soft-hide report on BK side */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                200: components["responses"]["OkResponse"];
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/reports/{id}/pin": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Pin (sets pinned_at, clears drafted_at) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                200: components["responses"]["OkResponse"];
+            };
+        };
+        /** Unpin */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                200: components["responses"]["OkResponse"];
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/reports/{id}/draft": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Mark as draft (sets drafted_at, clears pinned_at) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                200: components["responses"]["OkResponse"];
+            };
+        };
+        /** Leave draft (requires ≥1 reply) */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                200: components["responses"]["OkResponse"];
+                400: components["responses"]["ErrorResponse"];
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/reports/{id}/next": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Skip report (requires ≥1 reply) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                200: components["responses"]["OkResponse"];
+                400: components["responses"]["ErrorResponse"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/reports/{id}/messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** BK reply */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        body: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data?: components["schemas"]["MessageView"];
+                        };
+                    };
+                };
+                403: components["responses"]["ErrorResponse"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/students": {
         parameters: {
             query?: never;
@@ -675,11 +983,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Export summary as PDF/TXT (T3 — currently 501) */
+        /** Export summary as PDF/TXT (records an audit row) */
         get: {
             parameters: {
-                query?: {
-                    format?: "pdf" | "txt";
+                query: {
+                    format: "pdf" | "txt";
                 };
                 header?: never;
                 path: {
@@ -690,7 +998,19 @@ export interface paths {
             };
             requestBody?: never;
             responses: {
-                501: components["responses"]["ErrorResponse"];
+                /** @description File download (Content-Disposition attachment) */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/pdf": string;
+                        "text/plain": string;
+                    };
+                };
+                400: components["responses"]["ErrorResponse"];
+                403: components["responses"]["ErrorResponse"];
+                404: components["responses"]["ErrorResponse"];
             };
         };
         put?: never;
@@ -918,6 +1238,44 @@ export interface components {
                 code: "INVALID_INPUT" | "UNAUTHORIZED" | "TOKEN_EXPIRED" | "FORBIDDEN" | "ACCOUNT_INACTIVE" | "OUT_OF_SCOPE" | "CHAT_HIDDEN_BY_STUDENT" | "CHAT_CLOSED_BY_STAFF" | "OUT_OF_RANGE" | "LOCATION_IMPRECISE" | "LOCATION_UNAVAILABLE" | "NOT_FOUND" | "PREVIEW_EXPIRED" | "CONFLICT" | "RATE_LIMITED" | "PAYLOAD_TOO_LARGE" | "UNSUPPORTED_MEDIA" | "AI_NOT_CONFIGURED" | "AI_FAILED" | "INTERNAL";
                 message: string;
             };
+        };
+        ReportIdentity: {
+            /** @enum {string} */
+            mode?: "anonim" | "profil";
+            name?: string;
+            kelas?: string;
+        };
+        ReportItem: {
+            /** Format: uuid */
+            id?: string;
+            /** @enum {string} */
+            status?: "baru" | "dibuka" | "dilewati";
+            pinned?: boolean;
+            drafted?: boolean;
+            identity?: components["schemas"]["ReportIdentity"];
+            /** Format: date-time */
+            last_message_at?: string;
+        };
+        AttachmentView: {
+            /** Format: uuid */
+            id?: string;
+            name?: string;
+            mime?: string;
+            size_bytes?: number;
+        };
+        MessageView: {
+            /** Format: uuid */
+            id?: string;
+            /** @enum {string} */
+            sender?: "SISWA" | "BK";
+            body?: string;
+            attachments?: components["schemas"]["AttachmentView"][];
+            /** Format: date-time */
+            created_at?: string;
+        };
+        ReportDetail: {
+            chat?: components["schemas"]["ReportItem"];
+            messages?: components["schemas"]["MessageView"][];
         };
         StudentItem: {
             /** Format: uuid */

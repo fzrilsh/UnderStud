@@ -9,6 +9,7 @@ servers:
 tags:
   - name: auth
   - name: health
+  - name: reports
   - name: students
   - name: observations
 paths:
@@ -80,6 +81,186 @@ paths:
                 $ref: "#/components/schemas/AuthResponse"
         "401":
           $ref: "#/components/responses/ErrorResponse"
+  /api/v1/reports:
+    get:
+      tags: [reports]
+      summary: BK sidebar queue (PIN ∪ DRAFT ∪ ANTREAN; excludes 'dilewati')
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: limit
+          in: query
+          schema: { type: integer, default: 20, maximum: 100 }
+        - name: offset
+          in: query
+          schema: { type: integer, default: 0 }
+      responses:
+        "200":
+          description: Queue
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/ReportItem" }
+                  meta: { $ref: "#/components/schemas/Meta" }
+        "403": { $ref: "#/components/responses/ErrorResponse" }
+  /api/v1/reports/history:
+    get:
+      tags: [reports]
+      summary: BK history (skipped 'dilewati' + hidden_by_staff_at)
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: limit
+          in: query
+          schema: { type: integer, default: 20, maximum: 100 }
+        - name: offset
+          in: query
+          schema: { type: integer, default: 0 }
+      responses:
+        "200":
+          description: History
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/ReportItem" }
+                  meta: { $ref: "#/components/schemas/Meta" }
+        "403": { $ref: "#/components/responses/ErrorResponse" }
+  /api/v1/reports/{id}:
+    get:
+      tags: [reports]
+      summary: Report detail (messages + attachments)
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Detail
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: "#/components/schemas/ReportDetail" }
+        "404": { $ref: "#/components/responses/ErrorResponse" }
+    delete:
+      tags: [reports]
+      summary: Soft-hide report on BK side
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200": { $ref: "#/components/responses/OkResponse" }
+  /api/v1/reports/{id}/pin:
+    post:
+      tags: [reports]
+      summary: Pin (sets pinned_at, clears drafted_at)
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200": { $ref: "#/components/responses/OkResponse" }
+    delete:
+      tags: [reports]
+      summary: Unpin
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200": { $ref: "#/components/responses/OkResponse" }
+  /api/v1/reports/{id}/draft:
+    post:
+      tags: [reports]
+      summary: Mark as draft (sets drafted_at, clears pinned_at)
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200": { $ref: "#/components/responses/OkResponse" }
+    delete:
+      tags: [reports]
+      summary: Leave draft (requires ≥1 reply)
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200": { $ref: "#/components/responses/OkResponse" }
+        "400": { $ref: "#/components/responses/ErrorResponse" }
+  /api/v1/reports/{id}/next:
+    post:
+      tags: [reports]
+      summary: Skip report (requires ≥1 reply)
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200": { $ref: "#/components/responses/OkResponse" }
+        "400": { $ref: "#/components/responses/ErrorResponse" }
+  /api/v1/reports/{id}/messages:
+    post:
+      tags: [reports]
+      summary: BK reply
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [body]
+              properties:
+                body: { type: string, maxLength: 2000 }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: "#/components/schemas/MessageView" }
+        "403": { $ref: "#/components/responses/ErrorResponse" }
   /api/v1/students:
     get:
       tags: [students]
@@ -389,7 +570,7 @@ paths:
   /api/v1/students/{id}/summaries/{sid}/export:
     get:
       tags: [students]
-      summary: Export summary as PDF/TXT (T3 — currently 501)
+      summary: Export summary as PDF/TXT (records an audit row)
       security:
         - cookieAuth: []
       parameters:
@@ -403,9 +584,19 @@ paths:
           schema: { type: string, format: uuid }
         - name: format
           in: query
+          required: true
           schema: { type: string, enum: [pdf, txt] }
       responses:
-        "501": { $ref: "#/components/responses/ErrorResponse" }
+        "200":
+          description: File download (Content-Disposition attachment)
+          content:
+            application/pdf:
+              schema: { type: string, format: binary }
+            text/plain:
+              schema: { type: string }
+        "400": { $ref: "#/components/responses/ErrorResponse" }
+        "403": { $ref: "#/components/responses/ErrorResponse" }
+        "404": { $ref: "#/components/responses/ErrorResponse" }
   /api/v1/observations/{id}:
     put:
       tags: [observations]
@@ -571,6 +762,45 @@ components:
                  AI_NOT_CONFIGURED, AI_FAILED, INTERNAL]
             message:
               type: string
+    ReportIdentity:
+      type: object
+      properties:
+        mode: { type: string, enum: [anonim, profil] }
+        name: { type: string }
+        kelas: { type: string }
+    ReportItem:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        status: { type: string, enum: [baru, dibuka, dilewati] }
+        pinned: { type: boolean }
+        drafted: { type: boolean }
+        identity: { $ref: "#/components/schemas/ReportIdentity" }
+        last_message_at: { type: string, format: date-time }
+    AttachmentView:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        mime: { type: string }
+        size_bytes: { type: integer }
+    MessageView:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        sender: { type: string, enum: [SISWA, BK] }
+        body: { type: string }
+        attachments:
+          type: array
+          items: { $ref: "#/components/schemas/AttachmentView" }
+        created_at: { type: string, format: date-time }
+    ReportDetail:
+      type: object
+      properties:
+        chat: { $ref: "#/components/schemas/ReportItem" }
+        messages:
+          type: array
+          items: { $ref: "#/components/schemas/MessageView" }
     StudentItem:
       type: object
       required: [id, name, kelas]
