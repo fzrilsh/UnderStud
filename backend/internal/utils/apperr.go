@@ -8,10 +8,17 @@ const (
 	CodeForbidden       = "FORBIDDEN"
 	CodeOutOfScope      = "OUT_OF_SCOPE"
 	CodeAccountInactive = "ACCOUNT_INACTIVE"
-	CodeInvalidInput    = "INVALID_INPUT"
-	CodeConflict        = "CONFLICT"
-	CodeRateLimited     = "RATE_LIMITED"
-	CodeInternal        = "INTERNAL"
+	CodeInvalidInput        = "INVALID_INPUT"
+	CodeConflict            = "CONFLICT"
+	CodeRateLimited         = "RATE_LIMITED"
+	CodeOutOfRange          = "OUT_OF_RANGE"
+	CodeLocationImprecise   = "LOCATION_IMPRECISE"
+	CodeLocationUnavailable = "LOCATION_UNAVAILABLE"
+	CodeChatHiddenByStudent = "CHAT_HIDDEN_BY_STUDENT"
+	CodeChatClosedByStaff   = "CHAT_CLOSED_BY_STAFF"
+	CodePayloadTooLarge     = "PAYLOAD_TOO_LARGE"
+	CodeUnsupportedMedia    = "UNSUPPORTED_MEDIA"
+	CodeInternal            = "INTERNAL"
 )
 
 // AppErr is a typed error mapped to an HTTP status by error writers.
@@ -32,4 +39,11 @@ func NewErrAccountInactive(msg string) error { return &AppErr{Status: 403, Code:
 func NewErrInvalidInput(msg string) error    { return &AppErr{Status: 400, Code: CodeInvalidInput, Message: msg} }
 func NewErrConflict(msg string) error        { return &AppErr{Status: 409, Code: CodeConflict, Message: msg} }
 func NewErrRateLimited(msg string) error     { return &AppErr{Status: 429, Code: CodeRateLimited, Message: msg} }
+func NewErrOutOfRange(msg string) error          { return &AppErr{Status: 403, Code: CodeOutOfRange, Message: msg} }
+func NewErrLocationImprecise(msg string) error   { return &AppErr{Status: 403, Code: CodeLocationImprecise, Message: msg} }
+func NewErrLocationUnavailable(msg string) error { return &AppErr{Status: 403, Code: CodeLocationUnavailable, Message: msg} }
+func NewErrChatHiddenByStudent(msg string) error { return &AppErr{Status: 403, Code: CodeChatHiddenByStudent, Message: msg} }
+func NewErrChatClosedByStaff(msg string) error   { return &AppErr{Status: 403, Code: CodeChatClosedByStaff, Message: msg} }
+func NewErrPayloadTooLarge(msg string) error     { return &AppErr{Status: 413, Code: CodePayloadTooLarge, Message: msg} }
+func NewErrUnsupportedMedia(msg string) error    { return &AppErr{Status: 415, Code: CodeUnsupportedMedia, Message: msg} }
 func NewErrInternal(msg string) error        { return &AppErr{Status: 500, Code: CodeInternal, Message: msg} }
