@@ -59,11 +59,32 @@ func (h *SummaryHandlers) List(w http.ResponseWriter, r *http.Request) {
 	OKMeta(w, items, map[string]any{"limit": limit, "offset": offset, "total": total})
 }
 
-// Export handles GET /api/v1/students/{id}/summaries/{sid}/export — T3 (501 dulu).
+// Export handles GET /api/v1/students/{id}/summaries/{sid}/export?format=pdf|txt.
 func (h *SummaryHandlers) Export(w http.ResponseWriter, r *http.Request) {
-	if _, err := uuid.Parse(chi.URLParam(r, "sid")); err != nil {
+	actor, err := actorFrom(r)
+	if err != nil {
+		Error(w, err)
+		return
+	}
+	id, err := studentIDParam(r)
+	if err != nil {
+		Error(w, err)
+		return
+	}
+	sid, err := uuid.Parse(chi.URLParam(r, "sid"))
+	if err != nil {
 		Error(w, utils.NewErrNotFound("Ringkasan tidak ditemukan."))
 		return
 	}
-	Error(w, &utils.AppErr{Status: http.StatusNotImplemented, Code: "NOT_IMPLEMENTED", Message: "Ekspor tersedia di rilis berikutnya."})
+	format := r.URL.Query().Get("format")
+	file, err := h.summary.Export(r.Context(), actor, id, sid, format)
+	if err != nil {
+		Error(w, err)
+		return
+	}
+	w.Header().Set("Content-Type", file.ContentType)
+	w.Header().Set("Content-Disposition", `attachment; filename="`+file.Filename+`"`)
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write(file.Data)
 }

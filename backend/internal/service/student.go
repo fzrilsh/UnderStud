@@ -370,6 +370,15 @@ func (s *Student) Detail(ctx context.Context, actor Actor, id uuid.UUID) (Studen
 
 // --- helper konversi ---
 
+// jakartaLoc: lokasi WIB untuk tampilan tanggal/waktu (spec §5 timezone).
+func jakartaLoc() *time.Location {
+	loc, err := time.LoadLocation("Asia/Jakarta")
+	if err != nil {
+		return time.UTC
+	}
+	return loc
+}
+
 func optStr(s string) *string {
 	s = strings.TrimSpace(s)
 	if s == "" {
