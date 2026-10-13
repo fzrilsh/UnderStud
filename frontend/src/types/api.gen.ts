@@ -166,6 +166,373 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/lapor": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Bootstrap anon session (sets anon_token cookie if absent) + profile + chats */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Bootstrap payload */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data?: components["schemas"]["LaporBootstrap"];
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/lapor/profile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read pelapor identity (name + kelas) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Identity */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data?: components["schemas"]["AnonProfile"];
+                        };
+                    };
+                };
+            };
+        };
+        /** Save pelapor identity (both fields optional; 80/40 max) */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["AnonProfile"];
+                };
+            };
+            responses: {
+                /** @description Saved */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data?: components["schemas"]["AnonProfile"];
+                        };
+                    };
+                };
+                400: components["responses"]["ErrorResponse"];
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/lapor/chats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Student chat sidebar (own session, excludes hidden) */
+        get: {
+            parameters: {
+                query?: {
+                    limit?: number;
+                    offset?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description List */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data?: components["schemas"]["ChatSummary"][];
+                            meta?: components["schemas"]["Meta"];
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        /** Create report (multipart with body, identity_mode, files, lat/lng/accuracy) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "multipart/form-data": {
+                        body?: string;
+                        /** @enum {string} */
+                        identity_mode?: "anonim" | "profil";
+                        files?: string[];
+                        lat?: number;
+                        lng?: number;
+                        accuracy?: number;
+                    };
+                };
+            };
+            responses: {
+                /** @description Created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data?: components["schemas"]["ChatView"];
+                        };
+                    };
+                };
+                400: components["responses"]["ErrorResponse"];
+                403: components["responses"]["ErrorResponse"];
+                413: components["responses"]["ErrorResponse"];
+                415: components["responses"]["ErrorResponse"];
+                429: components["responses"]["ErrorResponse"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/lapor/chats/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Chat detail (messages + attachments) for the owning session */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Detail */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data?: components["schemas"]["ChatDetail"];
+                        };
+                    };
+                };
+                404: components["responses"]["ErrorResponse"];
+            };
+        };
+        put?: never;
+        post?: never;
+        /** Soft-hide chat on student side */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                200: components["responses"]["OkResponse"];
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/lapor/chats/{id}/messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Student reply (multipart; requeues chat to 'baru') */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "multipart/form-data": {
+                        body?: string;
+                        files?: string[];
+                    };
+                };
+            };
+            responses: {
+                /** @description Created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data?: components["schemas"]["MessageView"];
+                        };
+                    };
+                };
+                403: components["responses"]["ErrorResponse"];
+                429: components["responses"]["ErrorResponse"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/lapor/attachments/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Serve attachment to the owning session */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description File (Content-Disposition attachment) */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/octet-stream": string;
+                    };
+                };
+                404: components["responses"]["ErrorResponse"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/attachments/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Serve attachment (staff; BK sees all) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description File (Content-Disposition attachment) */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/octet-stream": string;
+                    };
+                };
+                401: components["responses"]["ErrorResponse"];
+                404: components["responses"]["ErrorResponse"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/reports": {
         parameters: {
             query?: never;
@@ -375,22 +742,7 @@ export interface paths {
                 200: components["responses"]["OkResponse"];
             };
         };
-        /** Leave draft (requires ≥1 reply) */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                200: components["responses"]["OkResponse"];
-                400: components["responses"]["ErrorResponse"];
-            };
-        };
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -405,7 +757,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Skip report (requires ≥1 reply) */
+        /** Skip/leave (requires ≥1 reply); clears draft and sets status 'dilewati' */
         post: {
             parameters: {
                 query?: never;
@@ -1238,6 +1590,36 @@ export interface components {
                 code: "INVALID_INPUT" | "UNAUTHORIZED" | "TOKEN_EXPIRED" | "FORBIDDEN" | "ACCOUNT_INACTIVE" | "OUT_OF_SCOPE" | "CHAT_HIDDEN_BY_STUDENT" | "CHAT_CLOSED_BY_STAFF" | "OUT_OF_RANGE" | "LOCATION_IMPRECISE" | "LOCATION_UNAVAILABLE" | "NOT_FOUND" | "PREVIEW_EXPIRED" | "CONFLICT" | "RATE_LIMITED" | "PAYLOAD_TOO_LARGE" | "UNSUPPORTED_MEDIA" | "AI_NOT_CONFIGURED" | "AI_FAILED" | "INTERNAL";
                 message: string;
             };
+        };
+        AnonProfile: {
+            name?: string;
+            kelas?: string;
+        };
+        ChatSummary: {
+            /** Format: uuid */
+            id?: string;
+            /** @enum {string} */
+            identity_mode?: "anonim" | "profil";
+            /** @enum {string} */
+            status?: "baru" | "dibuka" | "dilewati";
+            /** Format: date-time */
+            last_message_at?: string;
+        };
+        ChatView: {
+            /** Format: uuid */
+            id?: string;
+            /** @enum {string} */
+            identity_mode?: "anonim" | "profil";
+            /** @enum {string} */
+            status?: "baru" | "dibuka" | "dilewati";
+        };
+        ChatDetail: {
+            chat?: components["schemas"]["ChatView"];
+            messages?: components["schemas"]["MessageView"][];
+        };
+        LaporBootstrap: {
+            profile?: components["schemas"]["AnonProfile"];
+            chats?: components["schemas"]["ChatSummary"][];
         };
         ReportIdentity: {
             /** @enum {string} */

@@ -9,6 +9,7 @@ servers:
 tags:
   - name: auth
   - name: health
+  - name: anon
   - name: reports
   - name: students
   - name: observations
@@ -81,6 +82,216 @@ paths:
                 $ref: "#/components/schemas/AuthResponse"
         "401":
           $ref: "#/components/responses/ErrorResponse"
+  /api/v1/lapor:
+    get:
+      tags: [anon]
+      summary: Bootstrap anon session (sets anon_token cookie if absent) + profile + chats
+      responses:
+        "200":
+          description: Bootstrap payload
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: "#/components/schemas/LaporBootstrap" }
+  /api/v1/lapor/profile:
+    get:
+      tags: [anon]
+      summary: Read pelapor identity (name + kelas)
+      security:
+        - anonCookie: []
+      responses:
+        "200":
+          description: Identity
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: "#/components/schemas/AnonProfile" }
+    put:
+      tags: [anon]
+      summary: Save pelapor identity (both fields optional; 80/40 max)
+      security:
+        - anonCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AnonProfile" }
+      responses:
+        "200":
+          description: Saved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: "#/components/schemas/AnonProfile" }
+        "400": { $ref: "#/components/responses/ErrorResponse" }
+  /api/v1/lapor/chats:
+    get:
+      tags: [anon]
+      summary: Student chat sidebar (own session, excludes hidden)
+      security:
+        - anonCookie: []
+      parameters:
+        - name: limit
+          in: query
+          schema: { type: integer, default: 20, maximum: 100 }
+        - name: offset
+          in: query
+          schema: { type: integer, default: 0 }
+      responses:
+        "200":
+          description: List
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/ChatSummary" }
+                  meta: { $ref: "#/components/schemas/Meta" }
+    post:
+      tags: [anon]
+      summary: Create report (multipart with body, identity_mode, files, lat/lng/accuracy)
+      security:
+        - anonCookie: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                body: { type: string, maxLength: 2000 }
+                identity_mode: { type: string, enum: [anonim, profil] }
+                files:
+                  type: array
+                  items: { type: string, format: binary }
+                lat: { type: number }
+                lng: { type: number }
+                accuracy: { type: number }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: "#/components/schemas/ChatView" }
+        "400": { $ref: "#/components/responses/ErrorResponse" }
+        "403": { $ref: "#/components/responses/ErrorResponse" }
+        "413": { $ref: "#/components/responses/ErrorResponse" }
+        "415": { $ref: "#/components/responses/ErrorResponse" }
+        "429": { $ref: "#/components/responses/ErrorResponse" }
+  /api/v1/lapor/chats/{id}:
+    get:
+      tags: [anon]
+      summary: Chat detail (messages + attachments) for the owning session
+      security:
+        - anonCookie: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Detail
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: "#/components/schemas/ChatDetail" }
+        "404": { $ref: "#/components/responses/ErrorResponse" }
+    delete:
+      tags: [anon]
+      summary: Soft-hide chat on student side
+      security:
+        - anonCookie: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200": { $ref: "#/components/responses/OkResponse" }
+  /api/v1/lapor/chats/{id}/messages:
+    post:
+      tags: [anon]
+      summary: Student reply (multipart; requeues chat to 'baru')
+      security:
+        - anonCookie: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                body: { type: string, maxLength: 2000 }
+                files:
+                  type: array
+                  items: { type: string, format: binary }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: "#/components/schemas/MessageView" }
+        "403": { $ref: "#/components/responses/ErrorResponse" }
+        "429": { $ref: "#/components/responses/ErrorResponse" }
+  /api/v1/lapor/attachments/{id}:
+    get:
+      tags: [anon]
+      summary: Serve attachment to the owning session
+      security:
+        - anonCookie: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: File (Content-Disposition attachment)
+          content:
+            application/octet-stream:
+              schema: { type: string, format: binary }
+        "404": { $ref: "#/components/responses/ErrorResponse" }
+  /api/v1/attachments/{id}:
+    get:
+      tags: [reports]
+      summary: Serve attachment (staff; BK sees all)
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: File (Content-Disposition attachment)
+          content:
+            application/octet-stream:
+              schema: { type: string, format: binary }
+        "401": { $ref: "#/components/responses/ErrorResponse" }
+        "404": { $ref: "#/components/responses/ErrorResponse" }
   /api/v1/reports:
     get:
       tags: [reports]
@@ -204,23 +415,10 @@ paths:
           schema: { type: string, format: uuid }
       responses:
         "200": { $ref: "#/components/responses/OkResponse" }
-    delete:
-      tags: [reports]
-      summary: Leave draft (requires ≥1 reply)
-      security:
-        - cookieAuth: []
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema: { type: string, format: uuid }
-      responses:
-        "200": { $ref: "#/components/responses/OkResponse" }
-        "400": { $ref: "#/components/responses/ErrorResponse" }
   /api/v1/reports/{id}/next:
     post:
       tags: [reports]
-      summary: Skip report (requires ≥1 reply)
+      summary: Skip/leave (requires ≥1 reply); clears draft and sets status 'dilewati'
       security:
         - cookieAuth: []
       parameters:
@@ -710,6 +908,10 @@ components:
     bearerAuth:
       type: http
       scheme: bearer
+    anonCookie:
+      type: apiKey
+      in: cookie
+      name: anon_token
   responses:
     ErrorResponse:
       description: Error
@@ -762,6 +964,38 @@ components:
                  AI_NOT_CONFIGURED, AI_FAILED, INTERNAL]
             message:
               type: string
+    AnonProfile:
+      type: object
+      properties:
+        name: { type: string, maxLength: 80 }
+        kelas: { type: string, maxLength: 40 }
+    ChatSummary:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        identity_mode: { type: string, enum: [anonim, profil] }
+        status: { type: string, enum: [baru, dibuka, dilewati] }
+        last_message_at: { type: string, format: date-time }
+    ChatView:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        identity_mode: { type: string, enum: [anonim, profil] }
+        status: { type: string, enum: [baru, dibuka, dilewati] }
+    ChatDetail:
+      type: object
+      properties:
+        chat: { $ref: "#/components/schemas/ChatView" }
+        messages:
+          type: array
+          items: { $ref: "#/components/schemas/MessageView" }
+    LaporBootstrap:
+      type: object
+      properties:
+        profile: { $ref: "#/components/schemas/AnonProfile" }
+        chats:
+          type: array
+          items: { $ref: "#/components/schemas/ChatSummary" }
     ReportIdentity:
       type: object
       properties:
