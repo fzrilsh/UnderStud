@@ -9,14 +9,19 @@ import (
 	"backend/internal/utils"
 )
 
-// OK writes 200 with a JSON body.
+// OK writes 200 with an envelope {"data": ...} (spec §21.1).
 func OK(w http.ResponseWriter, data any) {
-	writeJSON(w, http.StatusOK, data)
+	writeJSON(w, http.StatusOK, map[string]any{"data": data})
 }
 
-// Created writes 201 with a JSON body.
+// Created writes 201 with an envelope {"data": ...}.
 func Created(w http.ResponseWriter, data any) {
-	writeJSON(w, http.StatusCreated, data)
+	writeJSON(w, http.StatusCreated, map[string]any{"data": data})
+}
+
+// OKMeta writes 200 with {"data": ..., "meta": ...} — dipakai endpoint list.
+func OKMeta(w http.ResponseWriter, data any, meta any) {
+	writeJSON(w, http.StatusOK, map[string]any{"data": data, "meta": meta})
 }
 
 // Error maps any error to the standard shape {"error":{code,message}}.

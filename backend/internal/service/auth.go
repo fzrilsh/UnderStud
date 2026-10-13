@@ -22,12 +22,6 @@ func NewAuth(queries *db.Queries, tm *tokens.Manager) *Auth {
 	return &Auth{queries: queries, tm: tm}
 }
 
-type RegisterInput struct {
-	Email    string `json:"email"`
-	Password string `json:"password"`
-	Name     string `json:"name"`
-}
-
 type LoginInput struct {
 	Email    string `json:"email"`
 	Password string `json:"password"`
@@ -38,56 +32,40 @@ type User struct {
 	ID        string `json:"id"`
 	Email     string `json:"email"`
 	Name      string `json:"name"`
+	Role      string `json:"role"`
+	Kelas     string `json:"kelas,omitempty"`
 	CreatedAt string `json:"created_at"`
 }
 
-func (s *Auth) Register(ctx context.Context, in RegisterInput) (User, string, error) {
-	in.Email = strings.ToLower(strings.TrimSpace(in.Email))
-	in.Name = strings.TrimSpace(in.Name)
-	if in.Email == "" || !strings.Contains(in.Email, "@") {
-		return User{}, "", utils.NewErrInvalidInput("valid email is required")
-	}
-	if len(in.Password) < 6 {
-		return User{}, "", utils.NewErrInvalidInput("password must be at least 6 characters")
-	}
-	if in.Name == "" {
-		return User{}, "", utils.NewErrInvalidInput("name is required")
-	}
-
-	hash, err := utils.HashPassword(in.Password)
-	if err != nil {
-		return User{}, "", utils.NewErrInternal("failed to hash password")
-	}
-
-	u, err := s.queries.CreateUser(ctx, db.CreateUserParams{Email: in.Email, PasswordHash: hash, Name: in.Name})
-	if err != nil {
-		if strings.Contains(err.Error(), "duplicate key") || strings.Contains(err.Error(), "SQLSTATE 23505") {
-			return User{}, "", utils.NewErrConflict("email already registered")
-		}
-		return User{}, "", utils.NewErrInternal("failed to create user")
-	}
-
-	token, err := s.tm.Make(u.ID.String())
-	if err != nil {
-		return User{}, "", utils.NewErrInternal("failed to issue token")
-	}
-	return toPublicUser(u), token, nil
+// LoginResult membawa user publik + token + info RBAC.
+type LoginResult struct {
+	User  User
+	Token string
+	Role  string
+	Kelas string
 }
 
-func (s *Auth) Login(ctx context.Context, in LoginInput) (User, string, error) {
+func (s *Auth) Login(ctx context.Context, in LoginInput) (LoginResult, error) {
 	in.Email = strings.ToLower(strings.TrimSpace(in.Email))
 	u, err := s.queries.GetUserByEmail(ctx, in.Email)
 	if err != nil {
-		return User{}, "", utils.NewErrUnauthorized("invalid email or password")
+		return LoginResult{}, utils.NewErrUnauthorized("Email atau kata sandi tidak cocok.")
 	}
 	if !utils.CheckPassword(u.PasswordHash, in.Password) {
-		return User{}, "", utils.NewErrUnauthorized("invalid email or password")
+		return LoginResult{}, utils.NewErrUnauthorized("Email atau kata sandi tidak cocok.")
 	}
-	token, err := s.tm.Make(u.ID.String())
+	if !u.IsActive {
+		return LoginResult{}, utils.NewErrAccountInactive("Akun belum aktif. Hubungi administrator sekolah.")
+	}
+	kelas := ""
+	if u.Kelas != nil {
+		kelas = *u.Kelas
+	}
+	token, err := s.tm.MakeClaims(u.ID.String(), u.Role, kelas)
 	if err != nil {
-		return User{}, "", utils.NewErrInternal("failed to issue token")
+		return LoginResult{}, utils.NewErrInternal("failed to issue token")
 	}
-	return toPublicUser(u), token, nil
+	return LoginResult{User: toPublicUser(u), Token: token, Role: u.Role, Kelas: kelas}, nil
 }
 
 func (s *Auth) Me(ctx context.Context, userID string) (User, error) {
@@ -103,10 +81,16 @@ func (s *Auth) Me(ctx context.Context, userID string) (User, error) {
 }
 
 func toPublicUser(u db.User) User {
+	kelas := ""
+	if u.Kelas != nil {
+		kelas = *u.Kelas
+	}
 	return User{
 		ID:        u.ID.String(),
 		Email:     u.Email,
 		Name:      u.Name,
+		Role:      u.Role,
+		Kelas:     kelas,
 		CreatedAt: u.CreatedAt.Format(time.RFC3339),
 	}
 }

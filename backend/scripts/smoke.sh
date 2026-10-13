@@ -1,49 +1,42 @@
 #!/usr/bin/env bash
-# Smoke test — verifies the auth vertical slice end-to-end.
+# Smoke test — verifies the auth vertical slice end-to-end (T0).
 # Usage: bash scripts/smoke.sh [BASE_URL]
-# Requires: curl, jq. Server must be running (make run / make dev / docker-compose up).
+# Requires: curl, jq. Server must be running, dan seed-demo sudah dijalankan.
 set -euo pipefail
 
 BASE_URL="${1:-http://localhost:8080}"
 JAR="$(mktemp)"
 trap 'rm -f "$JAR"' EXIT
-EMAIL="smoke-$(date +%s)@example.com"
-PASS="smoke123"
 
-echo "==> [1/8] healthz"
+echo "==> [1/6] healthz"
 curl -sf "$BASE_URL/healthz" | jq -e '.status == "ok"' > /dev/null
 
-echo "==> [2/8] register ($EMAIL)"
-curl -sf -X POST "$BASE_URL/api/v1/auth/register" \
-  -H 'Content-Type: application/json' \
-  -c "$JAR" \
-  -d "{\"email\":\"$EMAIL\",\"password\":\"$PASS\",\"name\":\"Smoke Tester\"}" \
-  | jq -e '.user.id and (.user.email == "'"$EMAIL"'")' > /dev/null
-
-echo "==> [3/8] me (with cookie)"
-curl -sf -b "$JAR" "$BASE_URL/api/v1/auth/me" | jq -e '.user.email == "'"$EMAIL"'"' > /dev/null
-
-echo "==> [4/8] duplicate register -> 409"
-STATUS=$(curl -s -o /dev/null -w '%{http_code}' -X POST "$BASE_URL/api/v1/auth/register" \
-  -H 'Content-Type: application/json' \
-  -d "{\"email\":\"$EMAIL\",\"password\":\"$PASS\",\"name\":\"Smoke Tester\"}")
-[ "$STATUS" = "409" ] || { echo "FAIL: expected 409, got $STATUS"; exit 1; }
-
-echo "==> [5/8] login"
+echo "==> [2/6] login staf seed (BK)"
 curl -sf -X POST "$BASE_URL/api/v1/auth/login" \
+  -H 'Content-Type: application/json' -c "$JAR" \
+  -d '{"email":"bk@demo.local","password":"password123"}' \
+  | jq -e '.data.user.email == "bk@demo.local" and .data.user.role == "BK"' > /dev/null
+
+echo "==> [3/6] me (with cookie) — role ikut"
+curl -sf -b "$JAR" "$BASE_URL/api/v1/auth/me" | jq -e '.data.user.role == "BK"' > /dev/null
+
+echo "==> [4/6] login wali kelas — kelas ikut"
+JAR2="$(mktemp)"
+curl -sf -X POST "$BASE_URL/api/v1/auth/login" \
+  -H 'Content-Type: application/json' -c "$JAR2" \
+  -d '{"email":"wali@demo.local","password":"password123"}' \
+  | jq -e '.data.user.role == "WALI_KELAS" and .data.user.kelas == "XI-IPA-1"' > /dev/null
+rm -f "$JAR2"
+
+echo "==> [5/6] login salah -> 401"
+STATUS=$(curl -s -o /dev/null -w '%{http_code}' -X POST "$BASE_URL/api/v1/auth/login" \
   -H 'Content-Type: application/json' \
-  -c "$JAR" \
-  -d "{\"email\":\"$EMAIL\",\"password\":\"$PASS\"}" \
-  | jq -e '.user.email == "'"$EMAIL"'"' > /dev/null
+  -d '{"email":"bk@demo.local","password":"salahbanget"}')
+[ "$STATUS" = "401" ] || { echo "FAIL: expected 401, got $STATUS"; exit 1; }
 
-echo "==> [6/8] me again (after login)"
-curl -sf -b "$JAR" "$BASE_URL/api/v1/auth/me" | jq -e '.user.email == "'"$EMAIL"'"' > /dev/null
-
-echo "==> [7/8] logout -> 200"
+echo "==> [6/6] logout -> 200, me after logout -> 401"
 STATUS=$(curl -s -o /dev/null -w '%{http_code}' -X POST "$BASE_URL/api/v1/auth/logout" -c "$JAR")
 [ "$STATUS" = "200" ] || { echo "FAIL: logout expected 200, got $STATUS"; exit 1; }
-
-echo "==> [8/8] me after logout -> 401"
 STATUS=$(curl -s -o /dev/null -w '%{http_code}' -b "$JAR" "$BASE_URL/api/v1/auth/me")
 [ "$STATUS" = "401" ] || { echo "FAIL: expected 401 after logout, got $STATUS"; exit 1; }
 

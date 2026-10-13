@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"strings"
 
@@ -13,7 +14,8 @@ type ctxKey int
 
 const userIDKey ctxKey = iota
 
-// RequireAuth rejects requests without a valid auth token.
+// RequireAuth rejects requests without a valid auth token, lalu mengisi
+// context dengan userID + role + kelas (untuk RBAC).
 // Token sources (in order): `auth_token` httpOnly cookie, then
 // `Authorization: Bearer` header (fallback exists so curl/Postman demos work).
 func RequireAuth(tm *tokens.Manager) func(http.Handler) http.Handler {
@@ -27,16 +29,21 @@ func RequireAuth(tm *tokens.Manager) func(http.Handler) http.Handler {
 			}
 
 			if tokenStr == "" {
-				utils.WriteAppError(w, utils.NewErrUnauthorized("authentication required"))
+				utils.WriteAppError(w, utils.NewErrUnauthorized("Sesi tidak valid. Silakan masuk kembali."))
 				return
 			}
-			userID, err := tm.Parse(tokenStr)
+			claims, err := tm.ParseClaims(tokenStr)
+			if errors.Is(err, tokens.ErrExpired) {
+				utils.WriteAppError(w, utils.NewErrTokenExpired("Sesi berakhir. Silakan masuk kembali."))
+				return
+			}
 			if err != nil {
-				utils.WriteAppError(w, utils.NewErrUnauthorized("invalid or expired token"))
+				utils.WriteAppError(w, utils.NewErrUnauthorized("Sesi tidak valid. Silakan masuk kembali."))
 				return
 			}
 
-			ctx := context.WithValue(r.Context(), userIDKey, userID)
+			ctx := context.WithValue(r.Context(), userIDKey, claims.UserID)
+			ctx = SetAuthContext(ctx, claims.Role, claims.Kelas)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}

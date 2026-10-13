@@ -20,36 +20,21 @@ func NewAuthHandlers(auth *service.Auth, tokenTTL time.Duration) *AuthHandlers {
 	return &AuthHandlers{auth: auth, tokenTTL: tokenTTL}
 }
 
-// Register handles POST /api/v1/auth/register.
-func (h *AuthHandlers) Register(w http.ResponseWriter, r *http.Request) {
-	var in service.RegisterInput
-	if err := Bind(r, &in); err != nil {
-		Error(w, err)
-		return
-	}
-	user, token, err := h.auth.Register(r.Context(), in)
-	if err != nil {
-		Error(w, err)
-		return
-	}
-	h.setAuthCookie(w, token)
-	Created(w, map[string]any{"user": user})
-}
-
 // Login handles POST /api/v1/auth/login.
+// Akun staf dibuat lewat CLI (bukan endpoint publik) — lihat spec §2 #8.
 func (h *AuthHandlers) Login(w http.ResponseWriter, r *http.Request) {
 	var in service.LoginInput
 	if err := Bind(r, &in); err != nil {
 		Error(w, err)
 		return
 	}
-	user, token, err := h.auth.Login(r.Context(), in)
+	res, err := h.auth.Login(r.Context(), in)
 	if err != nil {
 		Error(w, err)
 		return
 	}
-	h.setAuthCookie(w, token)
-	OK(w, map[string]any{"user": user})
+	h.setAuthCookie(w, res.Token)
+	OK(w, map[string]any{"user": res.User})
 }
 
 // Logout handles POST /api/v1/auth/logout — clears the auth cookie.
