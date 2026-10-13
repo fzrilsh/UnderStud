@@ -14,6 +14,7 @@ import (
 	"backend/internal/handler"
 	"backend/internal/middleware"
 	"backend/internal/service"
+	"backend/internal/storage"
 	"backend/internal/tokens"
 )
 
@@ -27,6 +28,13 @@ func New(cfg config.Config, logger *slog.Logger, pool *pgxpool.Pool) http.Handle
 	anonSvc := service.NewAnon(queries)
 	anonHandler := handler.NewAnonHandlers(anonSvc)
 	anonMW := middleware.ResolveAnon(queries, cfg.AnonTokenTTL, cfg.CookieSecure)
+
+	rateLimiter := middleware.NewRateLimiter(middleware.RatelimitConfig{
+		ChatsPerHour:    cfg.RateLimitChatsPerHour,
+		MessagesPerHour: cfg.RateLimitMessagesPerHour,
+	})
+	chatSvc := service.NewChat(queries, storage.New(cfg.UploadDir), rateLimiter, cfg)
+	chatHandler := handler.NewChatHandlers(chatSvc)
 
 	r := chi.NewRouter()
 	r.Use(chimw.RequestID)
@@ -57,6 +65,12 @@ func New(cfg config.Config, logger *slog.Logger, pool *pgxpool.Pool) http.Handle
 			r.Get("/", anonHandler.Bootstrap)
 			r.Get("/profile", anonHandler.GetProfile)
 			r.Put("/profile", anonHandler.UpdateProfile)
+
+			r.Post("/chats", chatHandler.Create)
+			r.Get("/chats", chatHandler.List)
+			r.Get("/chats/{id}", chatHandler.Detail)
+			r.Post("/chats/{id}/messages", chatHandler.Reply)
+			r.Delete("/chats/{id}", chatHandler.Hide)
 		})
 	})
 
