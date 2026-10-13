@@ -36,6 +36,9 @@ func New(cfg config.Config, logger *slog.Logger, pool *pgxpool.Pool) http.Handle
 	chatSvc := service.NewChat(queries, storage.New(cfg.UploadDir), rateLimiter, cfg)
 	chatHandler := handler.NewChatHandlers(chatSvc)
 
+	reportSvc := service.NewReport(queries)
+	reportHandler := handler.NewReportHandlers(reportSvc)
+
 	r := chi.NewRouter()
 	r.Use(chimw.RequestID)
 	r.Use(middleware.Logger(logger))
@@ -71,6 +74,19 @@ func New(cfg config.Config, logger *slog.Logger, pool *pgxpool.Pool) http.Handle
 			r.Get("/chats/{id}", chatHandler.Detail)
 			r.Post("/chats/{id}/messages", chatHandler.Reply)
 			r.Delete("/chats/{id}", chatHandler.Hide)
+		})
+
+		r.Route("/reports", func(r chi.Router) {
+			r.Use(middleware.RequireAuth(tm))
+			r.Use(middleware.RequireRole(middleware.RoleBK))
+			r.Get("/", reportHandler.Queue)
+			r.Get("/{id}", reportHandler.Detail)
+			r.Post("/{id}/pin", reportHandler.Pin)
+			r.Delete("/{id}/pin", reportHandler.Unpin)
+			r.Post("/{id}/draft", reportHandler.Draft)
+			r.Post("/{id}/next", reportHandler.Next)
+			r.Post("/{id}/messages", reportHandler.Reply)
+			r.Delete("/{id}", reportHandler.Hide)
 		})
 	})
 
