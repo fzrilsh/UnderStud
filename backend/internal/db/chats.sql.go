@@ -46,6 +46,17 @@ func (q *Queries) CountMessagesSince(ctx context.Context, arg CountMessagesSince
 	return count, err
 }
 
+const countStaffQueue = `-- name: CountStaffQueue :one
+SELECT count(*) FROM chats WHERE hidden_by_staff_at IS NULL
+`
+
+func (q *Queries) CountStaffQueue(ctx context.Context) (int64, error) {
+	row := q.db.QueryRow(ctx, countStaffQueue)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createAnonSession = `-- name: CreateAnonSession :one
 INSERT INTO anon_sessions (token_hash) VALUES ($1) RETURNING id, token_hash, display_name, display_kelas, created_at, updated_at
 `
@@ -60,6 +71,41 @@ func (q *Queries) CreateAnonSession(ctx context.Context, tokenHash string) (Anon
 		&i.DisplayKelas,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const createAttachment = `-- name: CreateAttachment :one
+INSERT INTO attachments (message_id, stored_path, original_name, mime, size_bytes)
+VALUES ($1, $2, $3, $4, $5)
+RETURNING id, message_id, stored_path, original_name, mime, size_bytes, created_at
+`
+
+type CreateAttachmentParams struct {
+	MessageID    uuid.UUID
+	StoredPath   string
+	OriginalName *string
+	Mime         string
+	SizeBytes    int32
+}
+
+func (q *Queries) CreateAttachment(ctx context.Context, arg CreateAttachmentParams) (Attachment, error) {
+	row := q.db.QueryRow(ctx, createAttachment,
+		arg.MessageID,
+		arg.StoredPath,
+		arg.OriginalName,
+		arg.Mime,
+		arg.SizeBytes,
+	)
+	var i Attachment
+	err := row.Scan(
+		&i.ID,
+		&i.MessageID,
+		&i.StoredPath,
+		&i.OriginalName,
+		&i.Mime,
+		&i.SizeBytes,
+		&i.CreatedAt,
 	)
 	return i, err
 }
@@ -135,6 +181,31 @@ func (q *Queries) CreateMessage(ctx context.Context, arg CreateMessageParams) (M
 	return i, err
 }
 
+const draftChat = `-- name: DraftChat :one
+UPDATE chats SET drafted_at = now(), pinned_at = NULL, updated_at = now() WHERE id = $1 RETURNING id, session_id, status, identity_mode, snapshot_name, snapshot_kelas, pinned_at, drafted_at, hidden_by_student_at, hidden_by_staff_at, last_message_at, created_at, updated_at
+`
+
+func (q *Queries) DraftChat(ctx context.Context, id uuid.UUID) (Chat, error) {
+	row := q.db.QueryRow(ctx, draftChat, id)
+	var i Chat
+	err := row.Scan(
+		&i.ID,
+		&i.SessionID,
+		&i.Status,
+		&i.IdentityMode,
+		&i.SnapshotName,
+		&i.SnapshotKelas,
+		&i.PinnedAt,
+		&i.DraftedAt,
+		&i.HiddenByStudentAt,
+		&i.HiddenByStaffAt,
+		&i.LastMessageAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const getAnonSessionByTokenHash = `-- name: GetAnonSessionByTokenHash :one
 SELECT id, token_hash, display_name, display_kelas, created_at, updated_at FROM anon_sessions WHERE token_hash = $1
 `
@@ -147,6 +218,177 @@ func (q *Queries) GetAnonSessionByTokenHash(ctx context.Context, tokenHash strin
 		&i.TokenHash,
 		&i.DisplayName,
 		&i.DisplayKelas,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getAttachmentByID = `-- name: GetAttachmentByID :one
+SELECT id, message_id, stored_path, original_name, mime, size_bytes, created_at FROM attachments WHERE id = $1
+`
+
+func (q *Queries) GetAttachmentByID(ctx context.Context, id uuid.UUID) (Attachment, error) {
+	row := q.db.QueryRow(ctx, getAttachmentByID, id)
+	var i Attachment
+	err := row.Scan(
+		&i.ID,
+		&i.MessageID,
+		&i.StoredPath,
+		&i.OriginalName,
+		&i.Mime,
+		&i.SizeBytes,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const getChatByID = `-- name: GetChatByID :one
+SELECT id, session_id, status, identity_mode, snapshot_name, snapshot_kelas, pinned_at, drafted_at, hidden_by_student_at, hidden_by_staff_at, last_message_at, created_at, updated_at FROM chats WHERE id = $1
+`
+
+func (q *Queries) GetChatByID(ctx context.Context, id uuid.UUID) (Chat, error) {
+	row := q.db.QueryRow(ctx, getChatByID, id)
+	var i Chat
+	err := row.Scan(
+		&i.ID,
+		&i.SessionID,
+		&i.Status,
+		&i.IdentityMode,
+		&i.SnapshotName,
+		&i.SnapshotKelas,
+		&i.PinnedAt,
+		&i.DraftedAt,
+		&i.HiddenByStudentAt,
+		&i.HiddenByStaffAt,
+		&i.LastMessageAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getChatWithSession = `-- name: GetChatWithSession :one
+SELECT c.id, c.session_id, c.status, c.identity_mode, c.snapshot_name, c.snapshot_kelas, c.pinned_at, c.drafted_at, c.hidden_by_student_at, c.hidden_by_staff_at, c.last_message_at, c.created_at, c.updated_at, a.token_hash AS session_token_hash
+FROM chats c
+JOIN anon_sessions a ON a.id = c.session_id
+WHERE c.id = $1
+`
+
+type GetChatWithSessionRow struct {
+	ID                uuid.UUID
+	SessionID         uuid.UUID
+	Status            string
+	IdentityMode      string
+	SnapshotName      *string
+	SnapshotKelas     *string
+	PinnedAt          *time.Time
+	DraftedAt         *time.Time
+	HiddenByStudentAt *time.Time
+	HiddenByStaffAt   *time.Time
+	LastMessageAt     time.Time
+	CreatedAt         time.Time
+	UpdatedAt         time.Time
+	SessionTokenHash  string
+}
+
+func (q *Queries) GetChatWithSession(ctx context.Context, id uuid.UUID) (GetChatWithSessionRow, error) {
+	row := q.db.QueryRow(ctx, getChatWithSession, id)
+	var i GetChatWithSessionRow
+	err := row.Scan(
+		&i.ID,
+		&i.SessionID,
+		&i.Status,
+		&i.IdentityMode,
+		&i.SnapshotName,
+		&i.SnapshotKelas,
+		&i.PinnedAt,
+		&i.DraftedAt,
+		&i.HiddenByStudentAt,
+		&i.HiddenByStaffAt,
+		&i.LastMessageAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.SessionTokenHash,
+	)
+	return i, err
+}
+
+const getMessageByID = `-- name: GetMessageByID :one
+SELECT id, chat_id, sender, sender_user_id, body, created_at FROM messages WHERE id = $1
+`
+
+func (q *Queries) GetMessageByID(ctx context.Context, id uuid.UUID) (Message, error) {
+	row := q.db.QueryRow(ctx, getMessageByID, id)
+	var i Message
+	err := row.Scan(
+		&i.ID,
+		&i.ChatID,
+		&i.Sender,
+		&i.SenderUserID,
+		&i.Body,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const hasStaffReplied = `-- name: HasStaffReplied :one
+SELECT EXISTS (
+  SELECT 1 FROM messages WHERE chat_id = $1 AND sender = 'BK'
+) AS has_replied
+`
+
+func (q *Queries) HasStaffReplied(ctx context.Context, chatID uuid.UUID) (bool, error) {
+	row := q.db.QueryRow(ctx, hasStaffReplied, chatID)
+	var has_replied bool
+	err := row.Scan(&has_replied)
+	return has_replied, err
+}
+
+const hideByStaff = `-- name: HideByStaff :one
+UPDATE chats SET hidden_by_staff_at = now(), drafted_at = NULL, updated_at = now() WHERE id = $1 RETURNING id, session_id, status, identity_mode, snapshot_name, snapshot_kelas, pinned_at, drafted_at, hidden_by_student_at, hidden_by_staff_at, last_message_at, created_at, updated_at
+`
+
+func (q *Queries) HideByStaff(ctx context.Context, id uuid.UUID) (Chat, error) {
+	row := q.db.QueryRow(ctx, hideByStaff, id)
+	var i Chat
+	err := row.Scan(
+		&i.ID,
+		&i.SessionID,
+		&i.Status,
+		&i.IdentityMode,
+		&i.SnapshotName,
+		&i.SnapshotKelas,
+		&i.PinnedAt,
+		&i.DraftedAt,
+		&i.HiddenByStudentAt,
+		&i.HiddenByStaffAt,
+		&i.LastMessageAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const hideByStudent = `-- name: HideByStudent :one
+UPDATE chats SET hidden_by_student_at = now(), pinned_at = NULL, drafted_at = NULL, updated_at = now() WHERE id = $1 RETURNING id, session_id, status, identity_mode, snapshot_name, snapshot_kelas, pinned_at, drafted_at, hidden_by_student_at, hidden_by_staff_at, last_message_at, created_at, updated_at
+`
+
+func (q *Queries) HideByStudent(ctx context.Context, id uuid.UUID) (Chat, error) {
+	row := q.db.QueryRow(ctx, hideByStudent, id)
+	var i Chat
+	err := row.Scan(
+		&i.ID,
+		&i.SessionID,
+		&i.Status,
+		&i.IdentityMode,
+		&i.SnapshotName,
+		&i.SnapshotKelas,
+		&i.PinnedAt,
+		&i.DraftedAt,
+		&i.HiddenByStudentAt,
+		&i.HiddenByStaffAt,
+		&i.LastMessageAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -200,6 +442,191 @@ func (q *Queries) ListChatsBySession(ctx context.Context, arg ListChatsBySession
 	return items, nil
 }
 
+const listMessagesByChat = `-- name: ListMessagesByChat :many
+SELECT id, chat_id, sender, sender_user_id, body, created_at FROM messages WHERE chat_id = $1 ORDER BY created_at ASC LIMIT $2 OFFSET $3
+`
+
+type ListMessagesByChatParams struct {
+	ChatID uuid.UUID
+	Limit  int32
+	Offset int32
+}
+
+func (q *Queries) ListMessagesByChat(ctx context.Context, arg ListMessagesByChatParams) ([]Message, error) {
+	rows, err := q.db.Query(ctx, listMessagesByChat, arg.ChatID, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Message
+	for rows.Next() {
+		var i Message
+		if err := rows.Scan(
+			&i.ID,
+			&i.ChatID,
+			&i.Sender,
+			&i.SenderUserID,
+			&i.Body,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listStaffQueue = `-- name: ListStaffQueue :many
+SELECT id, session_id, status, identity_mode, snapshot_name, snapshot_kelas, pinned_at, drafted_at, hidden_by_student_at, hidden_by_staff_at, last_message_at, created_at, updated_at FROM chats
+WHERE hidden_by_staff_at IS NULL
+ORDER BY (pinned_at IS NOT NULL) DESC, (drafted_at IS NOT NULL) DESC,
+         pinned_at DESC NULLS LAST, drafted_at DESC NULLS LAST,
+         last_message_at DESC
+LIMIT $1 OFFSET $2
+`
+
+type ListStaffQueueParams struct {
+	Limit  int32
+	Offset int32
+}
+
+func (q *Queries) ListStaffQueue(ctx context.Context, arg ListStaffQueueParams) ([]Chat, error) {
+	rows, err := q.db.Query(ctx, listStaffQueue, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Chat
+	for rows.Next() {
+		var i Chat
+		if err := rows.Scan(
+			&i.ID,
+			&i.SessionID,
+			&i.Status,
+			&i.IdentityMode,
+			&i.SnapshotName,
+			&i.SnapshotKelas,
+			&i.PinnedAt,
+			&i.DraftedAt,
+			&i.HiddenByStudentAt,
+			&i.HiddenByStaffAt,
+			&i.LastMessageAt,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const pinChat = `-- name: PinChat :one
+UPDATE chats SET pinned_at = now(), drafted_at = NULL, updated_at = now() WHERE id = $1 RETURNING id, session_id, status, identity_mode, snapshot_name, snapshot_kelas, pinned_at, drafted_at, hidden_by_student_at, hidden_by_staff_at, last_message_at, created_at, updated_at
+`
+
+func (q *Queries) PinChat(ctx context.Context, id uuid.UUID) (Chat, error) {
+	row := q.db.QueryRow(ctx, pinChat, id)
+	var i Chat
+	err := row.Scan(
+		&i.ID,
+		&i.SessionID,
+		&i.Status,
+		&i.IdentityMode,
+		&i.SnapshotName,
+		&i.SnapshotKelas,
+		&i.PinnedAt,
+		&i.DraftedAt,
+		&i.HiddenByStudentAt,
+		&i.HiddenByStaffAt,
+		&i.LastMessageAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const touchChatMessage = `-- name: TouchChatMessage :one
+UPDATE chats SET last_message_at = now(), updated_at = now() WHERE id = $1 RETURNING id, session_id, status, identity_mode, snapshot_name, snapshot_kelas, pinned_at, drafted_at, hidden_by_student_at, hidden_by_staff_at, last_message_at, created_at, updated_at
+`
+
+func (q *Queries) TouchChatMessage(ctx context.Context, id uuid.UUID) (Chat, error) {
+	row := q.db.QueryRow(ctx, touchChatMessage, id)
+	var i Chat
+	err := row.Scan(
+		&i.ID,
+		&i.SessionID,
+		&i.Status,
+		&i.IdentityMode,
+		&i.SnapshotName,
+		&i.SnapshotKelas,
+		&i.PinnedAt,
+		&i.DraftedAt,
+		&i.HiddenByStudentAt,
+		&i.HiddenByStaffAt,
+		&i.LastMessageAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const undraftChat = `-- name: UndraftChat :one
+UPDATE chats SET drafted_at = NULL, updated_at = now() WHERE id = $1 RETURNING id, session_id, status, identity_mode, snapshot_name, snapshot_kelas, pinned_at, drafted_at, hidden_by_student_at, hidden_by_staff_at, last_message_at, created_at, updated_at
+`
+
+func (q *Queries) UndraftChat(ctx context.Context, id uuid.UUID) (Chat, error) {
+	row := q.db.QueryRow(ctx, undraftChat, id)
+	var i Chat
+	err := row.Scan(
+		&i.ID,
+		&i.SessionID,
+		&i.Status,
+		&i.IdentityMode,
+		&i.SnapshotName,
+		&i.SnapshotKelas,
+		&i.PinnedAt,
+		&i.DraftedAt,
+		&i.HiddenByStudentAt,
+		&i.HiddenByStaffAt,
+		&i.LastMessageAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const unpinChat = `-- name: UnpinChat :one
+UPDATE chats SET pinned_at = NULL, updated_at = now() WHERE id = $1 RETURNING id, session_id, status, identity_mode, snapshot_name, snapshot_kelas, pinned_at, drafted_at, hidden_by_student_at, hidden_by_staff_at, last_message_at, created_at, updated_at
+`
+
+func (q *Queries) UnpinChat(ctx context.Context, id uuid.UUID) (Chat, error) {
+	row := q.db.QueryRow(ctx, unpinChat, id)
+	var i Chat
+	err := row.Scan(
+		&i.ID,
+		&i.SessionID,
+		&i.Status,
+		&i.IdentityMode,
+		&i.SnapshotName,
+		&i.SnapshotKelas,
+		&i.PinnedAt,
+		&i.DraftedAt,
+		&i.HiddenByStudentAt,
+		&i.HiddenByStaffAt,
+		&i.LastMessageAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const updateAnonProfile = `-- name: UpdateAnonProfile :one
 UPDATE anon_sessions
 SET display_name = $2, display_kelas = $3, updated_at = now()
@@ -221,6 +648,36 @@ func (q *Queries) UpdateAnonProfile(ctx context.Context, arg UpdateAnonProfilePa
 		&i.TokenHash,
 		&i.DisplayName,
 		&i.DisplayKelas,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const updateChatStatus = `-- name: UpdateChatStatus :one
+UPDATE chats SET status = $2, updated_at = now() WHERE id = $1 RETURNING id, session_id, status, identity_mode, snapshot_name, snapshot_kelas, pinned_at, drafted_at, hidden_by_student_at, hidden_by_staff_at, last_message_at, created_at, updated_at
+`
+
+type UpdateChatStatusParams struct {
+	ID     uuid.UUID
+	Status string
+}
+
+func (q *Queries) UpdateChatStatus(ctx context.Context, arg UpdateChatStatusParams) (Chat, error) {
+	row := q.db.QueryRow(ctx, updateChatStatus, arg.ID, arg.Status)
+	var i Chat
+	err := row.Scan(
+		&i.ID,
+		&i.SessionID,
+		&i.Status,
+		&i.IdentityMode,
+		&i.SnapshotName,
+		&i.SnapshotKelas,
+		&i.PinnedAt,
+		&i.DraftedAt,
+		&i.HiddenByStudentAt,
+		&i.HiddenByStaffAt,
+		&i.LastMessageAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)

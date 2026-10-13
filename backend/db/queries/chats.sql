@@ -33,3 +33,66 @@ SELECT count(*) FROM chats WHERE session_id = $1 AND created_at >= $2;
 SELECT count(*) FROM messages m
 JOIN chats c ON c.id = m.chat_id
 WHERE c.session_id = $1 AND m.sender = 'SISWA' AND m.created_at >= $2;
+
+-- name: GetChatByID :one
+SELECT * FROM chats WHERE id = $1;
+
+-- name: GetChatWithSession :one
+SELECT c.*, a.token_hash AS session_token_hash
+FROM chats c
+JOIN anon_sessions a ON a.id = c.session_id
+WHERE c.id = $1;
+
+-- name: ListMessagesByChat :many
+SELECT * FROM messages WHERE chat_id = $1 ORDER BY created_at ASC LIMIT $2 OFFSET $3;
+
+-- name: GetMessageByID :one
+SELECT * FROM messages WHERE id = $1;
+
+-- name: UpdateChatStatus :one
+UPDATE chats SET status = $2, updated_at = now() WHERE id = $1 RETURNING *;
+
+-- name: PinChat :one
+UPDATE chats SET pinned_at = now(), drafted_at = NULL, updated_at = now() WHERE id = $1 RETURNING *;
+
+-- name: UnpinChat :one
+UPDATE chats SET pinned_at = NULL, updated_at = now() WHERE id = $1 RETURNING *;
+
+-- name: DraftChat :one
+UPDATE chats SET drafted_at = now(), pinned_at = NULL, updated_at = now() WHERE id = $1 RETURNING *;
+
+-- name: UndraftChat :one
+UPDATE chats SET drafted_at = NULL, updated_at = now() WHERE id = $1 RETURNING *;
+
+-- name: HideByStudent :one
+UPDATE chats SET hidden_by_student_at = now(), pinned_at = NULL, drafted_at = NULL, updated_at = now() WHERE id = $1 RETURNING *;
+
+-- name: HideByStaff :one
+UPDATE chats SET hidden_by_staff_at = now(), drafted_at = NULL, updated_at = now() WHERE id = $1 RETURNING *;
+
+-- name: TouchChatMessage :one
+UPDATE chats SET last_message_at = now(), updated_at = now() WHERE id = $1 RETURNING *;
+
+-- name: ListStaffQueue :many
+SELECT * FROM chats
+WHERE hidden_by_staff_at IS NULL
+ORDER BY (pinned_at IS NOT NULL) DESC, (drafted_at IS NOT NULL) DESC,
+         pinned_at DESC NULLS LAST, drafted_at DESC NULLS LAST,
+         last_message_at DESC
+LIMIT $1 OFFSET $2;
+
+-- name: CountStaffQueue :one
+SELECT count(*) FROM chats WHERE hidden_by_staff_at IS NULL;
+
+-- name: HasStaffReplied :one
+SELECT EXISTS (
+  SELECT 1 FROM messages WHERE chat_id = $1 AND sender = 'BK'
+) AS has_replied;
+
+-- name: CreateAttachment :one
+INSERT INTO attachments (message_id, stored_path, original_name, mime, size_bytes)
+VALUES ($1, $2, $3, $4, $5)
+RETURNING *;
+
+-- name: GetAttachmentByID :one
+SELECT * FROM attachments WHERE id = $1;
