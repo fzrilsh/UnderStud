@@ -18,6 +18,9 @@ const (
 	CodeChatClosedByStaff   = "CHAT_CLOSED_BY_STAFF"
 	CodePayloadTooLarge     = "PAYLOAD_TOO_LARGE"
 	CodeUnsupportedMedia    = "UNSUPPORTED_MEDIA"
+	CodePreviewExpired      = "PREVIEW_EXPIRED"
+	CodeAINotConfigured     = "AI_NOT_CONFIGURED"
+	CodeAIFailed            = "AI_FAILED"
 	CodeInternal            = "INTERNAL"
 )
 
@@ -46,4 +49,7 @@ func NewErrChatHiddenByStudent(msg string) error { return &AppErr{Status: 403, C
 func NewErrChatClosedByStaff(msg string) error   { return &AppErr{Status: 403, Code: CodeChatClosedByStaff, Message: msg} }
 func NewErrPayloadTooLarge(msg string) error     { return &AppErr{Status: 413, Code: CodePayloadTooLarge, Message: msg} }
 func NewErrUnsupportedMedia(msg string) error    { return &AppErr{Status: 415, Code: CodeUnsupportedMedia, Message: msg} }
+func NewErrPreviewExpired(msg string) error      { return &AppErr{Status: 410, Code: CodePreviewExpired, Message: msg} }
+func NewErrAINotConfigured(msg string) error     { return &AppErr{Status: 503, Code: CodeAINotConfigured, Message: msg} }
+func NewErrAIFailed(msg string) error            { return &AppErr{Status: 502, Code: CodeAIFailed, Message: msg} }
 func NewErrInternal(msg string) error        { return &AppErr{Status: 500, Code: CodeInternal, Message: msg} }
