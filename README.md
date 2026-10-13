@@ -30,15 +30,24 @@ Prasyarat: **Docker saja**.
 docker-compose up -d
 ```
 
-Buka http://localhost:3000 → Register → login otomatis → Dashboard.
+Buka http://localhost:3000.
 
 > Port 3000 bentrok? `WEB_PORT=3100 docker-compose up -d` → buka http://localhost:3100.
+
+**Isi data demo** (sekali saja — DB baru belum punya akun):
+
+```bash
+docker-compose exec api /app/cli seed-demo
+```
+
+Akun demo: `bk@demo.local` (Guru BK) dan `wali@demo.local` (Wali Kelas XI-IPA-1),
+password `password123` untuk keduanya.
 
 Perintah lain:
 
 ```bash
 docker-compose logs -f api     # tail log backend
-docker-compose down            # stop semua (data Postgres persist di volume pgdata)
+docker-compose down            # stop semua (data Postgres + lampiran persist di volume)
 ```
 
 ## Dev Guide
