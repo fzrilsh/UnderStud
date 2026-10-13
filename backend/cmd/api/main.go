@@ -26,6 +26,9 @@ func run() error {
 	if err != nil {
 		return err
 	}
+	if err := config.Validate(cfg); err != nil {
+		return err
+	}
 
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: parseLevel(cfg.LogLevel)}))
 	slog.SetDefault(logger)

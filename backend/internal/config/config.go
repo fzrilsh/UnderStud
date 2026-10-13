@@ -14,11 +14,37 @@ type Config struct {
 	Port        string
 	DatabaseURL string
 	JWTSecret   string
-	TokenTTL    time.Duration
 	CORSOrigins []string
 	MaxDBConns  int32
 	MinDBConns  int32
 	LogLevel    string
+	Timezone    string
+
+	// Auth
+	StaffTokenTTL time.Duration // staf: 1 minggu
+	AnonTokenTTL  time.Duration // siswa anonim: 10 tahun
+	CookieSecure  bool
+
+	// Geofence
+	GeoFenceEnabled bool
+	SchoolLat       float64
+	SchoolLng       float64
+	SchoolRadiusM   int
+
+	// AI (OpenAI-compatible)
+	AIBaseURL         string
+	AIAPIKey          string
+	AIModel           string
+	AIDebounceSeconds int
+
+	// Upload
+	UploadDir        string
+	MaxUploadMB      int
+	MaxUploadTotalMB int
+
+	// Rate limit
+	RateLimitChatsPerHour    int
+	RateLimitMessagesPerHour int
 }
 
 // Load reads configuration from environment variables with sane defaults.
@@ -32,18 +58,43 @@ func Load() (Config, error) {
 		JWTSecret:   getEnv("JWT_SECRET", "dev-secret-change-me-in-prod"),
 		CORSOrigins: strings.Split(getEnv("CORS_ORIGINS", "http://localhost:5173,http://localhost:3000"), ","),
 		LogLevel:    getEnv("LOG_LEVEL", "info"),
+		Timezone:    getEnv("TZ", "Asia/Jakarta"),
+
+		CookieSecure: getEnvBool("COOKIE_SECURE", false),
+
+		GeoFenceEnabled: getEnvBool("GEO_FENCE_ENABLED", false),
+		SchoolRadiusM:   getEnvInt("SCHOOL_RADIUS_M", 200),
+
+		AIBaseURL:         getEnv("AI_BASE_URL", "http://localhost:11434/v1"),
+		AIAPIKey:          getEnv("AI_API_KEY", ""),
+		AIModel:           getEnv("AI_MODEL", "gpt-4o-mini"),
+		AIDebounceSeconds: getEnvInt("AI_DEBOUNCE_SECONDS", 5),
+
+		UploadDir:        getEnv("UPLOAD_DIR", "./data/uploads"),
+		MaxUploadMB:      getEnvInt("MAX_UPLOAD_MB", 10),
+		MaxUploadTotalMB: getEnvInt("MAX_UPLOAD_TOTAL_MB", 20),
+
+		RateLimitChatsPerHour:    getEnvInt("RATE_LIMIT_CHATS_PER_HOUR", 10),
+		RateLimitMessagesPerHour: getEnvInt("RATE_LIMIT_MESSAGES_PER_HOUR", 30),
 	}
 
-	ttl, err := time.ParseDuration(getEnv("AUTH_TOKEN_TTL", "87600h"))
-	if err != nil {
-		return Config{}, fmt.Errorf("invalid AUTH_TOKEN_TTL: %w", err)
+	var err error
+	if cfg.StaffTokenTTL, err = parseDuration("STAFF_TOKEN_TTL", "168h"); err != nil {
+		return Config{}, err
 	}
-	cfg.TokenTTL = ttl
-
+	if cfg.AnonTokenTTL, err = parseDuration("ANON_TOKEN_TTL", "87600h"); err != nil {
+		return Config{}, err
+	}
 	if cfg.MaxDBConns, err = parseInt32Env("DB_MAX_CONNS", 10); err != nil {
 		return Config{}, err
 	}
 	if cfg.MinDBConns, err = parseInt32Env("DB_MIN_CONNS", 2); err != nil {
+		return Config{}, err
+	}
+	if cfg.SchoolLat, err = getEnvFloat("SCHOOL_LAT", 0); err != nil {
+		return Config{}, err
+	}
+	if cfg.SchoolLng, err = getEnvFloat("SCHOOL_LNG", 0); err != nil {
 		return Config{}, err
 	}
 
@@ -58,6 +109,50 @@ func getEnv(key, fallback string) string {
 		return v
 	}
 	return fallback
+}
+
+func getEnvBool(key string, fallback bool) bool {
+	v := os.Getenv(key)
+	if v == "" {
+		return fallback
+	}
+	b, err := strconv.ParseBool(v)
+	if err != nil {
+		return fallback
+	}
+	return b
+}
+
+func getEnvInt(key string, fallback int) int {
+	v := os.Getenv(key)
+	if v == "" {
+		return fallback
+	}
+	n, err := strconv.Atoi(v)
+	if err != nil {
+		return fallback
+	}
+	return n
+}
+
+func getEnvFloat(key string, fallback float64) (float64, error) {
+	v := os.Getenv(key)
+	if v == "" {
+		return fallback, nil
+	}
+	f, err := strconv.ParseFloat(v, 64)
+	if err != nil {
+		return 0, fmt.Errorf("invalid %s: %w", key, err)
+	}
+	return f, nil
+}
+
+func parseDuration(key, fallback string) (time.Duration, error) {
+	d, err := time.ParseDuration(getEnv(key, fallback))
+	if err != nil {
+		return 0, fmt.Errorf("invalid %s: %w", key, err)
+	}
+	return d, nil
 }
 
 func parseInt32Env(key string, fallback int32) (int32, error) {

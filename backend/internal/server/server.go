@@ -20,9 +20,9 @@ import (
 // New builds the chi router with middleware chain and all routes mounted.
 func New(cfg config.Config, logger *slog.Logger, pool *pgxpool.Pool) http.Handler {
 	queries := db.New(pool)
-	tm := tokens.New(cfg.JWTSecret, cfg.TokenTTL)
+	tm := tokens.New(cfg.JWTSecret, cfg.StaffTokenTTL)
 	authSvc := service.NewAuth(queries, tm)
-	authHandler := handler.NewAuthHandlers(authSvc, cfg.TokenTTL)
+	authHandler := handler.NewAuthHandlers(authSvc, cfg.StaffTokenTTL)
 
 	r := chi.NewRouter()
 	r.Use(chimw.RequestID)
