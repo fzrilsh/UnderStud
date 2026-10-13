@@ -24,6 +24,10 @@ func New(cfg config.Config, logger *slog.Logger, pool *pgxpool.Pool) http.Handle
 	authSvc := service.NewAuth(queries, tm)
 	authHandler := handler.NewAuthHandlers(authSvc, cfg.StaffTokenTTL)
 
+	anonSvc := service.NewAnon(queries)
+	anonHandler := handler.NewAnonHandlers(anonSvc)
+	anonMW := middleware.ResolveAnon(queries, cfg.AnonTokenTTL, cfg.CookieSecure)
+
 	r := chi.NewRouter()
 	r.Use(chimw.RequestID)
 	r.Use(middleware.Logger(logger))
@@ -46,6 +50,13 @@ func New(cfg config.Config, logger *slog.Logger, pool *pgxpool.Pool) http.Handle
 				r.Use(middleware.RequireAuth(tm))
 				r.Get("/me", authHandler.Me)
 			})
+		})
+
+		r.Route("/lapor", func(r chi.Router) {
+			r.Use(anonMW)
+			r.Get("/", anonHandler.Bootstrap)
+			r.Get("/profile", anonHandler.GetProfile)
+			r.Put("/profile", anonHandler.UpdateProfile)
 		})
 	})
 
