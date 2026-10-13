@@ -58,13 +58,18 @@ curl -sf -b "$JAR_BK" -X POST "$BASE_URL/api/v1/reports/$CHAT_ID/messages" \
   | jq -e '.data.sender == "BK"' > /dev/null
 pass "pin + balas ok"
 
-echo "==> [9/10] Next setelah balas -> 200; siswa reply -> requeue 'baru'"
+echo "==> [9/10] Next setelah balas -> 200; keluar antrean; siswa reply -> requeue 'baru'"
 STATUS=$(curl -s -o /dev/null -w '%{http_code}' -b "$JAR_BK" -X POST "$BASE_URL/api/v1/reports/$CHAT_ID/next")
 [ "$STATUS" = "200" ] || fail "next expected 200, got $STATUS"
+# 'dilewati' harus keluar dari sidebar (spec §7.2) — regresi T1 yang sempat lolos.
+curl -sf -b "$JAR_BK" "$BASE_URL/api/v1/reports" | jq -e --arg id "$CHAT_ID" '.data | map(.id) | index($id) == null' > /dev/null \
+  || fail "chat 'dilewati' masih muncul di sidebar"
 curl -sf -b "$JAR_ANON" -X POST "$BASE_URL/api/v1/lapor/chats/$CHAT_ID/messages" \
   -F 'body=Baik, terima kasih.' > /dev/null
 curl -sf -b "$JAR_BK" "$BASE_URL/api/v1/reports/$CHAT_ID" | jq -e '.data.chat.status == "baru"' > /dev/null
-pass "requeue ke 'baru' ok"
+curl -sf -b "$JAR_BK" "$BASE_URL/api/v1/reports" | jq -e --arg id "$CHAT_ID" '.data | map(.id) | index($id) != null' > /dev/null \
+  || fail "chat yang di-requeue harus balik ke sidebar"
+pass "Next keluar antrean + requeue ke 'baru' ok"
 
 echo "==> [10/10] BK balas chat yang di-hide siswa -> 403"
 curl -sf -b "$JAR_ANON" -X DELETE "$BASE_URL/api/v1/lapor/chats/$CHAT_ID" > /dev/null

@@ -74,15 +74,31 @@ UPDATE chats SET hidden_by_staff_at = now(), drafted_at = NULL, updated_at = now
 UPDATE chats SET last_message_at = now(), updated_at = now() WHERE id = $1 RETURNING *;
 
 -- name: ListStaffQueue :many
+-- Sidebar BK = PIN ∪ DRAFT ∪ ANTREAN (spec §7.2). Chat 'dilewati' TIDAK masuk
+-- section mana pun → keluar dari sidebar. Pin/Draft selalu berstatus baru/dibuka,
+-- jadi filter status cukup untuk ketiganya.
 SELECT * FROM chats
 WHERE hidden_by_staff_at IS NULL
+  AND status IN ('baru', 'dibuka')
 ORDER BY (pinned_at IS NOT NULL) DESC, (drafted_at IS NOT NULL) DESC,
          pinned_at DESC NULLS LAST, drafted_at DESC NULLS LAST,
          last_message_at DESC
 LIMIT $1 OFFSET $2;
 
 -- name: CountStaffQueue :one
-SELECT count(*) FROM chats WHERE hidden_by_staff_at IS NULL;
+SELECT count(*) FROM chats
+WHERE hidden_by_staff_at IS NULL
+  AND status IN ('baru', 'dibuka');
+
+-- name: ListStaffHistory :many
+SELECT * FROM chats
+WHERE status = 'dilewati' OR hidden_by_staff_at IS NOT NULL
+ORDER BY last_message_at DESC
+LIMIT $1 OFFSET $2;
+
+-- name: CountStaffHistory :one
+SELECT count(*) FROM chats
+WHERE status = 'dilewati' OR hidden_by_staff_at IS NOT NULL;
 
 -- name: HasStaffReplied :one
 SELECT EXISTS (

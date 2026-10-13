@@ -106,6 +106,7 @@ func New(cfg config.Config, logger *slog.Logger, pool *pgxpool.Pool) http.Handle
 			r.Use(middleware.RequireAuth(tm))
 			r.Use(middleware.RequireRole(middleware.RoleBK))
 			r.Get("/", reportHandler.Queue)
+			r.Get("/history", reportHandler.History)
 			r.Get("/{id}", reportHandler.Detail)
 			r.Post("/{id}/pin", reportHandler.Pin)
 			r.Delete("/{id}/pin", reportHandler.Unpin)

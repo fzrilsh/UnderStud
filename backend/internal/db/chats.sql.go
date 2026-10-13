@@ -46,8 +46,22 @@ func (q *Queries) CountMessagesSince(ctx context.Context, arg CountMessagesSince
 	return count, err
 }
 
+const countStaffHistory = `-- name: CountStaffHistory :one
+SELECT count(*) FROM chats
+WHERE status = 'dilewati' OR hidden_by_staff_at IS NOT NULL
+`
+
+func (q *Queries) CountStaffHistory(ctx context.Context) (int64, error) {
+	row := q.db.QueryRow(ctx, countStaffHistory)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const countStaffQueue = `-- name: CountStaffQueue :one
-SELECT count(*) FROM chats WHERE hidden_by_staff_at IS NULL
+SELECT count(*) FROM chats
+WHERE hidden_by_staff_at IS NULL
+  AND status IN ('baru', 'dibuka')
 `
 
 func (q *Queries) CountStaffQueue(ctx context.Context) (int64, error) {
@@ -511,9 +525,56 @@ func (q *Queries) ListMessagesByChat(ctx context.Context, arg ListMessagesByChat
 	return items, nil
 }
 
+const listStaffHistory = `-- name: ListStaffHistory :many
+SELECT id, session_id, status, identity_mode, snapshot_name, snapshot_kelas, pinned_at, drafted_at, hidden_by_student_at, hidden_by_staff_at, last_message_at, created_at, updated_at FROM chats
+WHERE status = 'dilewati' OR hidden_by_staff_at IS NOT NULL
+ORDER BY last_message_at DESC
+LIMIT $1 OFFSET $2
+`
+
+type ListStaffHistoryParams struct {
+	Limit  int32
+	Offset int32
+}
+
+func (q *Queries) ListStaffHistory(ctx context.Context, arg ListStaffHistoryParams) ([]Chat, error) {
+	rows, err := q.db.Query(ctx, listStaffHistory, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Chat
+	for rows.Next() {
+		var i Chat
+		if err := rows.Scan(
+			&i.ID,
+			&i.SessionID,
+			&i.Status,
+			&i.IdentityMode,
+			&i.SnapshotName,
+			&i.SnapshotKelas,
+			&i.PinnedAt,
+			&i.DraftedAt,
+			&i.HiddenByStudentAt,
+			&i.HiddenByStaffAt,
+			&i.LastMessageAt,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listStaffQueue = `-- name: ListStaffQueue :many
 SELECT id, session_id, status, identity_mode, snapshot_name, snapshot_kelas, pinned_at, drafted_at, hidden_by_student_at, hidden_by_staff_at, last_message_at, created_at, updated_at FROM chats
 WHERE hidden_by_staff_at IS NULL
+  AND status IN ('baru', 'dibuka')
 ORDER BY (pinned_at IS NOT NULL) DESC, (drafted_at IS NOT NULL) DESC,
          pinned_at DESC NULLS LAST, drafted_at DESC NULLS LAST,
          last_message_at DESC
@@ -525,6 +586,9 @@ type ListStaffQueueParams struct {
 	Offset int32
 }
 
+// Sidebar BK = PIN ∪ DRAFT ∪ ANTREAN (spec §7.2). Chat 'dilewati' TIDAK masuk
+// section mana pun → keluar dari sidebar. Pin/Draft selalu berstatus baru/dibuka,
+// jadi filter status cukup untuk ketiganya.
 func (q *Queries) ListStaffQueue(ctx context.Context, arg ListStaffQueueParams) ([]Chat, error) {
 	rows, err := q.db.Query(ctx, listStaffQueue, arg.Limit, arg.Offset)
 	if err != nil {

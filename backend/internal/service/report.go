@@ -70,6 +70,23 @@ func (r *Report) Queue(ctx context.Context, limit, offset int32) ([]ReportItem, 
 	return out, total, nil
 }
 
+// History = riwayat: laporan 'dilewati' atau di-hide BK (spec §7.2, §13).
+func (r *Report) History(ctx context.Context, limit, offset int32) ([]ReportItem, int64, error) {
+	chats, err := r.queries.ListStaffHistory(ctx, db.ListStaffHistoryParams{Limit: limit, Offset: offset})
+	if err != nil {
+		return nil, 0, utils.NewErrInternal("gagal memuat riwayat")
+	}
+	total, err := r.queries.CountStaffHistory(ctx)
+	if err != nil {
+		return nil, 0, utils.NewErrInternal("gagal memuat riwayat")
+	}
+	out := make([]ReportItem, 0, len(chats))
+	for _, ch := range chats {
+		out = append(out, toReportItem(ch))
+	}
+	return out, total, nil
+}
+
 func (r *Report) get(ctx context.Context, chatID uuid.UUID) (db.Chat, error) {
 	ch, err := r.queries.GetChatByID(ctx, chatID)
 	if err != nil {

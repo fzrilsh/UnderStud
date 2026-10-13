@@ -38,6 +38,17 @@ func (h *ReportHandlers) Queue(w http.ResponseWriter, r *http.Request) {
 	OKMeta(w, items, map[string]any{"limit": limit, "offset": offset, "total": total})
 }
 
+// History handles GET /api/v1/reports/history (riwayat: dilewati + di-hide BK).
+func (h *ReportHandlers) History(w http.ResponseWriter, r *http.Request) {
+	limit, offset := pageParams(r)
+	items, total, err := h.report.History(r.Context(), limit, offset)
+	if err != nil {
+		Error(w, err)
+		return
+	}
+	OKMeta(w, items, map[string]any{"limit": limit, "offset": offset, "total": total})
+}
+
 // Detail handles GET /api/v1/reports/{id}.
 func (h *ReportHandlers) Detail(w http.ResponseWriter, r *http.Request) {
 	id, err := chatIDParam(r)
