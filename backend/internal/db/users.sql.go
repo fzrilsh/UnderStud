@@ -11,10 +11,47 @@ import (
 	"github.com/google/uuid"
 )
 
+const createStaff = `-- name: CreateStaff :one
+INSERT INTO users (email, password_hash, name, role, kelas)
+VALUES ($1, $2, $3, $4, $5)
+RETURNING id, email, password_hash, name, created_at, updated_at, role, kelas, is_active
+`
+
+type CreateStaffParams struct {
+	Email        string
+	PasswordHash string
+	Name         string
+	Role         string
+	Kelas        *string
+}
+
+func (q *Queries) CreateStaff(ctx context.Context, arg CreateStaffParams) (User, error) {
+	row := q.db.QueryRow(ctx, createStaff,
+		arg.Email,
+		arg.PasswordHash,
+		arg.Name,
+		arg.Role,
+		arg.Kelas,
+	)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.PasswordHash,
+		&i.Name,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.Role,
+		&i.Kelas,
+		&i.IsActive,
+	)
+	return i, err
+}
+
 const createUser = `-- name: CreateUser :one
 INSERT INTO users (email, password_hash, name)
 VALUES ($1, $2, $3)
-RETURNING id, email, password_hash, name, created_at, updated_at
+RETURNING id, email, password_hash, name, created_at, updated_at, role, kelas, is_active
 `
 
 type CreateUserParams struct {
@@ -33,12 +70,24 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 		&i.Name,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Role,
+		&i.Kelas,
+		&i.IsActive,
 	)
 	return i, err
 }
 
+const deactivateStaff = `-- name: DeactivateStaff :exec
+UPDATE users SET is_active = false WHERE email = $1
+`
+
+func (q *Queries) DeactivateStaff(ctx context.Context, email string) error {
+	_, err := q.db.Exec(ctx, deactivateStaff, email)
+	return err
+}
+
 const getUserByEmail = `-- name: GetUserByEmail :one
-SELECT id, email, password_hash, name, created_at, updated_at FROM users WHERE email = $1
+SELECT id, email, password_hash, name, created_at, updated_at, role, kelas, is_active FROM users WHERE email = $1
 `
 
 func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error) {
@@ -51,12 +100,15 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error
 		&i.Name,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Role,
+		&i.Kelas,
+		&i.IsActive,
 	)
 	return i, err
 }
 
 const getUserByID = `-- name: GetUserByID :one
-SELECT id, email, password_hash, name, created_at, updated_at FROM users WHERE id = $1
+SELECT id, email, password_hash, name, created_at, updated_at, role, kelas, is_active FROM users WHERE id = $1
 `
 
 func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (User, error) {
@@ -69,6 +121,9 @@ func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (User, error) {
 		&i.Name,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Role,
+		&i.Kelas,
+		&i.IsActive,
 	)
 	return i, err
 }

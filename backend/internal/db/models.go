@@ -8,7 +8,127 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
+
+type AiSummary struct {
+	ID            uuid.UUID
+	StudentID     uuid.UUID
+	GeneratedBy   uuid.UUID
+	TriggerReason string
+	Content       string
+	Sources       []byte
+	Model         *string
+	Status        string
+	Error         *string
+	CreatedAt     time.Time
+}
+
+type AnonSession struct {
+	ID           uuid.UUID
+	TokenHash    string
+	DisplayName  *string
+	DisplayKelas *string
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
+}
+
+type Attachment struct {
+	ID           uuid.UUID
+	MessageID    uuid.UUID
+	StoredPath   string
+	OriginalName *string
+	Mime         string
+	SizeBytes    int32
+	CreatedAt    time.Time
+}
+
+type Chat struct {
+	ID                uuid.UUID
+	SessionID         uuid.UUID
+	Status            string
+	IdentityMode      string
+	SnapshotName      *string
+	SnapshotKelas     *string
+	PinnedAt          *time.Time
+	DraftedAt         *time.Time
+	HiddenByStudentAt *time.Time
+	HiddenByStaffAt   *time.Time
+	LastMessageAt     time.Time
+	CreatedAt         time.Time
+	UpdatedAt         time.Time
+}
+
+type ExportRecord struct {
+	ID         uuid.UUID
+	SummaryID  uuid.UUID
+	ExportedBy uuid.UUID
+	Format     string
+	CreatedAt  time.Time
+}
+
+type ImportPreview struct {
+	Token     string
+	CreatedBy uuid.UUID
+	Payload   []byte
+	ExpiresAt time.Time
+}
+
+type Message struct {
+	ID           uuid.UUID
+	ChatID       uuid.UUID
+	Sender       string
+	SenderUserID *uuid.UUID
+	Body         string
+	CreatedAt    time.Time
+}
+
+type Observation struct {
+	ID           uuid.UUID
+	StudentID    uuid.UUID
+	AuthorID     uuid.UUID
+	Items        []byte
+	Categories   []byte
+	RedFlag      bool
+	HandledAt    *time.Time
+	HandledBy    *uuid.UUID
+	Catatan      *string
+	Tanggal      pgtype.Date
+	TindakanAwal *string
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
+}
+
+type ObservationRevision struct {
+	ID            uuid.UUID
+	ObservationID uuid.UUID
+	EditedBy      uuid.UUID
+	Snapshot      []byte
+	CreatedAt     time.Time
+}
+
+type Student struct {
+	ID         uuid.UUID
+	Nis        *string
+	Name       string
+	Kelas      string
+	ArchivedAt *time.Time
+	CreatedAt  time.Time
+	UpdatedAt  time.Time
+}
+
+type StudentProfile struct {
+	StudentID            uuid.UUID
+	NilaiErapor          []byte
+	MinatBakat           *string
+	TanggalLahir         pgtype.Date
+	CatatanPsikologis    *string
+	CatatanKasusPrestasi *string
+	MasukanBk            *string
+	PendapatWaliKelas    *string
+	UpdatedBy            *uuid.UUID
+	UpdatedAt            time.Time
+}
 
 type User struct {
 	ID           uuid.UUID
@@ -17,4 +137,7 @@ type User struct {
 	Name         string
 	CreatedAt    time.Time
 	UpdatedAt    time.Time
+	Role         string
+	Kelas        *string
+	IsActive     bool
 }
