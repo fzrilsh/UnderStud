@@ -2,7 +2,7 @@
 DATABASE_URL ?= postgres://postgres:postgres@127.0.0.1:5433/hackathon?sslmode=disable
 GOOSE_DIR    ?= internal/db/migrations
 
-.PHONY: dev run sqlc migrate-up migrate-down migrate-new migrate-status smoke compose-up compose-down compose-logs tidy help
+.PHONY: dev run sqlc migrate-up migrate-down migrate-new migrate-status smoke compose-up compose-down compose-logs tidy help create-staff deactivate-staff check-location seed-demo
 
 dev: ## Run with hot reload (requires air: go install github.com/air-verse/air@latest)
 	air
@@ -39,6 +39,18 @@ compose-logs: ## Tail api logs
 
 tidy: ## Tidy go modules
 	go mod tidy
+
+create-staff: ## make create-staff email=... password=... name="..." role=BK kelas=XI-IPA-1
+	go run ./cmd/cli create-staff --email "$(email)" --password "$(password)" --name "$(name)" --role "$(role)" --kelas "$(kelas)"
+
+deactivate-staff: ## make deactivate-staff email=...
+	go run ./cmd/cli deactivate-staff --email "$(email)"
+
+check-location: ## make check-location lat=... lng=... radius=200
+	go run ./cmd/cli check-location --lat $(lat) --lng $(lng) --radius $(radius)
+
+seed-demo: ## Isi data demo
+	go run ./cmd/cli seed-demo
 
 help: ## Show help
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2}'
