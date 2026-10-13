@@ -15,3 +15,49 @@ ON CONFLICT (student_id) DO NOTHING;
 
 -- name: CountObservationsByStudent :one
 SELECT count(*) FROM observations WHERE student_id = $1;
+
+-- name: ListStudents :many
+SELECT * FROM students
+WHERE (sqlc.arg(kelas)::text = '' OR kelas = sqlc.arg(kelas))
+  AND (sqlc.arg(include_archived)::bool = true OR archived_at IS NULL)
+  AND (sqlc.arg(search)::text = '' OR lower(name) LIKE '%' || lower(sqlc.arg(search)) || '%' OR nis LIKE '%' || sqlc.arg(search) || '%')
+ORDER BY name ASC
+LIMIT sqlc.arg(lim) OFFSET sqlc.arg(off);
+
+-- name: CountStudents :one
+SELECT count(*) FROM students
+WHERE (sqlc.arg(kelas)::text = '' OR kelas = sqlc.arg(kelas))
+  AND (sqlc.arg(include_archived)::bool = true OR archived_at IS NULL)
+  AND (sqlc.arg(search)::text = '' OR lower(name) LIKE '%' || lower(sqlc.arg(search)) || '%' OR nis LIKE '%' || sqlc.arg(search) || '%');
+
+-- name: UpdateStudent :one
+UPDATE students
+SET nis = $2, name = $3, kelas = $4, updated_at = now()
+WHERE id = $1
+RETURNING *;
+
+-- name: ArchiveStudent :one
+UPDATE students SET archived_at = now(), updated_at = now() WHERE id = $1 RETURNING *;
+
+-- name: RestoreStudent :one
+UPDATE students SET archived_at = NULL, updated_at = now() WHERE id = $1 RETURNING *;
+
+-- name: GetStudentProfile :one
+SELECT * FROM student_profiles WHERE student_id = $1;
+
+-- name: UpsertStudentProfile :one
+INSERT INTO student_profiles (
+  student_id, nilai_erapor, minat_bakat, tanggal_lahir, catatan_psikologis,
+  catatan_kasus_prestasi, masukan_bk, pendapat_wali_kelas, updated_by, updated_at
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, now())
+ON CONFLICT (student_id) DO UPDATE SET
+  nilai_erapor           = EXCLUDED.nilai_erapor,
+  minat_bakat            = EXCLUDED.minat_bakat,
+  tanggal_lahir          = EXCLUDED.tanggal_lahir,
+  catatan_psikologis     = EXCLUDED.catatan_psikologis,
+  catatan_kasus_prestasi = EXCLUDED.catatan_kasus_prestasi,
+  masukan_bk             = EXCLUDED.masukan_bk,
+  pendapat_wali_kelas    = EXCLUDED.pendapat_wali_kelas,
+  updated_by             = EXCLUDED.updated_by,
+  updated_at             = now()
+RETURNING *;

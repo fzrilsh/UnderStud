@@ -9,7 +9,27 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
+
+const archiveStudent = `-- name: ArchiveStudent :one
+UPDATE students SET archived_at = now(), updated_at = now() WHERE id = $1 RETURNING id, nis, name, kelas, archived_at, created_at, updated_at
+`
+
+func (q *Queries) ArchiveStudent(ctx context.Context, id uuid.UUID) (Student, error) {
+	row := q.db.QueryRow(ctx, archiveStudent, id)
+	var i Student
+	err := row.Scan(
+		&i.ID,
+		&i.Nis,
+		&i.Name,
+		&i.Kelas,
+		&i.ArchivedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
 
 const countObservationsByStudent = `-- name: CountObservationsByStudent :one
 SELECT count(*) FROM observations WHERE student_id = $1
@@ -17,6 +37,26 @@ SELECT count(*) FROM observations WHERE student_id = $1
 
 func (q *Queries) CountObservationsByStudent(ctx context.Context, studentID uuid.UUID) (int64, error) {
 	row := q.db.QueryRow(ctx, countObservationsByStudent, studentID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const countStudents = `-- name: CountStudents :one
+SELECT count(*) FROM students
+WHERE ($1::text = '' OR kelas = $1)
+  AND ($2::bool = true OR archived_at IS NULL)
+  AND ($3::text = '' OR lower(name) LIKE '%' || lower($3) || '%' OR nis LIKE '%' || $3 || '%')
+`
+
+type CountStudentsParams struct {
+	Kelas           string
+	IncludeArchived bool
+	Search          string
+}
+
+func (q *Queries) CountStudents(ctx context.Context, arg CountStudentsParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countStudents, arg.Kelas, arg.IncludeArchived, arg.Search)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
@@ -92,6 +132,190 @@ func (q *Queries) GetStudentByNIS(ctx context.Context, nis *string) (Student, er
 		&i.Kelas,
 		&i.ArchivedAt,
 		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getStudentProfile = `-- name: GetStudentProfile :one
+SELECT student_id, nilai_erapor, minat_bakat, tanggal_lahir, catatan_psikologis, catatan_kasus_prestasi, masukan_bk, pendapat_wali_kelas, updated_by, updated_at FROM student_profiles WHERE student_id = $1
+`
+
+func (q *Queries) GetStudentProfile(ctx context.Context, studentID uuid.UUID) (StudentProfile, error) {
+	row := q.db.QueryRow(ctx, getStudentProfile, studentID)
+	var i StudentProfile
+	err := row.Scan(
+		&i.StudentID,
+		&i.NilaiErapor,
+		&i.MinatBakat,
+		&i.TanggalLahir,
+		&i.CatatanPsikologis,
+		&i.CatatanKasusPrestasi,
+		&i.MasukanBk,
+		&i.PendapatWaliKelas,
+		&i.UpdatedBy,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const listStudents = `-- name: ListStudents :many
+SELECT id, nis, name, kelas, archived_at, created_at, updated_at FROM students
+WHERE ($1::text = '' OR kelas = $1)
+  AND ($2::bool = true OR archived_at IS NULL)
+  AND ($3::text = '' OR lower(name) LIKE '%' || lower($3) || '%' OR nis LIKE '%' || $3 || '%')
+ORDER BY name ASC
+LIMIT $5 OFFSET $4
+`
+
+type ListStudentsParams struct {
+	Kelas           string
+	IncludeArchived bool
+	Search          string
+	Off             int32
+	Lim             int32
+}
+
+func (q *Queries) ListStudents(ctx context.Context, arg ListStudentsParams) ([]Student, error) {
+	rows, err := q.db.Query(ctx, listStudents,
+		arg.Kelas,
+		arg.IncludeArchived,
+		arg.Search,
+		arg.Off,
+		arg.Lim,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Student
+	for rows.Next() {
+		var i Student
+		if err := rows.Scan(
+			&i.ID,
+			&i.Nis,
+			&i.Name,
+			&i.Kelas,
+			&i.ArchivedAt,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const restoreStudent = `-- name: RestoreStudent :one
+UPDATE students SET archived_at = NULL, updated_at = now() WHERE id = $1 RETURNING id, nis, name, kelas, archived_at, created_at, updated_at
+`
+
+func (q *Queries) RestoreStudent(ctx context.Context, id uuid.UUID) (Student, error) {
+	row := q.db.QueryRow(ctx, restoreStudent, id)
+	var i Student
+	err := row.Scan(
+		&i.ID,
+		&i.Nis,
+		&i.Name,
+		&i.Kelas,
+		&i.ArchivedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const updateStudent = `-- name: UpdateStudent :one
+UPDATE students
+SET nis = $2, name = $3, kelas = $4, updated_at = now()
+WHERE id = $1
+RETURNING id, nis, name, kelas, archived_at, created_at, updated_at
+`
+
+type UpdateStudentParams struct {
+	ID    uuid.UUID
+	Nis   *string
+	Name  string
+	Kelas string
+}
+
+func (q *Queries) UpdateStudent(ctx context.Context, arg UpdateStudentParams) (Student, error) {
+	row := q.db.QueryRow(ctx, updateStudent,
+		arg.ID,
+		arg.Nis,
+		arg.Name,
+		arg.Kelas,
+	)
+	var i Student
+	err := row.Scan(
+		&i.ID,
+		&i.Nis,
+		&i.Name,
+		&i.Kelas,
+		&i.ArchivedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const upsertStudentProfile = `-- name: UpsertStudentProfile :one
+INSERT INTO student_profiles (
+  student_id, nilai_erapor, minat_bakat, tanggal_lahir, catatan_psikologis,
+  catatan_kasus_prestasi, masukan_bk, pendapat_wali_kelas, updated_by, updated_at
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, now())
+ON CONFLICT (student_id) DO UPDATE SET
+  nilai_erapor           = EXCLUDED.nilai_erapor,
+  minat_bakat            = EXCLUDED.minat_bakat,
+  tanggal_lahir          = EXCLUDED.tanggal_lahir,
+  catatan_psikologis     = EXCLUDED.catatan_psikologis,
+  catatan_kasus_prestasi = EXCLUDED.catatan_kasus_prestasi,
+  masukan_bk             = EXCLUDED.masukan_bk,
+  pendapat_wali_kelas    = EXCLUDED.pendapat_wali_kelas,
+  updated_by             = EXCLUDED.updated_by,
+  updated_at             = now()
+RETURNING student_id, nilai_erapor, minat_bakat, tanggal_lahir, catatan_psikologis, catatan_kasus_prestasi, masukan_bk, pendapat_wali_kelas, updated_by, updated_at
+`
+
+type UpsertStudentProfileParams struct {
+	StudentID            uuid.UUID
+	NilaiErapor          []byte
+	MinatBakat           *string
+	TanggalLahir         pgtype.Date
+	CatatanPsikologis    *string
+	CatatanKasusPrestasi *string
+	MasukanBk            *string
+	PendapatWaliKelas    *string
+	UpdatedBy            *uuid.UUID
+}
+
+func (q *Queries) UpsertStudentProfile(ctx context.Context, arg UpsertStudentProfileParams) (StudentProfile, error) {
+	row := q.db.QueryRow(ctx, upsertStudentProfile,
+		arg.StudentID,
+		arg.NilaiErapor,
+		arg.MinatBakat,
+		arg.TanggalLahir,
+		arg.CatatanPsikologis,
+		arg.CatatanKasusPrestasi,
+		arg.MasukanBk,
+		arg.PendapatWaliKelas,
+		arg.UpdatedBy,
+	)
+	var i StudentProfile
+	err := row.Scan(
+		&i.StudentID,
+		&i.NilaiErapor,
+		&i.MinatBakat,
+		&i.TanggalLahir,
+		&i.CatatanPsikologis,
+		&i.CatatanKasusPrestasi,
+		&i.MasukanBk,
+		&i.PendapatWaliKelas,
+		&i.UpdatedBy,
 		&i.UpdatedAt,
 	)
 	return i, err

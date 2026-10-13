@@ -7,59 +7,197 @@ package db
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-const countActiveRedFlags = `-- name: CountActiveRedFlags :one
-SELECT count(*) FROM observations WHERE red_flag = true AND handled_at IS NULL
+const countActiveRedFlagsScoped = `-- name: CountActiveRedFlagsScoped :one
+SELECT count(*) FROM observations o
+JOIN students s ON s.id = o.student_id
+WHERE o.red_flag = true AND o.handled_at IS NULL
+  AND ($1::text = '' OR s.kelas = $1)
 `
 
-func (q *Queries) CountActiveRedFlags(ctx context.Context) (int64, error) {
-	row := q.db.QueryRow(ctx, countActiveRedFlags)
+func (q *Queries) CountActiveRedFlagsScoped(ctx context.Context, kelas string) (int64, error) {
+	row := q.db.QueryRow(ctx, countActiveRedFlagsScoped, kelas)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
 }
 
-const listActiveRedFlags = `-- name: ListActiveRedFlags :many
-SELECT o.id, o.student_id, o.items, o.tanggal, s.name AS student_name, s.kelas
+const createObservation = `-- name: CreateObservation :one
+INSERT INTO observations (
+  student_id, author_id, items, categories, red_flag, catatan, tanggal, tindakan_awal
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+RETURNING id, student_id, author_id, items, categories, red_flag, handled_at, handled_by, catatan, tanggal, tindakan_awal, created_at, updated_at
+`
+
+type CreateObservationParams struct {
+	StudentID    uuid.UUID
+	AuthorID     uuid.UUID
+	Items        []byte
+	Categories   []byte
+	RedFlag      bool
+	Catatan      *string
+	Tanggal      pgtype.Date
+	TindakanAwal *string
+}
+
+func (q *Queries) CreateObservation(ctx context.Context, arg CreateObservationParams) (Observation, error) {
+	row := q.db.QueryRow(ctx, createObservation,
+		arg.StudentID,
+		arg.AuthorID,
+		arg.Items,
+		arg.Categories,
+		arg.RedFlag,
+		arg.Catatan,
+		arg.Tanggal,
+		arg.TindakanAwal,
+	)
+	var i Observation
+	err := row.Scan(
+		&i.ID,
+		&i.StudentID,
+		&i.AuthorID,
+		&i.Items,
+		&i.Categories,
+		&i.RedFlag,
+		&i.HandledAt,
+		&i.HandledBy,
+		&i.Catatan,
+		&i.Tanggal,
+		&i.TindakanAwal,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const createObservationRevision = `-- name: CreateObservationRevision :one
+INSERT INTO observation_revisions (observation_id, edited_by, snapshot)
+VALUES ($1, $2, $3)
+RETURNING id, observation_id, edited_by, snapshot, created_at
+`
+
+type CreateObservationRevisionParams struct {
+	ObservationID uuid.UUID
+	EditedBy      uuid.UUID
+	Snapshot      []byte
+}
+
+func (q *Queries) CreateObservationRevision(ctx context.Context, arg CreateObservationRevisionParams) (ObservationRevision, error) {
+	row := q.db.QueryRow(ctx, createObservationRevision, arg.ObservationID, arg.EditedBy, arg.Snapshot)
+	var i ObservationRevision
+	err := row.Scan(
+		&i.ID,
+		&i.ObservationID,
+		&i.EditedBy,
+		&i.Snapshot,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const getObservationByID = `-- name: GetObservationByID :one
+SELECT id, student_id, author_id, items, categories, red_flag, handled_at, handled_by, catatan, tanggal, tindakan_awal, created_at, updated_at FROM observations WHERE id = $1
+`
+
+func (q *Queries) GetObservationByID(ctx context.Context, id uuid.UUID) (Observation, error) {
+	row := q.db.QueryRow(ctx, getObservationByID, id)
+	var i Observation
+	err := row.Scan(
+		&i.ID,
+		&i.StudentID,
+		&i.AuthorID,
+		&i.Items,
+		&i.Categories,
+		&i.RedFlag,
+		&i.HandledAt,
+		&i.HandledBy,
+		&i.Catatan,
+		&i.Tanggal,
+		&i.TindakanAwal,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const handleRedFlag = `-- name: HandleRedFlag :one
+UPDATE observations SET handled_at = now(), handled_by = $2, updated_at = now()
+WHERE id = $1
+RETURNING id, student_id, author_id, items, categories, red_flag, handled_at, handled_by, catatan, tanggal, tindakan_awal, created_at, updated_at
+`
+
+type HandleRedFlagParams struct {
+	ID        uuid.UUID
+	HandledBy *uuid.UUID
+}
+
+func (q *Queries) HandleRedFlag(ctx context.Context, arg HandleRedFlagParams) (Observation, error) {
+	row := q.db.QueryRow(ctx, handleRedFlag, arg.ID, arg.HandledBy)
+	var i Observation
+	err := row.Scan(
+		&i.ID,
+		&i.StudentID,
+		&i.AuthorID,
+		&i.Items,
+		&i.Categories,
+		&i.RedFlag,
+		&i.HandledAt,
+		&i.HandledBy,
+		&i.Catatan,
+		&i.Tanggal,
+		&i.TindakanAwal,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const listActiveRedFlagsScoped = `-- name: ListActiveRedFlagsScoped :many
+SELECT o.id, o.student_id, o.items, o.tanggal, o.created_at, s.name AS student_name, s.kelas
 FROM observations o
 JOIN students s ON s.id = o.student_id
 WHERE o.red_flag = true AND o.handled_at IS NULL
-ORDER BY o.tanggal DESC
-LIMIT $1 OFFSET $2
+  AND ($1::text = '' OR s.kelas = $1)
+ORDER BY o.tanggal DESC, o.created_at DESC
+LIMIT $3 OFFSET $2
 `
 
-type ListActiveRedFlagsParams struct {
-	Limit  int32
-	Offset int32
+type ListActiveRedFlagsScopedParams struct {
+	Kelas string
+	Off   int32
+	Lim   int32
 }
 
-type ListActiveRedFlagsRow struct {
+type ListActiveRedFlagsScopedRow struct {
 	ID          uuid.UUID
 	StudentID   uuid.UUID
 	Items       []byte
 	Tanggal     pgtype.Date
+	CreatedAt   time.Time
 	StudentName string
 	Kelas       string
 }
 
-func (q *Queries) ListActiveRedFlags(ctx context.Context, arg ListActiveRedFlagsParams) ([]ListActiveRedFlagsRow, error) {
-	rows, err := q.db.Query(ctx, listActiveRedFlags, arg.Limit, arg.Offset)
+func (q *Queries) ListActiveRedFlagsScoped(ctx context.Context, arg ListActiveRedFlagsScopedParams) ([]ListActiveRedFlagsScopedRow, error) {
+	rows, err := q.db.Query(ctx, listActiveRedFlagsScoped, arg.Kelas, arg.Off, arg.Lim)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ListActiveRedFlagsRow
+	var items []ListActiveRedFlagsScopedRow
 	for rows.Next() {
-		var i ListActiveRedFlagsRow
+		var i ListActiveRedFlagsScopedRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.StudentID,
 			&i.Items,
 			&i.Tanggal,
+			&i.CreatedAt,
 			&i.StudentName,
 			&i.Kelas,
 		); err != nil {
@@ -71,4 +209,128 @@ func (q *Queries) ListActiveRedFlags(ctx context.Context, arg ListActiveRedFlags
 		return nil, err
 	}
 	return items, nil
+}
+
+const listObservationRevisions = `-- name: ListObservationRevisions :many
+SELECT id, observation_id, edited_by, snapshot, created_at FROM observation_revisions WHERE observation_id = $1
+ORDER BY created_at DESC
+`
+
+func (q *Queries) ListObservationRevisions(ctx context.Context, observationID uuid.UUID) ([]ObservationRevision, error) {
+	rows, err := q.db.Query(ctx, listObservationRevisions, observationID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ObservationRevision
+	for rows.Next() {
+		var i ObservationRevision
+		if err := rows.Scan(
+			&i.ID,
+			&i.ObservationID,
+			&i.EditedBy,
+			&i.Snapshot,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listObservationsByStudent = `-- name: ListObservationsByStudent :many
+SELECT id, student_id, author_id, items, categories, red_flag, handled_at, handled_by, catatan, tanggal, tindakan_awal, created_at, updated_at FROM observations WHERE student_id = $1
+ORDER BY tanggal DESC, created_at DESC
+LIMIT $2 OFFSET $3
+`
+
+type ListObservationsByStudentParams struct {
+	StudentID uuid.UUID
+	Limit     int32
+	Offset    int32
+}
+
+func (q *Queries) ListObservationsByStudent(ctx context.Context, arg ListObservationsByStudentParams) ([]Observation, error) {
+	rows, err := q.db.Query(ctx, listObservationsByStudent, arg.StudentID, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Observation
+	for rows.Next() {
+		var i Observation
+		if err := rows.Scan(
+			&i.ID,
+			&i.StudentID,
+			&i.AuthorID,
+			&i.Items,
+			&i.Categories,
+			&i.RedFlag,
+			&i.HandledAt,
+			&i.HandledBy,
+			&i.Catatan,
+			&i.Tanggal,
+			&i.TindakanAwal,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const updateObservation = `-- name: UpdateObservation :one
+UPDATE observations SET
+  items = $2, categories = $3, red_flag = $4, catatan = $5,
+  tanggal = $6, tindakan_awal = $7, updated_at = now()
+WHERE id = $1
+RETURNING id, student_id, author_id, items, categories, red_flag, handled_at, handled_by, catatan, tanggal, tindakan_awal, created_at, updated_at
+`
+
+type UpdateObservationParams struct {
+	ID           uuid.UUID
+	Items        []byte
+	Categories   []byte
+	RedFlag      bool
+	Catatan      *string
+	Tanggal      pgtype.Date
+	TindakanAwal *string
+}
+
+func (q *Queries) UpdateObservation(ctx context.Context, arg UpdateObservationParams) (Observation, error) {
+	row := q.db.QueryRow(ctx, updateObservation,
+		arg.ID,
+		arg.Items,
+		arg.Categories,
+		arg.RedFlag,
+		arg.Catatan,
+		arg.Tanggal,
+		arg.TindakanAwal,
+	)
+	var i Observation
+	err := row.Scan(
+		&i.ID,
+		&i.StudentID,
+		&i.AuthorID,
+		&i.Items,
+		&i.Categories,
+		&i.RedFlag,
+		&i.HandledAt,
+		&i.HandledBy,
+		&i.Catatan,
+		&i.Tanggal,
+		&i.TindakanAwal,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
 }

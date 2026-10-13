@@ -79,3 +79,68 @@ func (q *Queries) GetLatestSummary(ctx context.Context, studentID uuid.UUID) (Ai
 	)
 	return i, err
 }
+
+const getSummaryByID = `-- name: GetSummaryByID :one
+SELECT id, student_id, generated_by, trigger_reason, content, sources, model, status, error, created_at FROM ai_summaries WHERE id = $1
+`
+
+func (q *Queries) GetSummaryByID(ctx context.Context, id uuid.UUID) (AiSummary, error) {
+	row := q.db.QueryRow(ctx, getSummaryByID, id)
+	var i AiSummary
+	err := row.Scan(
+		&i.ID,
+		&i.StudentID,
+		&i.GeneratedBy,
+		&i.TriggerReason,
+		&i.Content,
+		&i.Sources,
+		&i.Model,
+		&i.Status,
+		&i.Error,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const listSummaries = `-- name: ListSummaries :many
+SELECT id, student_id, generated_by, trigger_reason, content, sources, model, status, error, created_at FROM ai_summaries WHERE student_id = $1
+ORDER BY created_at DESC
+LIMIT $2 OFFSET $3
+`
+
+type ListSummariesParams struct {
+	StudentID uuid.UUID
+	Limit     int32
+	Offset    int32
+}
+
+func (q *Queries) ListSummaries(ctx context.Context, arg ListSummariesParams) ([]AiSummary, error) {
+	rows, err := q.db.Query(ctx, listSummaries, arg.StudentID, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []AiSummary
+	for rows.Next() {
+		var i AiSummary
+		if err := rows.Scan(
+			&i.ID,
+			&i.StudentID,
+			&i.GeneratedBy,
+			&i.TriggerReason,
+			&i.Content,
+			&i.Sources,
+			&i.Model,
+			&i.Status,
+			&i.Error,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
