@@ -94,6 +94,10 @@ func (r *Report) Detail(ctx context.Context, chatID uuid.UUID) (ReportDetail, er
 			Attachments: []AttachmentView{}, CreatedAt: m.CreatedAt.Format(time.RFC3339),
 		})
 	}
+	views, err = fillAttachments(ctx, r.queries, views, msgs)
+	if err != nil {
+		return ReportDetail{}, err
+	}
 	return ReportDetail{Chat: toReportItem(ch), Messages: views}, nil
 }
 

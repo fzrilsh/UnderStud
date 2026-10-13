@@ -183,7 +183,7 @@ func (c *Chat) saveFiles(files []UploadFile) ([]storage.SavedFile, error) {
 
 func (c *Chat) attachFiles(ctx context.Context, messageID uuid.UUID, saved []storage.SavedFile) error {
 	for _, sf := range saved {
-		name := sf.StoredPath
+		name := sf.OriginalName
 		if _, err := c.queries.CreateAttachment(ctx, db.CreateAttachmentParams{
 			MessageID:    messageID,
 			StoredPath:   sf.StoredPath,
@@ -195,6 +195,38 @@ func (c *Chat) attachFiles(ctx context.Context, messageID uuid.UUID, saved []sto
 		}
 	}
 	return nil
+}
+
+// fillAttachments mengisi lampiran untuk sekumpulan pesan (1 query per pesan;
+// jumlah pesan per detail dibatasi 200 sehingga aman). Dipakai Chat & Report.
+func fillAttachments(ctx context.Context, q *db.Queries, views []MessageView, msgs []db.Message) ([]MessageView, error) {
+	byID := make(map[string]int, len(msgs))
+	for i, m := range msgs {
+		byID[m.ID.String()] = i
+	}
+	for i := range msgs {
+		atts, err := q.ListAttachmentsByMessage(ctx, msgs[i].ID)
+		if err != nil {
+			return nil, utils.NewErrInternal("gagal memuat lampiran")
+		}
+		if len(atts) == 0 {
+			continue
+		}
+		list := make([]AttachmentView, 0, len(atts))
+		for _, a := range atts {
+			name := "lampiran"
+			if a.OriginalName != nil && *a.OriginalName != "" {
+				name = *a.OriginalName
+			}
+			list = append(list, AttachmentView{
+				ID: a.ID.String(), Name: name, Mime: a.Mime, Size: a.SizeBytes,
+			})
+		}
+		if idx, ok := byID[msgs[i].ID.String()]; ok {
+			views[idx].Attachments = list
+		}
+	}
+	return views, nil
 }
 
 func (c *Chat) ListBySession(ctx context.Context, session db.AnonSession, limit, offset int32) ([]ChatSummary, int64, error) {
@@ -235,9 +267,13 @@ func (c *Chat) Detail(ctx context.Context, session db.AnonSession, chatID uuid.U
 	if err != nil {
 		return ChatDetail{}, utils.NewErrInternal("gagal memuat pesan")
 	}
+	views, err := fillAttachments(ctx, c.queries, c.messagesToView(msgs), msgs)
+	if err != nil {
+		return ChatDetail{}, err
+	}
 	return ChatDetail{
 		Chat:     ChatView{ID: chat.ID.String(), IdentityMode: chat.IdentityMode, Status: chat.Status},
-		Messages: c.messagesToView(msgs),
+		Messages: views,
 	}, nil
 }
 
@@ -302,3 +338,30 @@ func (c *Chat) HideByStudent(ctx context.Context, session db.AnonSession, chatID
 	}
 	return nil
 }
+
+// AttachmentMeta dikembalikan untuk serve file.
+type AttachmentMeta struct {
+	StoredPath   string
+	OriginalName string
+	Mime         string
+	ChatID       uuid.UUID
+}
+
+func (c *Chat) AttachmentMeta(ctx context.Context, id uuid.UUID) (AttachmentMeta, error) {
+	a, err := c.queries.GetAttachmentByID(ctx, id)
+	if err != nil {
+		return AttachmentMeta{}, utils.NewErrNotFound("Lampiran tidak ditemukan.")
+	}
+	msg, err := c.queries.GetMessageByID(ctx, a.MessageID)
+	if err != nil {
+		return AttachmentMeta{}, utils.NewErrNotFound("Lampiran tidak ditemukan.")
+	}
+	name := "lampiran"
+	if a.OriginalName != nil {
+		name = *a.OriginalName
+	}
+	return AttachmentMeta{StoredPath: a.StoredPath, OriginalName: name, Mime: a.Mime, ChatID: msg.ChatID}, nil
+}
+
+// Store mengembalikan store untuk membaca file.
+func (c *Chat) Store() *storage.Store { return c.store }

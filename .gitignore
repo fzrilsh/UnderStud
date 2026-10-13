@@ -4,6 +4,10 @@
 # Root compose volume data (kalau ada)
 pgdata/
 
+# Runtime upload dir (lampiran chat) — jangan pernah di-commit
+data/
+backend/data/
+
 # Local env overrides
 .env
 .env.*

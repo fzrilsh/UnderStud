@@ -10,6 +10,7 @@ import (
 	_ "image/png"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/google/uuid"
 	_ "golang.org/x/image/webp"
@@ -24,9 +25,10 @@ var (
 const MaxFileBytes = 10 * 1024 * 1024
 
 type SavedFile struct {
-	StoredPath string // nama file relatif ke dir
-	Mime       string // "image/jpeg" untuk gambar; asli untuk pdf/txt
-	Size       int
+	StoredPath   string // nama file relatif ke dir
+	OriginalName string // nama file asli dari klien (untuk Content-Disposition)
+	Mime         string // "image/jpeg" untuk gambar; asli untuk pdf/txt
+	Size         int
 }
 
 type Store struct {
@@ -49,6 +51,7 @@ func (s *Store) SaveOne(data []byte, originalName string) (SavedFile, error) {
 
 	kind := detectKind(data)
 	name := uuid.NewString()
+	orig := sanitizeName(originalName)
 
 	switch kind {
 	case kindJPEG, kindPNG, kindGIF, kindWebP:
@@ -64,23 +67,33 @@ func (s *Store) SaveOne(data []byte, originalName string) (SavedFile, error) {
 		if err := os.WriteFile(filepath.Join(s.dir, out), buf.Bytes(), 0o644); err != nil {
 			return SavedFile{}, err
 		}
-		return SavedFile{StoredPath: out, Mime: "image/jpeg", Size: buf.Len()}, nil
+		return SavedFile{StoredPath: out, OriginalName: orig, Mime: "image/jpeg", Size: buf.Len()}, nil
 
 	case kindPDF:
 		out := name + ".pdf"
 		if err := os.WriteFile(filepath.Join(s.dir, out), data, 0o644); err != nil {
 			return SavedFile{}, err
 		}
-		return SavedFile{StoredPath: out, Mime: "application/pdf", Size: len(data)}, nil
+		return SavedFile{StoredPath: out, OriginalName: orig, Mime: "application/pdf", Size: len(data)}, nil
 
 	case kindTXT:
 		out := name + ".txt"
 		if err := os.WriteFile(filepath.Join(s.dir, out), data, 0o644); err != nil {
 			return SavedFile{}, err
 		}
-		return SavedFile{StoredPath: out, Mime: "text/plain", Size: len(data)}, nil
+		return SavedFile{StoredPath: out, OriginalName: orig, Mime: "text/plain", Size: len(data)}, nil
 	}
 	return SavedFile{}, ErrUnsupportedMedia
+}
+
+// sanitizeName membuang komponen path dari nama klien (cegah path traversal /
+// header injection) dan memberi fallback bila kosong.
+func sanitizeName(name string) string {
+	name = filepath.Base(strings.TrimSpace(name))
+	if name == "" || name == "." || name == "/" {
+		return "lampiran"
+	}
+	return name
 }
 
 // Open membuka file tersimpan (untuk serve).

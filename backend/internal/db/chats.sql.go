@@ -395,6 +395,38 @@ func (q *Queries) HideByStudent(ctx context.Context, id uuid.UUID) (Chat, error)
 	return i, err
 }
 
+const listAttachmentsByMessage = `-- name: ListAttachmentsByMessage :many
+SELECT id, message_id, stored_path, original_name, mime, size_bytes, created_at FROM attachments WHERE message_id = $1 ORDER BY created_at ASC
+`
+
+func (q *Queries) ListAttachmentsByMessage(ctx context.Context, messageID uuid.UUID) ([]Attachment, error) {
+	rows, err := q.db.Query(ctx, listAttachmentsByMessage, messageID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Attachment
+	for rows.Next() {
+		var i Attachment
+		if err := rows.Scan(
+			&i.ID,
+			&i.MessageID,
+			&i.StoredPath,
+			&i.OriginalName,
+			&i.Mime,
+			&i.SizeBytes,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listChatsBySession = `-- name: ListChatsBySession :many
 SELECT id, session_id, status, identity_mode, snapshot_name, snapshot_kelas, pinned_at, drafted_at, hidden_by_student_at, hidden_by_staff_at, last_message_at, created_at, updated_at FROM chats
 WHERE session_id = $1 AND hidden_by_student_at IS NULL

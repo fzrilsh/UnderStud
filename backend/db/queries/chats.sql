@@ -96,3 +96,6 @@ RETURNING *;
 
 -- name: GetAttachmentByID :one
 SELECT * FROM attachments WHERE id = $1;
+
+-- name: ListAttachmentsByMessage :many
+SELECT * FROM attachments WHERE message_id = $1 ORDER BY created_at ASC;
