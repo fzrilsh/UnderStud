@@ -9,6 +9,8 @@ servers:
 tags:
   - name: auth
   - name: health
+  - name: students
+  - name: observations
 paths:
   /healthz:
     get:
@@ -27,27 +29,6 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
-  /api/v1/auth/register:
-    post:
-      tags: [auth]
-      summary: Register a new user
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/RegisterInput"
-      responses:
-        "201":
-          description: User created; sets auth_token cookie
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/AuthResponse"
-        "400":
-          $ref: "#/components/responses/ErrorResponse"
-        "409":
-          $ref: "#/components/responses/ErrorResponse"
   /api/v1/auth/login:
     post:
       tags: [auth]
@@ -99,6 +80,436 @@ paths:
                 $ref: "#/components/schemas/AuthResponse"
         "401":
           $ref: "#/components/responses/ErrorResponse"
+  /api/v1/students:
+    get:
+      tags: [students]
+      summary: List students (BK all, Wali Kelas scoped to own kelas)
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: q
+          in: query
+          schema: { type: string }
+        - name: include_archived
+          in: query
+          schema: { type: boolean, default: false }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 20, maximum: 100 }
+        - name: offset
+          in: query
+          schema: { type: integer, default: 0 }
+      responses:
+        "200":
+          description: Paginated list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/StudentItem" }
+                  meta: { $ref: "#/components/schemas/Meta" }
+        "401": { $ref: "#/components/responses/ErrorResponse" }
+    post:
+      tags: [students]
+      summary: Create student manually (Wali Kelas only)
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateStudentInput" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: "#/components/schemas/StudentItem" }
+        "400": { $ref: "#/components/responses/ErrorResponse" }
+        "403": { $ref: "#/components/responses/ErrorResponse" }
+        "409": { $ref: "#/components/responses/ErrorResponse" }
+  /api/v1/students/import/preview:
+    post:
+      tags: [students]
+      summary: Upload E-Rapor CSV → preview (no DB writes; returns preview_token)
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file: { type: string, format: binary }
+      responses:
+        "200":
+          description: Preview
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: "#/components/schemas/ImportPreview" }
+        "403": { $ref: "#/components/responses/ErrorResponse" }
+        "413": { $ref: "#/components/responses/ErrorResponse" }
+  /api/v1/students/import/commit:
+    post:
+      tags: [students]
+      summary: Apply a preview (upsert by NIS)
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [preview_token]
+              properties:
+                preview_token: { type: string }
+      responses:
+        "200":
+          description: Import result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: "#/components/schemas/ImportResult" }
+        "403": { $ref: "#/components/responses/ErrorResponse" }
+        "410": { $ref: "#/components/responses/ErrorResponse" }
+  /api/v1/students/{id}:
+    get:
+      tags: [students]
+      summary: Student detail (profile + observations + latest_summary)
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Detail
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: "#/components/schemas/StudentDetail" }
+        "403": { $ref: "#/components/responses/ErrorResponse" }
+        "404": { $ref: "#/components/responses/ErrorResponse" }
+    patch:
+      tags: [students]
+      summary: Edit student name/NIS/kelas (Wali Kelas only)
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateStudentInput" }
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: "#/components/schemas/StudentItem" }
+        "403": { $ref: "#/components/responses/ErrorResponse" }
+  /api/v1/students/{id}/profile:
+    put:
+      tags: [students]
+      summary: Save student profile (Wali Kelas only) — triggers AI summary
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ProfileInput" }
+      responses:
+        "200":
+          description: Saved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: "#/components/schemas/ProfileView" }
+        "400": { $ref: "#/components/responses/ErrorResponse" }
+        "403": { $ref: "#/components/responses/ErrorResponse" }
+  /api/v1/students/{id}/archive:
+    post:
+      tags: [students]
+      summary: Archive student (Wali Kelas only)
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200": { $ref: "#/components/responses/OkResponse" }
+        "403": { $ref: "#/components/responses/ErrorResponse" }
+  /api/v1/students/{id}/restore:
+    post:
+      tags: [students]
+      summary: Restore archived student (Wali Kelas only)
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200": { $ref: "#/components/responses/OkResponse" }
+        "403": { $ref: "#/components/responses/ErrorResponse" }
+  /api/v1/students/{id}/observations:
+    get:
+      tags: [observations]
+      summary: List observations for a student
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 20 }
+        - name: offset
+          in: query
+          schema: { type: integer, default: 0 }
+      responses:
+        "200":
+          description: List
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/ObservationView" }
+                  meta: { $ref: "#/components/schemas/Meta" }
+    post:
+      tags: [observations]
+      summary: Create observation (Wali Kelas only) — triggers AI summary
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ObservationInput" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: "#/components/schemas/ObservationView" }
+        "400": { $ref: "#/components/responses/ErrorResponse" }
+        "403": { $ref: "#/components/responses/ErrorResponse" }
+  /api/v1/students/{id}/summaries:
+    get:
+      tags: [students]
+      summary: List AI summary versions for a student
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: List
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/SummaryView" }
+                  meta: { $ref: "#/components/schemas/Meta" }
+  /api/v1/students/{id}/summaries/latest:
+    get:
+      tags: [students]
+      summary: Latest AI summary (503 AI_NOT_CONFIGURED when AI off)
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Summary
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: "#/components/schemas/SummaryView" }
+        "503": { $ref: "#/components/responses/ErrorResponse" }
+  /api/v1/students/{id}/summaries/{sid}/export:
+    get:
+      tags: [students]
+      summary: Export summary as PDF/TXT (T3 — currently 501)
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: sid
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: format
+          in: query
+          schema: { type: string, enum: [pdf, txt] }
+      responses:
+        "501": { $ref: "#/components/responses/ErrorResponse" }
+  /api/v1/observations/{id}:
+    put:
+      tags: [observations]
+      summary: Edit observation (Wali Kelas only) — saves a revision — triggers AI summary
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ObservationInput" }
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: "#/components/schemas/ObservationView" }
+        "403": { $ref: "#/components/responses/ErrorResponse" }
+  /api/v1/observations/{id}/revisions:
+    get:
+      tags: [observations]
+      summary: Observation edit history
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Revisions
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/RevisionView" }
+  /api/v1/observations/{id}/handle:
+    post:
+      tags: [observations]
+      summary: Mark a red-flag observation as handled (BK only)
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200": { $ref: "#/components/responses/OkResponse" }
+        "403": { $ref: "#/components/responses/ErrorResponse" }
+  /api/v1/red-flags:
+    get:
+      tags: [observations]
+      summary: Active red flags (BK all, Wali Kelas scoped); only unhandled
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: limit
+          in: query
+          schema: { type: integer, default: 20 }
+        - name: offset
+          in: query
+          schema: { type: integer, default: 0 }
+      responses:
+        "200":
+          description: List
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/RedFlagItem" }
+                  meta: { $ref: "#/components/schemas/Meta" }
+  /api/v1/checklist:
+    get:
+      tags: [observations]
+      summary: Fixed observation checklist catalog (28 items)
+      security:
+        - cookieAuth: []
+      responses:
+        "200":
+          description: Catalog
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/ChecklistItem" }
 components:
   securitySchemes:
     cookieAuth:
@@ -115,6 +526,17 @@ components:
         application/json:
           schema:
             $ref: "#/components/schemas/ErrorResponse"
+    OkResponse:
+      description: OK
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              data:
+                type: object
+                properties:
+                  ok: { type: boolean }
   schemas:
     HealthResponse:
       type: object
@@ -125,6 +547,12 @@ components:
         db:
           type: string
           enum: [up, down]
+    Meta:
+      type: object
+      properties:
+        limit: { type: integer }
+        offset: { type: integer }
+        total: { type: integer }
     ErrorResponse:
       type: object
       required: [error]
@@ -135,22 +563,179 @@ components:
           properties:
             code:
               type: string
-              enum: [NOT_FOUND, UNAUTHORIZED, INVALID_INPUT, CONFLICT, INTERNAL]
+              enum:
+                [INVALID_INPUT, UNAUTHORIZED, TOKEN_EXPIRED, FORBIDDEN, ACCOUNT_INACTIVE,
+                 OUT_OF_SCOPE, CHAT_HIDDEN_BY_STUDENT, CHAT_CLOSED_BY_STAFF, OUT_OF_RANGE,
+                 LOCATION_IMPRECISE, LOCATION_UNAVAILABLE, NOT_FOUND, PREVIEW_EXPIRED,
+                 CONFLICT, RATE_LIMITED, PAYLOAD_TOO_LARGE, UNSUPPORTED_MEDIA,
+                 AI_NOT_CONFIGURED, AI_FAILED, INTERNAL]
             message:
               type: string
-    RegisterInput:
+    StudentItem:
       type: object
-      required: [email, password, name]
+      required: [id, name, kelas]
       properties:
-        email:
+        id: { type: string, format: uuid }
+        nis: { type: string }
+        name: { type: string }
+        kelas: { type: string }
+        archived_at: { type: string, format: date-time, nullable: true }
+        has_red_flag: { type: boolean }
+    CreateStudentInput:
+      type: object
+      required: [name, kelas]
+      properties:
+        nis: { type: string }
+        name: { type: string }
+        kelas: { type: string }
+    EraporRow:
+      type: object
+      required: [mapel, nilai]
+      properties:
+        mapel: { type: string }
+        nilai: { type: number }
+        periode: { type: string }
+    ProfileInput:
+      type: object
+      properties:
+        nilai_erapor:
+          type: array
+          items: { $ref: "#/components/schemas/EraporRow" }
+        minat_bakat: { type: string, maxLength: 1000 }
+        tanggal_lahir: { type: string, format: date }
+        catatan_psikologis: { type: string, maxLength: 2000 }
+        catatan_kasus_prestasi: { type: string, maxLength: 2000 }
+        masukan_bk: { type: string, maxLength: 2000 }
+        pendapat_wali_kelas: { type: string, maxLength: 2000 }
+    ProfileView:
+      type: object
+      properties:
+        nilai_erapor:
+          type: array
+          items: { $ref: "#/components/schemas/EraporRow" }
+        minat_bakat: { type: string }
+        tanggal_lahir: { type: string, format: date }
+        catatan_psikologis: { type: string }
+        catatan_kasus_prestasi: { type: string }
+        masukan_bk: { type: string }
+        pendapat_wali_kelas: { type: string }
+        updated_at: { type: string, format: date-time }
+    ObservationInput:
+      type: object
+      required: [items, tanggal]
+      properties:
+        items:
+          type: array
+          items: { type: string }
+          description: 'Item keys, e.g. "emosi:murung" or "tidak_ada" (exclusive)'
+        catatan: { type: string, maxLength: 1000 }
+        tanggal: { type: string, format: date }
+        tindakan_awal:
           type: string
-          format: email
-        password:
-          type: string
-          minLength: 6
-        name:
-          type: string
-          minLength: 1
+          enum: [pantau, konsultasi_bk, eskalasi_segera]
+    ObservationView:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        student_id: { type: string, format: uuid }
+        items:
+          type: array
+          items: { type: string }
+        categories:
+          type: array
+          items: { type: string }
+        red_flag: { type: boolean }
+        handled_at: { type: string, format: date-time, nullable: true }
+        catatan: { type: string }
+        tanggal: { type: string, format: date }
+        tindakan_awal: { type: string }
+        author_name: { type: string }
+    RevisionView:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        edited_by: { type: string, format: uuid }
+        snapshot: {}
+        created_at: { type: string, format: date-time }
+    RedFlagItem:
+      type: object
+      properties:
+        student_id: { type: string, format: uuid }
+        student_name: { type: string }
+        kelas: { type: string }
+        observation_id: { type: string, format: uuid }
+        tanggal: { type: string, format: date }
+        red_flag_items:
+          type: array
+          items: { type: string }
+    ChecklistItem:
+      type: object
+      properties:
+        key: { type: string }
+        kategori: { type: string }
+        label: { type: string }
+    SummaryView:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        content: { type: string }
+        sources: {}
+        model: { type: string }
+        status: { type: string, enum: [ready, failed] }
+        error: { type: string }
+        created_at: { type: string, format: date-time }
+    ImportRow:
+      type: object
+      properties:
+        nis: { type: string }
+        nama: { type: string }
+        kelas: { type: string }
+        nilai_erapor:
+          type: array
+          items: { $ref: "#/components/schemas/EraporRow" }
+    ImportPreview:
+      type: object
+      properties:
+        preview_token: { type: string }
+        baru:
+          type: array
+          items: { $ref: "#/components/schemas/ImportRow" }
+        update:
+          type: array
+          items: { $ref: "#/components/schemas/ImportRow" }
+        errors:
+          type: array
+          items:
+            type: object
+            properties:
+              baris: { type: integer }
+              nis: { type: string }
+              pesan: { type: string }
+        ringkasan:
+          type: object
+          properties:
+            total: { type: integer }
+            baru: { type: integer }
+            update: { type: integer }
+            error: { type: integer }
+    ImportResult:
+      type: object
+      properties:
+        created: { type: integer }
+        updated: { type: integer }
+        errors: { type: integer }
+    StudentDetail:
+      type: object
+      properties:
+        student: { $ref: "#/components/schemas/StudentItem" }
+        profile: { $ref: "#/components/schemas/ProfileView" }
+        observations:
+          type: array
+          items: { $ref: "#/components/schemas/ObservationView" }
+        latest_summary:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/SummaryView"
     LoginInput:
       type: object
       required: [email, password]

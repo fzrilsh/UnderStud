@@ -49,48 +49,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/auth/register": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Register a new user */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["RegisterInput"];
-                };
-            };
-            responses: {
-                /** @description User created; sets auth_token cookie */
-                201: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["AuthResponse"];
-                    };
-                };
-                400: components["responses"]["ErrorResponse"];
-                409: components["responses"]["ErrorResponse"];
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/auth/login": {
         parameters: {
             query?: never;
@@ -208,6 +166,737 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/students": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List students (BK all, Wali Kelas scoped to own kelas) */
+        get: {
+            parameters: {
+                query?: {
+                    q?: string;
+                    include_archived?: boolean;
+                    limit?: number;
+                    offset?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Paginated list */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data?: components["schemas"]["StudentItem"][];
+                            meta?: components["schemas"]["Meta"];
+                        };
+                    };
+                };
+                401: components["responses"]["ErrorResponse"];
+            };
+        };
+        put?: never;
+        /** Create student manually (Wali Kelas only) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["CreateStudentInput"];
+                };
+            };
+            responses: {
+                /** @description Created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data?: components["schemas"]["StudentItem"];
+                        };
+                    };
+                };
+                400: components["responses"]["ErrorResponse"];
+                403: components["responses"]["ErrorResponse"];
+                409: components["responses"]["ErrorResponse"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/students/import/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Upload E-Rapor CSV → preview (no DB writes; returns preview_token) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "multipart/form-data": {
+                        /** Format: binary */
+                        file?: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Preview */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data?: components["schemas"]["ImportPreview"];
+                        };
+                    };
+                };
+                403: components["responses"]["ErrorResponse"];
+                413: components["responses"]["ErrorResponse"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/students/import/commit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Apply a preview (upsert by NIS) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        preview_token: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Import result */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data?: components["schemas"]["ImportResult"];
+                        };
+                    };
+                };
+                403: components["responses"]["ErrorResponse"];
+                410: components["responses"]["ErrorResponse"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/students/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Student detail (profile + observations + latest_summary) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Detail */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data?: components["schemas"]["StudentDetail"];
+                        };
+                    };
+                };
+                403: components["responses"]["ErrorResponse"];
+                404: components["responses"]["ErrorResponse"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Edit student name/NIS/kelas (Wali Kelas only) */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["CreateStudentInput"];
+                };
+            };
+            responses: {
+                /** @description Updated */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data?: components["schemas"]["StudentItem"];
+                        };
+                    };
+                };
+                403: components["responses"]["ErrorResponse"];
+            };
+        };
+        trace?: never;
+    };
+    "/api/v1/students/{id}/profile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Save student profile (Wali Kelas only) — triggers AI summary */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["ProfileInput"];
+                };
+            };
+            responses: {
+                /** @description Saved */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data?: components["schemas"]["ProfileView"];
+                        };
+                    };
+                };
+                400: components["responses"]["ErrorResponse"];
+                403: components["responses"]["ErrorResponse"];
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/students/{id}/archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Archive student (Wali Kelas only) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                200: components["responses"]["OkResponse"];
+                403: components["responses"]["ErrorResponse"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/students/{id}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Restore archived student (Wali Kelas only) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                200: components["responses"]["OkResponse"];
+                403: components["responses"]["ErrorResponse"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/students/{id}/observations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List observations for a student */
+        get: {
+            parameters: {
+                query?: {
+                    limit?: number;
+                    offset?: number;
+                };
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description List */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data?: components["schemas"]["ObservationView"][];
+                            meta?: components["schemas"]["Meta"];
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        /** Create observation (Wali Kelas only) — triggers AI summary */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["ObservationInput"];
+                };
+            };
+            responses: {
+                /** @description Created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data?: components["schemas"]["ObservationView"];
+                        };
+                    };
+                };
+                400: components["responses"]["ErrorResponse"];
+                403: components["responses"]["ErrorResponse"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/students/{id}/summaries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List AI summary versions for a student */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description List */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data?: components["schemas"]["SummaryView"][];
+                            meta?: components["schemas"]["Meta"];
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/students/{id}/summaries/latest": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Latest AI summary (503 AI_NOT_CONFIGURED when AI off) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Summary */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data?: components["schemas"]["SummaryView"];
+                        };
+                    };
+                };
+                503: components["responses"]["ErrorResponse"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/students/{id}/summaries/{sid}/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Export summary as PDF/TXT (T3 — currently 501) */
+        get: {
+            parameters: {
+                query?: {
+                    format?: "pdf" | "txt";
+                };
+                header?: never;
+                path: {
+                    id: string;
+                    sid: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                501: components["responses"]["ErrorResponse"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/observations/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Edit observation (Wali Kelas only) — saves a revision — triggers AI summary */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["ObservationInput"];
+                };
+            };
+            responses: {
+                /** @description Updated */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data?: components["schemas"]["ObservationView"];
+                        };
+                    };
+                };
+                403: components["responses"]["ErrorResponse"];
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/observations/{id}/revisions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Observation edit history */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Revisions */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data?: components["schemas"]["RevisionView"][];
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/observations/{id}/handle": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Mark a red-flag observation as handled (BK only) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                200: components["responses"]["OkResponse"];
+                403: components["responses"]["ErrorResponse"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/red-flags": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Active red flags (BK all, Wali Kelas scoped); only unhandled */
+        get: {
+            parameters: {
+                query?: {
+                    limit?: number;
+                    offset?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description List */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data?: components["schemas"]["RedFlagItem"][];
+                            meta?: components["schemas"]["Meta"];
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/checklist": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Fixed observation checklist catalog (28 items) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Catalog */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data?: components["schemas"]["ChecklistItem"][];
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -218,18 +907,154 @@ export interface components {
             /** @enum {string} */
             db?: "up" | "down";
         };
+        Meta: {
+            limit?: number;
+            offset?: number;
+            total?: number;
+        };
         ErrorResponse: {
             error: {
                 /** @enum {string} */
-                code: "NOT_FOUND" | "UNAUTHORIZED" | "INVALID_INPUT" | "CONFLICT" | "INTERNAL";
+                code: "INVALID_INPUT" | "UNAUTHORIZED" | "TOKEN_EXPIRED" | "FORBIDDEN" | "ACCOUNT_INACTIVE" | "OUT_OF_SCOPE" | "CHAT_HIDDEN_BY_STUDENT" | "CHAT_CLOSED_BY_STAFF" | "OUT_OF_RANGE" | "LOCATION_IMPRECISE" | "LOCATION_UNAVAILABLE" | "NOT_FOUND" | "PREVIEW_EXPIRED" | "CONFLICT" | "RATE_LIMITED" | "PAYLOAD_TOO_LARGE" | "UNSUPPORTED_MEDIA" | "AI_NOT_CONFIGURED" | "AI_FAILED" | "INTERNAL";
                 message: string;
             };
         };
-        RegisterInput: {
-            /** Format: email */
-            email: string;
-            password: string;
+        StudentItem: {
+            /** Format: uuid */
+            id: string;
+            nis?: string;
             name: string;
+            kelas: string;
+            /** Format: date-time */
+            archived_at?: string | null;
+            has_red_flag?: boolean;
+        };
+        CreateStudentInput: {
+            nis?: string;
+            name: string;
+            kelas: string;
+        };
+        EraporRow: {
+            mapel: string;
+            nilai: number;
+            periode?: string;
+        };
+        ProfileInput: {
+            nilai_erapor?: components["schemas"]["EraporRow"][];
+            minat_bakat?: string;
+            /** Format: date */
+            tanggal_lahir?: string;
+            catatan_psikologis?: string;
+            catatan_kasus_prestasi?: string;
+            masukan_bk?: string;
+            pendapat_wali_kelas?: string;
+        };
+        ProfileView: {
+            nilai_erapor?: components["schemas"]["EraporRow"][];
+            minat_bakat?: string;
+            /** Format: date */
+            tanggal_lahir?: string;
+            catatan_psikologis?: string;
+            catatan_kasus_prestasi?: string;
+            masukan_bk?: string;
+            pendapat_wali_kelas?: string;
+            /** Format: date-time */
+            updated_at?: string;
+        };
+        ObservationInput: {
+            /** @description Item keys, e.g. "emosi:murung" or "tidak_ada" (exclusive) */
+            items: string[];
+            catatan?: string;
+            /** Format: date */
+            tanggal: string;
+            /** @enum {string} */
+            tindakan_awal?: "pantau" | "konsultasi_bk" | "eskalasi_segera";
+        };
+        ObservationView: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            student_id?: string;
+            items?: string[];
+            categories?: string[];
+            red_flag?: boolean;
+            /** Format: date-time */
+            handled_at?: string | null;
+            catatan?: string;
+            /** Format: date */
+            tanggal?: string;
+            tindakan_awal?: string;
+            author_name?: string;
+        };
+        RevisionView: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            edited_by?: string;
+            snapshot?: unknown;
+            /** Format: date-time */
+            created_at?: string;
+        };
+        RedFlagItem: {
+            /** Format: uuid */
+            student_id?: string;
+            student_name?: string;
+            kelas?: string;
+            /** Format: uuid */
+            observation_id?: string;
+            /** Format: date */
+            tanggal?: string;
+            red_flag_items?: string[];
+        };
+        ChecklistItem: {
+            key?: string;
+            kategori?: string;
+            label?: string;
+        };
+        SummaryView: {
+            /** Format: uuid */
+            id?: string;
+            content?: string;
+            sources?: unknown;
+            model?: string;
+            /** @enum {string} */
+            status?: "ready" | "failed";
+            error?: string;
+            /** Format: date-time */
+            created_at?: string;
+        };
+        ImportRow: {
+            nis?: string;
+            nama?: string;
+            kelas?: string;
+            nilai_erapor?: components["schemas"]["EraporRow"][];
+        };
+        ImportPreview: {
+            preview_token?: string;
+            baru?: components["schemas"]["ImportRow"][];
+            update?: components["schemas"]["ImportRow"][];
+            errors?: {
+                baris?: number;
+                nis?: string;
+                pesan?: string;
+            }[];
+            ringkasan?: {
+                total?: number;
+                baru?: number;
+                update?: number;
+                error?: number;
+            };
+        };
+        ImportResult: {
+            created?: number;
+            updated?: number;
+            errors?: number;
+        };
+        StudentDetail: {
+            student?: components["schemas"]["StudentItem"];
+            profile?: components["schemas"]["ProfileView"];
+            observations?: components["schemas"]["ObservationView"][];
+            latest_summary?: components["schemas"]["SummaryView"] | null;
         };
         LoginInput: {
             /** Format: email */
@@ -257,6 +1082,19 @@ export interface components {
             };
             content: {
                 "application/json": components["schemas"]["ErrorResponse"];
+            };
+        };
+        /** @description OK */
+        OkResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": {
+                    data?: {
+                        ok?: boolean;
+                    };
+                };
             };
         };
     };
