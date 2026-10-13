@@ -30,10 +30,17 @@ services:
       DATABASE_URL: postgres://postgres:postgres@db:5432/hackathon?sslmode=disable
       PORT: "8080"
       JWT_SECRET: dev-secret-change-me-in-prod
-      AUTH_TOKEN_TTL: 87600h
-      CORS_ORIGINS: http://localhost:3000,http://localhost:5173
+      # TTL token (spec §5): staf 1 minggu, siswa anonim 10 tahun.
+      STAFF_TOKEN_TTL: 168h
+      ANON_TOKEN_TTL: 87600h
+      CORS_ORIGINS: http://localhost:3000,http://localhost:3100,http://localhost:5173
+      TZ: Asia/Jakarta
+      # Lampiran chat (spec §8) — persisten via volume `uploads`.
+      UPLOAD_DIR: /app/data/uploads
     ports:
       - "8080:8080"
+    volumes:
+      - uploads:/app/data
     depends_on:
       db:
         condition: service_healthy
@@ -52,3 +59,4 @@ services:
 
 volumes:
   pgdata:
+  uploads:

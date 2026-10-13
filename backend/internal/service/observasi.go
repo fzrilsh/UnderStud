@@ -218,8 +218,10 @@ func validateObservation(in ObservationInput) error {
 }
 
 // tanggalObservasi: parse YYYY-MM-DD, tolak > hari ini (WIB).
+// Memakai jakartaLoc() yang fallback ke UTC bila tzdata tak tersedia —
+// LoadLocation yang gagal mengembalikan nil dan bikin ParseInLocation panic.
 func tanggalObservasi(s string) (pgtype.Date, error) {
-	loc, _ := time.LoadLocation("Asia/Jakarta")
+	loc := jakartaLoc()
 	t, err := time.ParseInLocation("2006-01-02", s, loc)
 	if err != nil {
 		return pgtype.Date{}, utils.NewErrInvalidInput("Tanggal observasi harus format YYYY-MM-DD.")
