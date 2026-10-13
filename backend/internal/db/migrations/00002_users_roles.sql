@@ -1,0 +1,11 @@
+-- +goose Up
+ALTER TABLE users ADD COLUMN role      TEXT NOT NULL DEFAULT 'BK';
+ALTER TABLE users ADD COLUMN kelas     TEXT;
+ALTER TABLE users ADD COLUMN is_active BOOLEAN NOT NULL DEFAULT true;
+ALTER TABLE users ADD CONSTRAINT users_role_check CHECK (role IN ('BK', 'WALI_KELAS'));
+
+-- +goose Down
+ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check;
+ALTER TABLE users DROP COLUMN IF EXISTS is_active;
+ALTER TABLE users DROP COLUMN IF EXISTS kelas;
+ALTER TABLE users DROP COLUMN IF EXISTS role;
