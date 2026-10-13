@@ -77,6 +77,7 @@ type ProfileView struct {
 
 type ObservationView struct {
 	ID           string   `json:"id"`
+	StudentID    string   `json:"student_id"`
 	Items        []string `json:"items"`
 	Categories   []string `json:"categories"`
 	RedFlag      bool     `json:"red_flag"`
@@ -419,7 +420,7 @@ func toProfileView(p db.StudentProfile) ProfileView {
 
 func toObservationView(o db.Observation, authorName string) ObservationView {
 	v := ObservationView{
-		ID: o.ID.String(), RedFlag: o.RedFlag,
+		ID: o.ID.String(), StudentID: o.StudentID.String(), RedFlag: o.RedFlag,
 		Items: []string{}, Categories: []string{},
 		Tanggal: o.Tanggal.Time.Format("2006-01-02"), AuthorName: authorName,
 	}

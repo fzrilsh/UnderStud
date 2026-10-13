@@ -1,14 +1,18 @@
 package server
 
 import (
+	"context"
 	"log/slog"
 	"net/http"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	chimw "github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"backend/internal/ai"
 	"backend/internal/config"
 	"backend/internal/db"
 	"backend/internal/handler"
@@ -40,6 +44,19 @@ func New(cfg config.Config, logger *slog.Logger, pool *pgxpool.Pool) http.Handle
 	reportHandler := handler.NewReportHandlers(reportSvc)
 
 	attachmentHandler := handler.NewAttachmentHandlers(chatSvc)
+
+	studentSvc := service.NewStudent(queries)
+	observasiSvc := service.NewObservasi(queries)
+
+	aiClient := ai.NewClient(cfg)
+	aiQueue := ai.NewQueue(queries, aiClient, time.Duration(cfg.AIDebounceSeconds)*time.Second, logger)
+	go aiQueue.Start(context.Background())
+
+	summarySvc := service.NewSummary(queries, aiClient.Configured())
+	importerSvc := service.NewImporter(queries, aiQueue)
+	studentHandler := handler.NewStudentHandlers(studentSvc, observasiSvc, summarySvc, importerSvc).
+		WithEnqueue(func(sid, by uuid.UUID, reason string) { aiQueue.Enqueue(sid, by, reason) })
+	summaryHandler := handler.NewSummaryHandlers(summarySvc)
 
 	r := chi.NewRouter()
 	r.Use(chimw.RequestID)
@@ -96,6 +113,43 @@ func New(cfg config.Config, logger *slog.Logger, pool *pgxpool.Pool) http.Handle
 			r.Post("/{id}/next", reportHandler.Next)
 			r.Post("/{id}/messages", reportHandler.Reply)
 			r.Delete("/{id}", reportHandler.Hide)
+		})
+
+		r.Route("/students", func(r chi.Router) {
+			r.Use(middleware.RequireAuth(tm))
+			r.Get("/", studentHandler.List)
+			r.Post("/", studentHandler.Create)
+			r.Post("/import/preview", studentHandler.ImportPreview)
+			r.Post("/import/commit", studentHandler.ImportCommit)
+			r.Get("/{id}", studentHandler.Detail)
+			r.Patch("/{id}", studentHandler.Update)
+			r.Put("/{id}/profile", studentHandler.SaveProfile)
+			r.Post("/{id}/archive", studentHandler.Archive)
+			r.Post("/{id}/restore", studentHandler.Restore)
+			r.Post("/{id}/observations", studentHandler.CreateObservation)
+			r.Get("/{id}/observations", studentHandler.ListObservations)
+			r.Get("/{id}/summaries", summaryHandler.List)
+			r.Get("/{id}/summaries/latest", summaryHandler.Latest)
+			r.Get("/{id}/summaries/{sid}/export", summaryHandler.Export)
+		})
+
+		r.Route("/observations", func(r chi.Router) {
+			r.Use(middleware.RequireAuth(tm))
+			r.Put("/{id}", studentHandler.UpdateObservation)
+			r.Get("/{id}/revisions", studentHandler.Revisions)
+			r.Post("/{id}/handle", studentHandler.HandleRedFlag)
+		})
+
+		r.Route("/red-flags", func(r chi.Router) {
+			r.Use(middleware.RequireAuth(tm))
+			r.Get("/", studentHandler.RedFlags)
+		})
+
+		r.Route("/checklist", func(r chi.Router) {
+			r.Use(middleware.RequireAuth(tm))
+			r.Get("/", func(w http.ResponseWriter, req *http.Request) {
+				handler.OK(w, service.ChecklistCatalog())
+			})
 		})
 	})
 
