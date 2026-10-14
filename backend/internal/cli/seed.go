@@ -62,10 +62,10 @@ func SeedDemo(cfg config.Config) error {
 	}
 
 	for _, s := range siswa {
-		nis := s.nis
-		st, err := q.GetStudentByNIS(ctx, &nis)
+		nisn := s.nis
+		st, err := q.GetStudentByNISN(ctx, &nisn)
 		if err != nil {
-			st, err = q.CreateStudent(ctx, db.CreateStudentParams{Nis: &nis, Name: s.name, Kelas: kelas})
+			st, err = q.CreateStudent(ctx, db.CreateStudentParams{Nisn: &nisn, Name: s.name, Kelas: kelas})
 			if err != nil {
 				return err
 			}

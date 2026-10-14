@@ -29,7 +29,7 @@ func NewStudent(q *db.Queries) *Student { return &Student{queries: q} }
 
 type StudentItem struct {
 	ID         string `json:"id"`
-	NIS        string `json:"nis,omitempty"`
+	NISN       string `json:"nisn,omitempty"`
 	Name       string `json:"name"`
 	Kelas      string `json:"kelas"`
 	ArchivedAt string `json:"archived_at,omitempty"`
@@ -37,13 +37,13 @@ type StudentItem struct {
 }
 
 type CreateStudentInput struct {
-	NIS   string `json:"nis"`
+	NISN  string `json:"nisn"`
 	Name  string `json:"name"`
 	Kelas string `json:"kelas"`
 }
 
 type UpdateStudentInput struct {
-	NIS   string `json:"nis"`
+	NISN  string `json:"nisn"`
 	Name  string `json:"name"`
 	Kelas string `json:"kelas"`
 }
@@ -127,13 +127,14 @@ func (s *Student) ensureScope(ctx context.Context, actor Actor, id uuid.UUID) (d
 	return st, nil
 }
 
-func validateNIS(nis string) error {
-	if len(nis) < 1 || len(nis) > 30 {
-		return utils.NewErrInvalidInput("NIS harus 1–30 karakter.")
+// validateNISN: wajib digit, panjang 4–20 (spec §10.3).
+func validateNISN(nisn string) error {
+	if len(nisn) < 4 || len(nisn) > 20 {
+		return utils.NewErrInvalidInput("NISN harus 4–20 digit.")
 	}
-	for _, r := range nis {
-		if !(r >= '0' && r <= '9' || r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z') {
-			return utils.NewErrInvalidInput("NIS hanya boleh huruf dan angka.")
+	for _, r := range nisn {
+		if r < '0' || r > '9' {
+			return utils.NewErrInvalidInput("NISN hanya boleh angka.")
 		}
 	}
 	return nil
@@ -151,8 +152,8 @@ func validateNameKelas(name, kelas string) error {
 
 func toStudentItem(st db.Student, hasRedFlag bool) StudentItem {
 	item := StudentItem{ID: st.ID.String(), Name: st.Name, Kelas: st.Kelas, HasRedFlag: hasRedFlag}
-	if st.Nis != nil {
-		item.NIS = *st.Nis
+	if st.Nisn != nil {
+		item.NISN = *st.Nisn
 	}
 	if st.ArchivedAt != nil {
 		item.ArchivedAt = st.ArchivedAt.Format(time.RFC3339)
@@ -211,19 +212,19 @@ func (s *Student) Create(ctx context.Context, actor Actor, in CreateStudentInput
 	if in.Kelas != actor.Kelas {
 		return StudentItem{}, utils.NewErrOutOfScope("Kamu hanya bisa menambah siswa di kelasmu.")
 	}
-	var nis *string
-	if strings.TrimSpace(in.NIS) != "" {
-		if err := validateNIS(in.NIS); err != nil {
+	var nisn *string
+	if strings.TrimSpace(in.NISN) != "" {
+		if err := validateNISN(in.NISN); err != nil {
 			return StudentItem{}, err
 		}
-		nis = &in.NIS
-		if _, err := s.queries.GetStudentByNIS(ctx, nis); err == nil {
-			return StudentItem{}, utils.NewErrConflict("NIS sudah terdaftar.")
+		nisn = &in.NISN
+		if _, err := s.queries.GetStudentByNISN(ctx, nisn); err == nil {
+			return StudentItem{}, utils.NewErrConflict("NISN sudah terdaftar.")
 		}
 	}
-	st, err := s.queries.CreateStudent(ctx, db.CreateStudentParams{Nis: nis, Name: in.Name, Kelas: in.Kelas})
+	st, err := s.queries.CreateStudent(ctx, db.CreateStudentParams{Nisn: nisn, Name: in.Name, Kelas: in.Kelas})
 	if err != nil {
-		return StudentItem{}, utils.NewErrConflict("Gagal membuat siswa (NIS mungkin sudah dipakai).")
+		return StudentItem{}, utils.NewErrConflict("Gagal membuat siswa (NISN mungkin sudah dipakai).")
 	}
 	if err := s.queries.CreateStudentProfileEmpty(ctx, st.ID); err != nil {
 		return StudentItem{}, utils.NewErrInternal("gagal membuat profil siswa")
@@ -244,16 +245,16 @@ func (s *Student) Update(ctx context.Context, actor Actor, id uuid.UUID, in Upda
 	if in.Kelas != actor.Kelas {
 		return StudentItem{}, utils.NewErrOutOfScope("Kamu hanya bisa memindahkan siswa dalam kelasmu.")
 	}
-	var nis *string
-	if strings.TrimSpace(in.NIS) != "" {
-		if err := validateNIS(in.NIS); err != nil {
+	var nisn *string
+	if strings.TrimSpace(in.NISN) != "" {
+		if err := validateNISN(in.NISN); err != nil {
 			return StudentItem{}, err
 		}
-		nis = &in.NIS
+		nisn = &in.NISN
 	}
-	st, err := s.queries.UpdateStudent(ctx, db.UpdateStudentParams{ID: id, Nis: nis, Name: in.Name, Kelas: in.Kelas})
+	st, err := s.queries.UpdateStudent(ctx, db.UpdateStudentParams{ID: id, Nisn: nisn, Name: in.Name, Kelas: in.Kelas})
 	if err != nil {
-		return StudentItem{}, utils.NewErrConflict("Gagal memperbarui siswa (NIS mungkin sudah dipakai).")
+		return StudentItem{}, utils.NewErrConflict("Gagal memperbarui siswa (NISN mungkin sudah dipakai).")
 	}
 	red, err := s.hasRedFlag(ctx, id)
 	if err != nil {

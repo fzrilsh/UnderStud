@@ -30,7 +30,7 @@ func NewImporter(q *db.Queries, queue *ai.Queue) *Importer {
 }
 
 type ImportRow struct {
-	NIS   string      `json:"nis"`
+	NISN  string      `json:"nisn"`
 	Nama  string      `json:"nama"`
 	Kelas string      `json:"kelas"`
 	Nilai []EraporRow `json:"nilai_erapor"`
@@ -38,7 +38,7 @@ type ImportRow struct {
 
 type ImportError struct {
 	Baris int    `json:"baris"`
-	NIS   string `json:"nis,omitempty"`
+	NISN  string `json:"nisn,omitempty"`
 	Pesan string `json:"pesan"`
 }
 
@@ -109,21 +109,21 @@ func parseCSV(data []byte, scopeKelas string) ([]ImportRow, []ImportError) {
 		nis := get("nis")
 		nama := get("nama")
 		kelas := get("kelas")
-		if err := validateNIS(nis); err != nil {
-			errs = append(errs, ImportError{Baris: line, NIS: nis, Pesan: "NIS tidak valid (1–30 karakter alfanumerik)."})
+		if err := validateNISN(nis); err != nil {
+			errs = append(errs, ImportError{Baris: line, NISN: nis, Pesan: "NIS tidak valid (1–30 karakter alfanumerik)."})
 			continue
 		}
 		if nama == "" {
-			errs = append(errs, ImportError{Baris: line, NIS: nis, Pesan: "Nama wajib diisi."})
+			errs = append(errs, ImportError{Baris: line, NISN: nis, Pesan: "Nama wajib diisi."})
 			continue
 		}
 		if kelas != scopeKelas {
-			errs = append(errs, ImportError{Baris: line, NIS: nis, Pesan: "Kelas " + kelas + " di luar cakupanmu (" + scopeKelas + ")."})
+			errs = append(errs, ImportError{Baris: line, NISN: nis, Pesan: "Kelas " + kelas + " di luar cakupanmu (" + scopeKelas + ")."})
 			continue
 		}
 		a, ok := byNIS[nis]
 		if !ok {
-			a = &acc{row: ImportRow{NIS: nis, Nama: nama, Kelas: kelas, Nilai: []EraporRow{}}, line: line}
+			a = &acc{row: ImportRow{NISN: nis, Nama: nama, Kelas: kelas, Nilai: []EraporRow{}}, line: line}
 			byNIS[nis] = a
 			order = append(order, nis)
 		}
@@ -132,7 +132,7 @@ func parseCSV(data []byte, scopeKelas string) ([]ImportRow, []ImportError) {
 			nilaiStr := get("nilai")
 			nilai, err := strconv.ParseFloat(nilaiStr, 64)
 			if err != nil || nilai < 0 || nilai > 100 {
-				errs = append(errs, ImportError{Baris: line, NIS: nis, Pesan: "Nilai tidak valid (0–100)."})
+				errs = append(errs, ImportError{Baris: line, NISN: nis, Pesan: "Nilai tidak valid (0–100)."})
 				continue
 			}
 			a.row.Nilai = append(a.row.Nilai, EraporRow{Mapel: mapel, Nilai: nilai, Periode: get("periode")})
@@ -160,18 +160,18 @@ func (i *Importer) Preview(ctx context.Context, actor Actor, data []byte) (Impor
 
 	var baru, upd []ImportRow
 	for _, row := range rows {
-		nis := row.NIS
-		existing, err := i.queries.GetStudentByNIS(ctx, &nis)
+		nisn := row.NISN
+		existing, err := i.queries.GetStudentByNISN(ctx, &nisn)
 		if err != nil {
 			baru = append(baru, row)
 			continue
 		}
 		if existing.ArchivedAt != nil {
-			errs = append(errs, ImportError{NIS: nis, Pesan: "NIS " + nis + " ada di data arsip. Pulihkan siswa dulu."})
+			errs = append(errs, ImportError{NISN: nisn, Pesan: "NISN " + nisn + " ada di data arsip. Pulihkan siswa dulu."})
 			continue
 		}
 		if existing.Kelas != actor.Kelas {
-			errs = append(errs, ImportError{NIS: nis, Pesan: "NIS " + nis + " terdaftar di kelas " + existing.Kelas + ", file menyebut " + actor.Kelas + "."})
+			errs = append(errs, ImportError{NISN: nisn, Pesan: "NISN " + nisn + " terdaftar di kelas " + existing.Kelas + ", file menyebut " + actor.Kelas + "."})
 			continue
 		}
 		upd = append(upd, row)
@@ -223,8 +223,8 @@ func (i *Importer) Commit(ctx context.Context, actor Actor, token string) (Impor
 
 	res := ImportResult{Errors: len(payload.Errors)}
 	for _, row := range payload.Baru {
-		nis := row.NIS
-		st, err := i.queries.CreateStudent(ctx, db.CreateStudentParams{Nis: &nis, Name: row.Nama, Kelas: row.Kelas})
+		nisn := row.NISN
+		st, err := i.queries.CreateStudent(ctx, db.CreateStudentParams{Nisn: &nisn, Name: row.Nama, Kelas: row.Kelas})
 		if err != nil {
 			continue
 		}
@@ -236,8 +236,8 @@ func (i *Importer) Commit(ctx context.Context, actor Actor, token string) (Impor
 		i.queue.Enqueue(st.ID, actor.UserID, "profile_updated")
 	}
 	for _, row := range payload.Update {
-		nis := row.NIS
-		st, err := i.queries.GetStudentByNIS(ctx, &nis)
+		nisn := row.NISN
+		st, err := i.queries.GetStudentByNISN(ctx, &nisn)
 		if err != nil {
 			continue
 		}
