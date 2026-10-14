@@ -12,6 +12,18 @@ import (
 	"github.com/google/uuid"
 )
 
+const countChatsBySession = `-- name: CountChatsBySession :one
+SELECT count(*) FROM chats
+WHERE session_id = $1 AND hidden_by_student_at IS NULL
+`
+
+func (q *Queries) CountChatsBySession(ctx context.Context, sessionID uuid.UUID) (int64, error) {
+	row := q.db.QueryRow(ctx, countChatsBySession, sessionID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const countChatsSince = `-- name: CountChatsSince :one
 SELECT count(*) FROM chats WHERE session_id = $1 AND created_at >= $2
 `

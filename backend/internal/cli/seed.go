@@ -105,7 +105,50 @@ func SeedDemo(cfg config.Config) error {
 		}
 	}
 
+	if err := seedAnonChat(ctx, q); err != nil {
+		return err
+	}
+
 	fmt.Println("OK — seed demo selesai (akun: bk@demo.local / wali@demo.local, password: password123)")
+	return nil
+}
+
+// seedAnonChat membuat 1 chat anonim contoh (2 pesan, status baru) sesuai spec §23.
+// Idempotent: ditandai lewat token_hash tetap; dilewati bila sudah ada.
+func seedAnonChat(ctx context.Context, q *db.Queries) error {
+	const seedTokenHash = "seed-demo-anon-token-hash-fixed-000000000000000000000000000000"
+	sess, err := q.GetAnonSessionByTokenHash(ctx, seedTokenHash)
+	if err != nil {
+		sess, err = q.CreateAnonSession(ctx, seedTokenHash)
+		if err != nil {
+			return err
+		}
+	}
+	n, err := q.CountChatsBySession(ctx, sess.ID)
+	if err != nil {
+		return err
+	}
+	if n > 0 {
+		return nil
+	}
+	chat, err := q.CreateChat(ctx, db.CreateChatParams{
+		SessionID: sess.ID, IdentityMode: "anonim", SnapshotName: nil, SnapshotKelas: nil,
+	})
+	if err != nil {
+		return err
+	}
+	if _, err := q.CreateMessage(ctx, db.CreateMessageParams{
+		ChatID: chat.ID, Sender: "SISWA", SenderUserID: nil,
+		Body: "Saya sering merasa cemas saat ujian. Boleh minta saran?",
+	}); err != nil {
+		return err
+	}
+	if _, err := q.CreateMessage(ctx, db.CreateMessageParams{
+		ChatID: chat.ID, Sender: "BK", SenderUserID: nil,
+		Body: "Terima kasih sudah bercerita. Kapan kamu merasa paling cemas?",
+	}); err != nil {
+		return err
+	}
 	return nil
 }
 

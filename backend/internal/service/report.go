@@ -18,9 +18,9 @@ type Report struct {
 func NewReport(q *db.Queries) *Report { return &Report{queries: q} }
 
 type ReportIdentity struct {
-	Mode  string `json:"mode"`
-	Name  string `json:"name,omitempty"`
-	Kelas string `json:"kelas,omitempty"`
+	Mode  string  `json:"mode"`
+	Name  *string `json:"name"`  // M11: selalu ada (null bila anonim)
+	Kelas *string `json:"kelas"` // M11
 }
 
 type ReportItem struct {
@@ -28,6 +28,8 @@ type ReportItem struct {
 	Status        string         `json:"status"`
 	Pinned        bool           `json:"pinned"`
 	Drafted       bool           `json:"drafted"`
+	PinnedAt      *string        `json:"pinned_at"`  // M11: timestamp sesuai spec §21.4
+	DraftedAt     *string        `json:"drafted_at"` // M11
 	Identity      ReportIdentity `json:"identity"`
 	LastMessageAt string         `json:"last_message_at"`
 }
@@ -40,18 +42,23 @@ type ReportDetail struct {
 func toReportItem(ch db.Chat) ReportItem {
 	ident := ReportIdentity{Mode: ch.IdentityMode}
 	if ch.IdentityMode == "profil" {
-		if ch.SnapshotName != nil {
-			ident.Name = *ch.SnapshotName
-		}
-		if ch.SnapshotKelas != nil {
-			ident.Kelas = *ch.SnapshotKelas
-		}
+		ident.Name = ch.SnapshotName
+		ident.Kelas = ch.SnapshotKelas
 	}
-	return ReportItem{
+	item := ReportItem{
 		ID: ch.ID.String(), Status: ch.Status,
 		Pinned: ch.PinnedAt != nil, Drafted: ch.DraftedAt != nil,
 		Identity: ident, LastMessageAt: ch.LastMessageAt.Format(time.RFC3339),
 	}
+	if ch.PinnedAt != nil {
+		s := ch.PinnedAt.Format(time.RFC3339)
+		item.PinnedAt = &s
+	}
+	if ch.DraftedAt != nil {
+		s := ch.DraftedAt.Format(time.RFC3339)
+		item.DraftedAt = &s
+	}
+	return item
 }
 
 func (r *Report) Queue(ctx context.Context, limit, offset int32) ([]ReportItem, int64, error) {

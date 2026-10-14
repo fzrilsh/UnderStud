@@ -87,5 +87,10 @@ func (s *Summary) List(ctx context.Context, actor Actor, studentID uuid.UUID, li
 	for _, r := range rows {
 		out = append(out, toSummaryView(r))
 	}
-	return out, int64(len(out)), nil
+	// H5: total = jumlah seluruh versi (bukan ukuran halaman).
+	total, err := s.queries.CountSummaries(ctx, studentID)
+	if err != nil {
+		return nil, 0, utils.NewErrInternal("gagal memuat ringkasan")
+	}
+	return out, total, nil
 }

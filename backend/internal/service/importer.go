@@ -223,6 +223,14 @@ func (i *Importer) Commit(ctx context.Context, actor Actor, token string) (Impor
 		if err != nil {
 			continue
 		}
+		// L2: leger bisa membawa nama terbaru → update nama siswa (spec §10.3).
+		if row.Nama != "" && row.Nama != st.Name {
+			if _, err := i.queries.UpdateStudent(ctx, db.UpdateStudentParams{
+				ID: st.ID, Nisn: st.Nisn, Name: row.Nama, Kelas: st.Kelas,
+			}); err != nil {
+				return ImportResult{}, utils.NewErrInternal("gagal memperbarui nama siswa")
+			}
+		}
 		if err := i.writeProfile(ctx, actor, st.ID, row); err != nil {
 			return ImportResult{}, err
 		}

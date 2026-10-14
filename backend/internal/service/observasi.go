@@ -176,7 +176,7 @@ func (o *Observasi) List(ctx context.Context, actor Actor, studentID uuid.UUID, 
 	}
 	out := make([]ObservationView, 0, len(rows))
 	for _, r := range rows {
-		out = append(out, toObservationView(r, ""))
+		out = append(out, toObservationView(obsFieldsFromRow(r), r.AuthorName))
 	}
 	return out, total, nil
 }
@@ -260,7 +260,7 @@ func (o *Observasi) Create(ctx context.Context, actor Actor, studentID uuid.UUID
 	if err != nil {
 		return ObservationView{}, utils.NewErrInternal("gagal menyimpan observasi")
 	}
-	return toObservationView(obs, ""), nil
+	return toObservationView(obsFieldsFromObservation(obs), ""), nil
 }
 
 func (o *Observasi) Update(ctx context.Context, actor Actor, obsID uuid.UUID, in ObservationInput) (ObservationView, error) {
@@ -303,7 +303,7 @@ func (o *Observasi) Update(ctx context.Context, actor Actor, obsID uuid.UUID, in
 	if err != nil {
 		return ObservationView{}, utils.NewErrInternal("gagal memperbarui observasi")
 	}
-	return toObservationView(obs, ""), nil
+	return toObservationView(obsFieldsFromObservation(obs), ""), nil
 }
 
 func (o *Observasi) Revisions(ctx context.Context, actor Actor, obsID uuid.UUID) ([]RevisionView, error) {

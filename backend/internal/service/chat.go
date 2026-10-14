@@ -262,7 +262,12 @@ func (c *Chat) ListBySession(ctx context.Context, session db.AnonSession, limit,
 			LastMessageAt: ch.LastMessageAt.Format(time.RFC3339),
 		})
 	}
-	return out, int64(len(out)), nil
+	// H5: total = jumlah seluruh baris (bukan ukuran halaman).
+	total, err := c.queries.CountChatsBySession(ctx, session.ID)
+	if err != nil {
+		return nil, 0, utils.NewErrInternal("gagal memuat daftar")
+	}
+	return out, total, nil
 }
 
 // ownedChat memastikan chat milik sesi ini (cegah akses lintas sesi).

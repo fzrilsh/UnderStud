@@ -11,6 +11,17 @@ import (
 	"github.com/google/uuid"
 )
 
+const countSummaries = `-- name: CountSummaries :one
+SELECT count(*) FROM ai_summaries WHERE student_id = $1
+`
+
+func (q *Queries) CountSummaries(ctx context.Context, studentID uuid.UUID) (int64, error) {
+	row := q.db.QueryRow(ctx, countSummaries, studentID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createSummary = `-- name: CreateSummary :one
 INSERT INTO ai_summaries (student_id, generated_by, trigger_reason, content, sources, model, status, error)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)

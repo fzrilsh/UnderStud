@@ -1,6 +1,9 @@
 -- name: ListObservationsByStudent :many
-SELECT * FROM observations WHERE student_id = $1
-ORDER BY tanggal DESC, created_at DESC
+SELECT o.*, u.name AS author_name
+FROM observations o
+JOIN users u ON u.id = o.author_id
+WHERE o.student_id = $1
+ORDER BY o.tanggal DESC, o.created_at DESC
 LIMIT $2 OFFSET $3;
 
 -- name: CreateObservation :one

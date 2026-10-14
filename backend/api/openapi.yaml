@@ -1019,8 +1019,8 @@ components:
       type: object
       properties:
         mode: { type: string, enum: [anonim, profil] }
-        name: { type: string }
-        kelas: { type: string }
+        name: { type: string, nullable: true }
+        kelas: { type: string, nullable: true }
     ReportItem:
       type: object
       properties:
@@ -1028,6 +1028,8 @@ components:
         status: { type: string, enum: [baru, dibuka, dilewati] }
         pinned: { type: boolean }
         drafted: { type: boolean }
+        pinned_at: { type: string, format: date-time, nullable: true }
+        drafted_at: { type: string, format: date-time, nullable: true }
         identity: { $ref: "#/components/schemas/ReportIdentity" }
         last_message_at: { type: string, format: date-time }
     AttachmentView:
@@ -1138,7 +1140,10 @@ components:
         catatan: { type: string }
         tanggal: { type: string, format: date }
         tindakan_awal: { type: string }
-        author_name: { type: string }
+        author:
+          type: object
+          properties:
+            name: { type: string }
     RevisionView:
       type: object
       properties:

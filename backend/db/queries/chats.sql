@@ -16,6 +16,10 @@ WHERE session_id = $1 AND hidden_by_student_at IS NULL
 ORDER BY last_message_at DESC
 LIMIT $2 OFFSET $3;
 
+-- name: CountChatsBySession :one
+SELECT count(*) FROM chats
+WHERE session_id = $1 AND hidden_by_student_at IS NULL;
+
 -- name: CreateChat :one
 INSERT INTO chats (session_id, identity_mode, snapshot_name, snapshot_kelas)
 VALUES ($1, $2, $3, $4)

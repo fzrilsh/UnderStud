@@ -243,8 +243,11 @@ func (q *Queries) ListObservationRevisions(ctx context.Context, observationID uu
 }
 
 const listObservationsByStudent = `-- name: ListObservationsByStudent :many
-SELECT id, student_id, author_id, items, categories, red_flag, handled_at, handled_by, catatan, tanggal, tindakan_awal, created_at, updated_at FROM observations WHERE student_id = $1
-ORDER BY tanggal DESC, created_at DESC
+SELECT o.id, o.student_id, o.author_id, o.items, o.categories, o.red_flag, o.handled_at, o.handled_by, o.catatan, o.tanggal, o.tindakan_awal, o.created_at, o.updated_at, u.name AS author_name
+FROM observations o
+JOIN users u ON u.id = o.author_id
+WHERE o.student_id = $1
+ORDER BY o.tanggal DESC, o.created_at DESC
 LIMIT $2 OFFSET $3
 `
 
@@ -254,15 +257,32 @@ type ListObservationsByStudentParams struct {
 	Offset    int32
 }
 
-func (q *Queries) ListObservationsByStudent(ctx context.Context, arg ListObservationsByStudentParams) ([]Observation, error) {
+type ListObservationsByStudentRow struct {
+	ID           uuid.UUID
+	StudentID    uuid.UUID
+	AuthorID     uuid.UUID
+	Items        []byte
+	Categories   []byte
+	RedFlag      bool
+	HandledAt    *time.Time
+	HandledBy    *uuid.UUID
+	Catatan      *string
+	Tanggal      pgtype.Date
+	TindakanAwal *string
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
+	AuthorName   string
+}
+
+func (q *Queries) ListObservationsByStudent(ctx context.Context, arg ListObservationsByStudentParams) ([]ListObservationsByStudentRow, error) {
 	rows, err := q.db.Query(ctx, listObservationsByStudent, arg.StudentID, arg.Limit, arg.Offset)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Observation
+	var items []ListObservationsByStudentRow
 	for rows.Next() {
-		var i Observation
+		var i ListObservationsByStudentRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.StudentID,
@@ -277,6 +297,7 @@ func (q *Queries) ListObservationsByStudent(ctx context.Context, arg ListObserva
 			&i.TindakanAwal,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.AuthorName,
 		); err != nil {
 			return nil, err
 		}

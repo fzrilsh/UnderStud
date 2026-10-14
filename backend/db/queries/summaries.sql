@@ -14,5 +14,8 @@ SELECT * FROM ai_summaries WHERE student_id = $1
 ORDER BY created_at DESC
 LIMIT $2 OFFSET $3;
 
+-- name: CountSummaries :one
+SELECT count(*) FROM ai_summaries WHERE student_id = $1;
+
 -- name: GetSummaryByID :one
 SELECT * FROM ai_summaries WHERE id = $1;

@@ -3,10 +3,12 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"backend/internal/db"
@@ -28,12 +30,12 @@ type Student struct {
 func NewStudent(q *db.Queries) *Student { return &Student{queries: q} }
 
 type StudentItem struct {
-	ID         string `json:"id"`
-	NISN       string `json:"nisn,omitempty"`
-	Name       string `json:"name"`
-	Kelas      string `json:"kelas"`
-	ArchivedAt string `json:"archived_at,omitempty"`
-	HasRedFlag bool   `json:"has_red_flag"`
+	ID         string  `json:"id"`
+	NISN       string  `json:"nisn"`
+	Name       string  `json:"name"`
+	Kelas      string  `json:"kelas"`
+	ArchivedAt *string `json:"archived_at"` // M11: selalu ada (null bila aktif)
+	HasRedFlag bool    `json:"has_red_flag"`
 }
 
 type CreateStudentInput struct {
@@ -81,17 +83,22 @@ type ProfileView struct {
 	UpdatedAt            string      `json:"updated_at"`
 }
 
+// ObservationAuthor: bentuk objek sesuai spec §21.4 (`author: {name}`).
+type ObservationAuthor struct {
+	Name string `json:"name"`
+}
+
 type ObservationView struct {
-	ID           string   `json:"id"`
-	StudentID    string   `json:"student_id"`
-	Items        []string `json:"items"`
-	Categories   []string `json:"categories"`
-	RedFlag      bool     `json:"red_flag"`
-	HandledAt    string   `json:"handled_at,omitempty"`
-	Catatan      string   `json:"catatan,omitempty"`
-	Tanggal      string   `json:"tanggal"`
-	TindakanAwal string   `json:"tindakan_awal,omitempty"`
-	AuthorName   string   `json:"author_name,omitempty"`
+	ID           string            `json:"id"`
+	StudentID    string            `json:"student_id"`
+	Items        []string          `json:"items"`
+	Categories   []string          `json:"categories"`
+	RedFlag      bool              `json:"red_flag"`
+	HandledAt    *string           `json:"handled_at"` // M11: selalu ada (null bila belum)
+	Catatan      string            `json:"catatan,omitempty"`
+	Tanggal      string            `json:"tanggal"`
+	TindakanAwal string            `json:"tindakan_awal,omitempty"`
+	Author       ObservationAuthor `json:"author"`
 }
 
 // StudentDetail: `latest_summary` diisi oleh handler (compose dengan summary
@@ -172,7 +179,8 @@ func toStudentItem(st db.Student, hasRedFlag bool) StudentItem {
 		item.NISN = *st.Nisn
 	}
 	if st.ArchivedAt != nil {
-		item.ArchivedAt = st.ArchivedAt.Format(time.RFC3339)
+		s := st.ArchivedAt.Format(time.RFC3339)
+		item.ArchivedAt = &s
 	}
 	return item
 }
@@ -243,7 +251,11 @@ func (s *Student) Create(ctx context.Context, actor Actor, in CreateStudentInput
 	}
 	st, err := s.queries.CreateStudent(ctx, db.CreateStudentParams{Nisn: nisn, Name: in.Name, Kelas: in.Kelas})
 	if err != nil {
-		return StudentItem{}, utils.NewErrConflict("Gagal membuat siswa (NISN mungkin sudah dipakai).")
+		// L9: hanya pelanggaran unik yang jadi CONFLICT; error lain → INTERNAL.
+		if isUniqueViolation(err) {
+			return StudentItem{}, utils.NewErrConflict("NISN sudah terdaftar.")
+		}
+		return StudentItem{}, utils.NewErrInternal("Gagal membuat siswa. Coba lagi.")
 	}
 	if err := s.queries.CreateStudentProfileEmpty(ctx, st.ID); err != nil {
 		return StudentItem{}, utils.NewErrInternal("gagal membuat profil siswa")
@@ -273,7 +285,10 @@ func (s *Student) Update(ctx context.Context, actor Actor, id uuid.UUID, in Upda
 	}
 	st, err := s.queries.UpdateStudent(ctx, db.UpdateStudentParams{ID: id, Nisn: nisn, Name: in.Name, Kelas: in.Kelas})
 	if err != nil {
-		return StudentItem{}, utils.NewErrConflict("Gagal memperbarui siswa (NISN mungkin sudah dipakai).")
+		if isUniqueViolation(err) {
+			return StudentItem{}, utils.NewErrConflict("NISN sudah dipakai siswa lain.")
+		}
+		return StudentItem{}, utils.NewErrInternal("Gagal memperbarui siswa. Coba lagi.")
 	}
 	red, err := s.hasRedFlag(ctx, id)
 	if err != nil {
@@ -382,7 +397,7 @@ func (s *Student) Detail(ctx context.Context, actor Actor, id uuid.UUID) (Studen
 	}
 	obs := make([]ObservationView, 0, len(obsRows))
 	for _, o := range obsRows {
-		obs = append(obs, toObservationView(o, ""))
+		obs = append(obs, toObservationView(obsFieldsFromRow(o), o.AuthorName))
 	}
 	return StudentDetail{
 		Student:      toStudentItem(st, red),
@@ -400,6 +415,12 @@ func jakartaLoc() *time.Location {
 		return time.UTC
 	}
 	return loc
+}
+
+// isUniqueViolation: error Postgres kode 23505 (unique_violation).
+func isUniqueViolation(err error) bool {
+	var pgErr *pgconn.PgError
+	return errors.As(err, &pgErr) && pgErr.Code == "23505"
 }
 
 func optStr(s string) *string {
@@ -456,11 +477,25 @@ func toProfileView(p db.StudentProfile) ProfileView {
 	return v
 }
 
-func toObservationView(o db.Observation, authorName string) ObservationView {
+// obsFields = field bersama db.Observation & ListObservationsByStudentRow.
+type obsFields struct {
+	ID           uuid.UUID
+	StudentID    uuid.UUID
+	Items        []byte
+	Categories   []byte
+	RedFlag      bool
+	HandledAt    *time.Time
+	Catatan      *string
+	Tanggal      pgtype.Date
+	TindakanAwal *string
+}
+
+func toObservationView(o obsFields, authorName string) ObservationView {
 	v := ObservationView{
 		ID: o.ID.String(), StudentID: o.StudentID.String(), RedFlag: o.RedFlag,
 		Items: []string{}, Categories: []string{},
-		Tanggal: o.Tanggal.Time.Format("2006-01-02"), AuthorName: authorName,
+		Tanggal: o.Tanggal.Time.Format("2006-01-02"),
+		Author:  ObservationAuthor{Name: authorName},
 	}
 	_ = json.Unmarshal(o.Items, &v.Items)
 	_ = json.Unmarshal(o.Categories, &v.Categories)
@@ -471,9 +506,28 @@ func toObservationView(o db.Observation, authorName string) ObservationView {
 		v.TindakanAwal = *o.TindakanAwal
 	}
 	if o.HandledAt != nil {
-		v.HandledAt = o.HandledAt.Format(time.RFC3339)
+		s := o.HandledAt.Format(time.RFC3339)
+		v.HandledAt = &s
 	}
 	return v
+}
+
+// obsFieldsFromObservation = adapter untuk baris dari Create/Update (tanpa join).
+func obsFieldsFromObservation(o db.Observation) obsFields {
+	return obsFields{
+		ID: o.ID, StudentID: o.StudentID, Items: o.Items, Categories: o.Categories,
+		RedFlag: o.RedFlag, HandledAt: o.HandledAt, Catatan: o.Catatan,
+		Tanggal: o.Tanggal, TindakanAwal: o.TindakanAwal,
+	}
+}
+
+// obsFieldsFromRow = adapter untuk baris dari List (dengan author_name).
+func obsFieldsFromRow(o db.ListObservationsByStudentRow) obsFields {
+	return obsFields{
+		ID: o.ID, StudentID: o.StudentID, Items: o.Items, Categories: o.Categories,
+		RedFlag: o.RedFlag, HandledAt: o.HandledAt, Catatan: o.Catatan,
+		Tanggal: o.Tanggal, TindakanAwal: o.TindakanAwal,
+	}
 }
 
 func validateProfile(in ProfileInput) error {

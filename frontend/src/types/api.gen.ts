@@ -1664,8 +1664,8 @@ export interface components {
         ReportIdentity: {
             /** @enum {string} */
             mode?: "anonim" | "profil";
-            name?: string;
-            kelas?: string;
+            name?: string | null;
+            kelas?: string | null;
         };
         ReportItem: {
             /** Format: uuid */
@@ -1674,6 +1674,10 @@ export interface components {
             status?: "baru" | "dibuka" | "dilewati";
             pinned?: boolean;
             drafted?: boolean;
+            /** Format: date-time */
+            pinned_at?: string | null;
+            /** Format: date-time */
+            drafted_at?: string | null;
             identity?: components["schemas"]["ReportIdentity"];
             /** Format: date-time */
             last_message_at?: string;
@@ -1772,7 +1776,9 @@ export interface components {
             /** Format: date */
             tanggal?: string;
             tindakan_awal?: string;
-            author_name?: string;
+            author?: {
+                name?: string;
+            };
         };
         RevisionView: {
             /** Format: uuid */
