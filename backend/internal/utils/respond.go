@@ -11,7 +11,7 @@ import (
 func WriteAppError(w http.ResponseWriter, err error) {
 	appErr, ok := err.(*AppErr)
 	if !ok {
-		appErr = &AppErr{Status: http.StatusInternalServerError, Code: CodeInternal, Message: "internal server error"}
+		appErr = &AppErr{Status: http.StatusInternalServerError, Code: CodeInternal, Message: "Terjadi kesalahan. Coba lagi."}
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(appErr.Status)

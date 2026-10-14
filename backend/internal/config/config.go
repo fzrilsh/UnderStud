@@ -1,6 +1,8 @@
 package config
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
 	"os"
 	"strconv"
@@ -55,7 +57,7 @@ func Load() (Config, error) {
 		// memakai 5432 (dan bisa nabrak resolusi localhost→IPv6 ::1).
 		// Port 5433 = port host default container db (lihat project/docker-compose.yml).
 		DatabaseURL: getEnv("DATABASE_URL", "postgres://postgres:postgres@127.0.0.1:5433/hackathon?sslmode=disable"),
-		JWTSecret:   getEnv("JWT_SECRET", "dev-secret-change-me-in-prod"),
+		JWTSecret:   jwtSecret(),
 		CORSOrigins: strings.Split(getEnv("CORS_ORIGINS", "http://localhost:5173,http://localhost:3000"), ","),
 		LogLevel:    getEnv("LOG_LEVEL", "info"),
 		Timezone:    getEnv("TZ", "Asia/Jakarta"),
@@ -102,6 +104,21 @@ func Load() (Config, error) {
 		cfg.CORSOrigins[i] = strings.TrimSpace(cfg.CORSOrigins[i])
 	}
 	return cfg, nil
+}
+
+// jwtSecret: pakai JWT_SECRET bila di-set; kalau tidak, generate acak 32 byte.
+// Menghindari secret default yang diketahui publik (audit C1) tanpa melanggar
+// prinsip "zero required env". Token jadi invalid saat restart (dev/demo OK).
+func jwtSecret() string {
+	if v := os.Getenv("JWT_SECRET"); v != "" {
+		return v
+	}
+	buf := make([]byte, 32)
+	if _, err := rand.Read(buf); err != nil {
+		// Sangat jarang; fallback aman: nilai unik per-proses.
+		return fmt.Sprintf("ephemeral-%d", time.Now().UnixNano())
+	}
+	return hex.EncodeToString(buf)
 }
 
 func getEnv(key, fallback string) string {

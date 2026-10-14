@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"errors"
 	"net/http"
 	"strconv"
 
@@ -20,7 +21,11 @@ func NewChatHandlers(chat *service.Chat) *ChatHandlers { return &ChatHandlers{ch
 
 // parseMultipart membaca body + files[] dari multipart.
 func parseMultipart(r *http.Request) (string, []service.UploadFile, error) {
-	if err := r.ParseMultipartForm(32 << 20); err != nil {
+	if err := r.ParseMultipartForm(24 << 20); err != nil {
+		var maxErr *http.MaxBytesError
+		if errors.As(err, &maxErr) {
+			return "", nil, utils.NewErrPayloadTooLarge("Ukuran permintaan melebihi batas.")
+		}
 		return "", nil, utils.NewErrInvalidInput("Gagal membaca form.")
 	}
 	body := r.FormValue("body")

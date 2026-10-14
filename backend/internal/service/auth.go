@@ -63,7 +63,7 @@ func (s *Auth) Login(ctx context.Context, in LoginInput) (LoginResult, error) {
 	}
 	token, err := s.tm.MakeClaims(u.ID.String(), u.Role, kelas)
 	if err != nil {
-		return LoginResult{}, utils.NewErrInternal("failed to issue token")
+		return LoginResult{}, utils.NewErrInternal("Gagal membuat sesi. Coba lagi.")
 	}
 	return LoginResult{User: toPublicUser(u), Token: token, Role: u.Role, Kelas: kelas}, nil
 }
@@ -71,11 +71,11 @@ func (s *Auth) Login(ctx context.Context, in LoginInput) (LoginResult, error) {
 func (s *Auth) Me(ctx context.Context, userID string) (User, error) {
 	id, err := uuid.Parse(userID)
 	if err != nil {
-		return User{}, utils.NewErrUnauthorized("invalid user id in token")
+		return User{}, utils.NewErrUnauthorized("Sesi tidak valid. Silakan masuk kembali.")
 	}
 	u, err := s.queries.GetUserByID(ctx, id)
 	if err != nil {
-		return User{}, utils.NewErrNotFound("user not found")
+		return User{}, utils.NewErrUnauthorized("Sesi tidak valid. Silakan masuk kembali.")
 	}
 	return toPublicUser(u), nil
 }

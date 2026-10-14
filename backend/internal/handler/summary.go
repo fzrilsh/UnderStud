@@ -83,8 +83,7 @@ func (h *SummaryHandlers) Export(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", file.ContentType)
-	w.Header().Set("Content-Disposition", `attachment; filename="`+file.Filename+`"`)
-	w.Header().Set("X-Content-Type-Options", "nosniff")
+	attachmentHeader(w, file.Filename)
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write(file.Data)
 }

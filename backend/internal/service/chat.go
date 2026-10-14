@@ -88,6 +88,11 @@ func (c *Chat) checkGeo(lat, lng, accuracy float64) error {
 	if !c.cfg.GeoFenceEnabled {
 		return nil
 	}
+	// M6: tolak koordinat non-finite (NaN/Inf) — kalau tidak, cek rentang lolos
+	// (semua perbandingan NaN = false) sehingga geofence bisa di-bypass.
+	if !geo.ValidCoord(lat, lng) {
+		return utils.NewErrLocationUnavailable("Aktifkan izin lokasi untuk mengirim laporan.")
+	}
 	if lat == 0 && lng == 0 {
 		return utils.NewErrLocationUnavailable("Aktifkan izin lokasi untuk mengirim laporan.")
 	}
@@ -156,9 +161,21 @@ func (c *Chat) Create(ctx context.Context, session db.AnonSession, in CreateChat
 
 // saveFiles memvalidasi & menyimpan; mengembalikan daftar file tersimpan.
 func (c *Chat) saveFiles(files []UploadFile) ([]storage.SavedFile, error) {
+	// M10: >3 file = payload terlalu besar (413), bukan INVALID_INPUT.
 	if len(files) > 3 {
-		return nil, utils.NewErrInvalidInput("Maksimal 3 file per pesan.")
+		return nil, utils.NewErrPayloadTooLarge("Maksimal 3 file per pesan.")
 	}
+	// M10: cek total SEBELUM menulis ke disk — cegah file orphan saat total
+	// melebihi batas (input bytes = batas atas konservatif).
+	maxTotal := c.cfg.MaxUploadTotalMB * 1024 * 1024
+	preTotal := 0
+	for _, f := range files {
+		preTotal += len(f.Data)
+	}
+	if preTotal > maxTotal {
+		return nil, utils.NewErrPayloadTooLarge("Total lampiran maksimal 20 MB per pesan.")
+	}
+
 	total := 0
 	var out []storage.SavedFile
 	for _, f := range files {
@@ -170,10 +187,10 @@ func (c *Chat) saveFiles(files []UploadFile) ([]storage.SavedFile, error) {
 			if errors.Is(err, storage.ErrTooLarge) {
 				return nil, utils.NewErrPayloadTooLarge("File maksimal 10 MB.")
 			}
-			return nil, utils.NewErrInternal("gagal menyimpan file")
+			return nil, utils.NewErrInternal("Gagal menyimpan file. Coba lagi.")
 		}
 		total += sf.Size
-		if total > c.cfg.MaxUploadTotalMB*1024*1024 {
+		if total > maxTotal {
 			return nil, utils.NewErrPayloadTooLarge("Total lampiran maksimal 20 MB per pesan.")
 		}
 		out = append(out, sf)

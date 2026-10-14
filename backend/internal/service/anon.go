@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"errors"
 	"strings"
 
 	"backend/internal/db"
@@ -10,7 +9,8 @@ import (
 )
 
 // ErrAnonUnavailable: sesi anonim gagal dibuat (DB error).
-var ErrAnonUnavailable = errors.New("sesi anonim tidak tersedia")
+// AppErr supaya pesan/kode konsisten (audit M9) — bukan 500 generik.
+var ErrAnonUnavailable = utils.NewErrInternal("Sesi anonim tidak tersedia. Coba lagi.")
 
 type Anon struct {
 	queries *db.Queries

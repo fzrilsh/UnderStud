@@ -24,6 +24,10 @@ var (
 // MaxFileBytes adalah batas ukuran per file (spec §8: 10 MB).
 const MaxFileBytes = 10 * 1024 * 1024
 
+// MaxImagePixels = batas total piksel gambar (audit H3): 25 MP. Mencegah
+// decompression bomb (header kecil, dimensi raksasa → alokasi memori besar).
+const MaxImagePixels = 25_000_000
+
 type SavedFile struct {
 	StoredPath   string // nama file relatif ke dir
 	OriginalName string // nama file asli dari klien (untuk Content-Disposition)
@@ -55,6 +59,15 @@ func (s *Store) SaveOne(data []byte, originalName string) (SavedFile, error) {
 
 	switch kind {
 	case kindJPEG, kindPNG, kindGIF, kindWebP:
+		// H3: batasi dimensi SEBELUM decode — cegah "decompression bomb"
+		// (header kecil tapi dimensi raksasa → alokasi multi-GB → OOM).
+		cfg, _, err := image.DecodeConfig(bytes.NewReader(data))
+		if err != nil {
+			return SavedFile{}, ErrUnsupportedMedia
+		}
+		if cfg.Width <= 0 || cfg.Height <= 0 || int64(cfg.Width)*int64(cfg.Height) > MaxImagePixels {
+			return SavedFile{}, ErrUnsupportedMedia
+		}
 		img, _, err := image.Decode(bytes.NewReader(data))
 		if err != nil {
 			return SavedFile{}, ErrUnsupportedMedia
@@ -125,7 +138,7 @@ func detectKind(b []byte) kind {
 		return kindWebP
 	case len(b) >= 5 && bytes.Equal(b[:5], []byte("%PDF-")):
 		return kindPDF
-	case isProbablyText(b):
+	case isProbablyText(b) && !looksLikeMarkup(b):
 		return kindTXT
 	}
 	return kindUnknown
@@ -136,16 +149,35 @@ func isProbablyText(b []byte) bool {
 	if len(b) == 0 {
 		return false
 	}
-	n := len(b)
-	if n > 512 {
-		n = 512
-	}
+	n := min(len(b), 512)
 	for i := 0; i < n; i++ {
 		if b[i] == 0 {
 			return false
 		}
 	}
 	return true
+}
+
+// looksLikeMarkup menolak SVG/HTML/XML (audit M8) — spec memblokir eksplisit
+// SVG/HTML/JS. Deteksi: setelah spasi/BOM opsional, dokumen diawali '<'
+// diikuti huruf/!/? (ciri dokumen markup). Teks biasa jarang diawali '<'.
+func looksLikeMarkup(b []byte) bool {
+	i := 0
+	// lewati BOM UTF-8 & spasi/baris kosong di awal
+	for i < len(b) && (b[i] == ' ' || b[i] == '\t' || b[i] == '\n' || b[i] == '\r') {
+		i++
+	}
+	if len(b) >= 3 && bytes.Equal(b[:3], []byte{0xEF, 0xBB, 0xBF}) {
+		i = 3
+		for i < len(b) && (b[i] == ' ' || b[i] == '\t' || b[i] == '\n' || b[i] == '\r') {
+			i++
+		}
+	}
+	if i >= len(b) || b[i] != '<' || i+1 >= len(b) {
+		return false
+	}
+	c := b[i+1]
+	return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '!' || c == '?'
 }
 
 // Describe dipakai untuk pesan error yang lebih jelas (opsional).

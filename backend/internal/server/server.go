@@ -27,7 +27,7 @@ func New(cfg config.Config, logger *slog.Logger, pool *pgxpool.Pool) http.Handle
 	queries := db.New(pool)
 	tm := tokens.New(cfg.JWTSecret, cfg.StaffTokenTTL)
 	authSvc := service.NewAuth(queries, tm)
-	authHandler := handler.NewAuthHandlers(authSvc, cfg.StaffTokenTTL)
+	authHandler := handler.NewAuthHandlers(authSvc, cfg.StaffTokenTTL, cfg.CookieSecure)
 
 	anonSvc := service.NewAnon(queries)
 	anonHandler := handler.NewAnonHandlers(anonSvc)
@@ -62,6 +62,14 @@ func New(cfg config.Config, logger *slog.Logger, pool *pgxpool.Pool) http.Handle
 	r.Use(chimw.RequestID)
 	r.Use(middleware.Logger(logger))
 	r.Use(chimw.Recoverer)
+	// H4: batasi ukuran body request (cegah OOM/DoS tanpa auth). Lampiran chat
+	// maks 20 MB total + overhead multipart → 25 MB cukup; JSON jauh di bawah.
+	r.Use(func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+			req.Body = http.MaxBytesReader(w, req.Body, 25<<20)
+			next.ServeHTTP(w, req)
+		})
+	})
 	r.Use(cors.Handler(cors.Options{
 		AllowedOrigins:   cfg.CORSOrigins,
 		AllowedMethods:   []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},

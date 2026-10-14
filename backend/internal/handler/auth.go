@@ -12,12 +12,13 @@ const cookieName = "auth_token"
 
 // AuthHandlers exposes auth endpoints. Cookie written on register/login; cleared on logout.
 type AuthHandlers struct {
-	auth     *service.Auth
-	tokenTTL time.Duration
+	auth         *service.Auth
+	tokenTTL     time.Duration
+	cookieSecure bool
 }
 
-func NewAuthHandlers(auth *service.Auth, tokenTTL time.Duration) *AuthHandlers {
-	return &AuthHandlers{auth: auth, tokenTTL: tokenTTL}
+func NewAuthHandlers(auth *service.Auth, tokenTTL time.Duration, cookieSecure bool) *AuthHandlers {
+	return &AuthHandlers{auth: auth, tokenTTL: tokenTTL, cookieSecure: cookieSecure}
 }
 
 // Login handles POST /api/v1/auth/login.
@@ -46,6 +47,7 @@ func (h *AuthHandlers) Logout(w http.ResponseWriter, r *http.Request) {
 		MaxAge:   -1,
 		HttpOnly: true,
 		SameSite: http.SameSiteLaxMode,
+		Secure:   h.cookieSecure,
 	})
 	OK(w, map[string]any{"ok": true})
 }
@@ -69,5 +71,6 @@ func (h *AuthHandlers) setAuthCookie(w http.ResponseWriter, token string) {
 		MaxAge:   int(h.tokenTTL.Seconds()),
 		HttpOnly: true,
 		SameSite: http.SameSiteLaxMode,
+		Secure:   h.cookieSecure, // M5: hormati COOKIE_SECURE
 	})
 }

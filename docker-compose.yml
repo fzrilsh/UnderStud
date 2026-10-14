@@ -29,7 +29,8 @@ services:
     environment:
       DATABASE_URL: postgres://postgres:postgres@db:5432/hackathon?sslmode=disable
       PORT: "8080"
-      JWT_SECRET: dev-secret-change-me-in-prod
+      # JWT_SECRET sengaja TIDAK di-set: server generate acak saat start (audit C1).
+      # Produksi: set JWT_SECRET kuat via env VPS.
       # TTL token (spec §5): staf 1 minggu, siswa anonim 10 tahun.
       STAFF_TOKEN_TTL: 168h
       ANON_TOKEN_TTL: 87600h

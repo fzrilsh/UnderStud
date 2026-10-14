@@ -56,7 +56,6 @@ func (h *AttachmentHandlers) Serve(w http.ResponseWriter, r *http.Request) {
 	defer f.Close()
 
 	w.Header().Set("Content-Type", meta.Mime)
-	w.Header().Set("Content-Disposition", `attachment; filename="`+meta.OriginalName+`"`)
-	w.Header().Set("X-Content-Type-Options", "nosniff")
+	attachmentHeader(w, meta.OriginalName)
 	http.ServeContent(w, r, meta.OriginalName, time.Time{}, f)
 }

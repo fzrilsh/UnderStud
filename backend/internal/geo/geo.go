@@ -19,7 +19,11 @@ func WithinRadius(lat, lng, centerLat, centerLng float64, radiusM int) bool {
 	return DistanceM(lat, lng, centerLat, centerLng) <= float64(radiusM)
 }
 
-// ValidCoord memvalidasi rentang koordinat.
+// ValidCoord memvalidasi rentang koordinat. Menolak NaN/Inf (audit M6):
+// perbandingan dengan NaN selalu false sehingga bisa lolos cek rentang.
 func ValidCoord(lat, lng float64) bool {
+	if math.IsNaN(lat) || math.IsInf(lat, 0) || math.IsNaN(lng) || math.IsInf(lng, 0) {
+		return false
+	}
 	return lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180
 }

@@ -384,8 +384,7 @@ func (h *StudentHandlers) ImportTemplate(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	w.Header().Set("Content-Type", ct)
-	w.Header().Set("Content-Disposition", `attachment; filename="`+fn+`"`)
-	w.Header().Set("X-Content-Type-Options", "nosniff")
+	attachmentHeader(w, fn)
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write(data)
 }
