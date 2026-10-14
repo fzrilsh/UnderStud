@@ -345,21 +345,21 @@ func (h *StudentHandlers) ImportPreview(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	if err := r.ParseMultipartForm(4 << 20); err != nil {
-		Error(w, utils.NewErrInvalidInput("Gagal membaca file CSV."))
+		Error(w, utils.NewErrInvalidInput("Gagal membaca file."))
 		return
 	}
-	f, _, err := r.FormFile("file")
+	f, fh, err := r.FormFile("file")
 	if err != nil {
-		Error(w, utils.NewErrInvalidInput("File CSV wajib diunggah."))
+		Error(w, utils.NewErrInvalidInput("File leger wajib diunggah."))
 		return
 	}
 	defer f.Close()
 	data, err := io.ReadAll(io.LimitReader(f, 3<<20))
 	if err != nil {
-		Error(w, utils.NewErrInvalidInput("Gagal membaca file CSV."))
+		Error(w, utils.NewErrInvalidInput("Gagal membaca file."))
 		return
 	}
-	prev, err := h.imports.Preview(r.Context(), actor, data)
+	prev, err := h.imports.Preview(r.Context(), actor, fh.Filename, data)
 	if err != nil {
 		Error(w, err)
 		return

@@ -1,11 +1,9 @@
 package service
 
 import (
+	"bytes"
 	"context"
-	"encoding/csv"
 	"encoding/json"
-	"io"
-	"strconv"
 	"strings"
 	"time"
 
@@ -13,11 +11,12 @@ import (
 
 	"backend/internal/ai"
 	"backend/internal/db"
+	"backend/internal/leger"
 	"backend/internal/middleware"
 	"backend/internal/utils"
 )
 
-const maxImportBytes = 2 * 1024 * 1024 // 2 MB (spec §10.1)
+const maxImportBytes = 2 * 1024 * 1024 // 2 MB (spec §10.5)
 const previewTTL = 10 * time.Minute     // spec §10.3.1
 
 type Importer struct {
@@ -34,6 +33,9 @@ type ImportRow struct {
 	Nama  string      `json:"nama"`
 	Kelas string      `json:"kelas"`
 	Nilai []EraporRow `json:"nilai_erapor"`
+	Sakit int         `json:"sakit"`
+	Izin  int         `json:"izin"`
+	Alpa  int         `json:"alpa"`
 }
 
 type ImportError struct {
@@ -63,115 +65,95 @@ type ImportResult struct {
 	Errors  int `json:"errors"`
 }
 
-// parseCSV: parse + validasi + grup per NIS. scopeKelas = kelas Wali Kelas.
-func parseCSV(data []byte, scopeKelas string) ([]ImportRow, []ImportError) {
-	r := csv.NewReader(strings.NewReader(string(data)))
-	r.FieldsPerRecord = -1
-	header, err := r.Read()
-	if err != nil {
-		return nil, []ImportError{{Baris: 1, Pesan: "File CSV kosong atau tidak valid."}}
+// detectFormat: dari ekstensi, fallback magic bytes (zip = xlsx).
+func detectFormat(filename string, head []byte) string {
+	lower := strings.ToLower(strings.TrimSpace(filename))
+	switch {
+	case strings.HasSuffix(lower, ".xlsx"):
+		return "xlsx"
+	case strings.HasSuffix(lower, ".csv"):
+		return "csv"
 	}
-	idx := map[string]int{}
-	for i, h := range header {
-		idx[strings.ToLower(strings.TrimSpace(h))] = i
+	if len(head) >= 4 && head[0] == 'P' && head[1] == 'K' && head[2] == 0x03 && head[3] == 0x04 {
+		return "xlsx"
 	}
-	for _, need := range []string{"nis", "nama", "kelas"} {
-		if _, ok := idx[need]; !ok {
-			return nil, []ImportError{{Baris: 1, Pesan: "Kolom wajib tidak ditemukan: " + need}}
-		}
-	}
-
-	type acc struct {
-		row  ImportRow
-		line int
-	}
-	byNIS := map[string]*acc{}
-	var order []string
-	var errs []ImportError
-
-	line := 1
-	for {
-		rec, err := r.Read()
-		if err == io.EOF {
-			break
-		}
-		line++
-		if err != nil {
-			errs = append(errs, ImportError{Baris: line, Pesan: "Baris tidak dapat dibaca."})
-			continue
-		}
-		get := func(key string) string {
-			if i, ok := idx[key]; ok && i < len(rec) {
-				return strings.TrimSpace(rec[i])
-			}
-			return ""
-		}
-		nis := get("nis")
-		nama := get("nama")
-		kelas := get("kelas")
-		if err := validateNISN(nis); err != nil {
-			errs = append(errs, ImportError{Baris: line, NISN: nis, Pesan: "NIS tidak valid (1–30 karakter alfanumerik)."})
-			continue
-		}
-		if nama == "" {
-			errs = append(errs, ImportError{Baris: line, NISN: nis, Pesan: "Nama wajib diisi."})
-			continue
-		}
-		if kelas != scopeKelas {
-			errs = append(errs, ImportError{Baris: line, NISN: nis, Pesan: "Kelas " + kelas + " di luar cakupanmu (" + scopeKelas + ")."})
-			continue
-		}
-		a, ok := byNIS[nis]
-		if !ok {
-			a = &acc{row: ImportRow{NISN: nis, Nama: nama, Kelas: kelas, Nilai: []EraporRow{}}, line: line}
-			byNIS[nis] = a
-			order = append(order, nis)
-		}
-		mapel := get("mapel")
-		if mapel != "" {
-			nilaiStr := get("nilai")
-			nilai, err := strconv.ParseFloat(nilaiStr, 64)
-			if err != nil || nilai < 0 || nilai > 100 {
-				errs = append(errs, ImportError{Baris: line, NISN: nis, Pesan: "Nilai tidak valid (0–100)."})
-				continue
-			}
-			a.row.Nilai = append(a.row.Nilai, EraporRow{Mapel: mapel, Nilai: nilai, Periode: get("periode")})
-		}
-	}
-
-	rows := make([]ImportRow, 0, len(order))
-	for _, nis := range order {
-		rows = append(rows, byNIS[nis].row)
-	}
-	return rows, errs
+	return ""
 }
 
-func (i *Importer) Preview(ctx context.Context, actor Actor, data []byte) (ImportPreview, error) {
+// toGrid: baca bytes jadi leger.Grid sesuai format.
+func toGrid(format string, data []byte) (leger.Grid, error) {
+	switch format {
+	case "xlsx":
+		return leger.GridFromXLSX(bytes.NewReader(data))
+	case "csv":
+		return leger.GridFromCSV(bytes.NewReader(data))
+	}
+	return leger.Grid{}, utils.NewErrUnsupportedMedia("Hanya file .xlsx atau .csv.")
+}
+
+func (i *Importer) Preview(ctx context.Context, actor Actor, filename string, data []byte) (ImportPreview, error) {
 	if actor.Role != middleware.RoleWaliKelas {
 		return ImportPreview{}, utils.NewErrForbidden("Hanya Wali Kelas yang bisa mengimpor data siswa.")
 	}
 	if len(data) == 0 {
-		return ImportPreview{}, utils.NewErrInvalidInput("File CSV kosong.")
+		return ImportPreview{}, utils.NewErrInvalidInput("File kosong.")
 	}
 	if len(data) > maxImportBytes {
-		return ImportPreview{}, utils.NewErrPayloadTooLarge("File CSV maksimal 2 MB.")
+		return ImportPreview{}, utils.NewErrPayloadTooLarge("File maksimal 2 MB.")
 	}
-	rows, errs := parseCSV(data, actor.Kelas)
+	format := detectFormat(filename, data)
+	if format == "" {
+		return ImportPreview{}, utils.NewErrUnsupportedMedia("Hanya file .xlsx atau .csv.")
+	}
+	grid, err := toGrid(format, data)
+	if err != nil {
+		return ImportPreview{}, utils.NewErrInvalidInput("File tidak dapat dibaca: " + err.Error())
+	}
+	lg, err := leger.Parse(grid)
+	if err != nil {
+		return ImportPreview{}, utils.NewErrInvalidInput(err.Error())
+	}
+
+	// Kelas metadata file harus cocok kelas Wali Kelas (spec §10.3).
+	if lg.Kelas == "" {
+		return ImportPreview{}, utils.NewErrInvalidInput("Kelas tidak terbaca dari file leger.")
+	}
+	if lg.Kelas != actor.Kelas {
+		return ImportPreview{}, utils.NewErrInvalidInput("File untuk kelas " + lg.Kelas + ", kamu Wali Kelas " + actor.Kelas + ".")
+	}
 
 	var baru, upd []ImportRow
-	for _, row := range rows {
-		nisn := row.NISN
+	var errs []ImportError
+	for idx, r := range lg.Rows {
+		line := idx + 1
+		if err := validateNISN(r.NISN); err != nil {
+			errs = append(errs, ImportError{Baris: line, NISN: r.NISN, Pesan: "NISN tidak valid (4–20 digit)."})
+			continue
+		}
+		if strings.TrimSpace(r.Nama) == "" {
+			errs = append(errs, ImportError{Baris: line, NISN: r.NISN, Pesan: "Nama wajib diisi."})
+			continue
+		}
+		row := ImportRow{
+			NISN: r.NISN, Nama: r.Nama, Kelas: actor.Kelas,
+			Nilai: make([]EraporRow, 0, len(r.Nilai)),
+			Sakit: r.Sakit, Izin: r.Izin, Alpa: r.Alpa,
+		}
+		for _, n := range r.Nilai {
+			row.Nilai = append(row.Nilai, EraporRow{Mapel: n.Mapel, Nilai: n.Nilai, Periode: lg.Periode})
+		}
+		nisn := r.NISN
 		existing, err := i.queries.GetStudentByNISN(ctx, &nisn)
 		if err != nil {
 			baru = append(baru, row)
 			continue
 		}
 		if existing.ArchivedAt != nil {
-			errs = append(errs, ImportError{NISN: nisn, Pesan: "NISN " + nisn + " ada di data arsip. Pulihkan siswa dulu."})
+			errs = append(errs, ImportError{Baris: line, NISN: r.NISN, Pesan: "NISN " + r.NISN + " ada di data arsip. Pulihkan siswa dulu."})
 			continue
 		}
 		if existing.Kelas != actor.Kelas {
-			errs = append(errs, ImportError{NISN: nisn, Pesan: "NISN " + nisn + " terdaftar di kelas " + existing.Kelas + ", file menyebut " + actor.Kelas + "."})
+			errs = append(errs, ImportError{Baris: line, NISN: r.NISN, Pesan: "NISN " + r.NISN + " terdaftar di kelas " + existing.Kelas + ", file menyebut " + actor.Kelas + "."})
 			continue
 		}
 		upd = append(upd, row)
@@ -229,7 +211,7 @@ func (i *Importer) Commit(ctx context.Context, actor Actor, token string) (Impor
 			continue
 		}
 		_ = i.queries.CreateStudentProfileEmpty(ctx, st.ID)
-		if err := i.writeErapor(ctx, actor, st.ID, row.Nilai); err != nil {
+		if err := i.writeProfile(ctx, actor, st.ID, row); err != nil {
 			return ImportResult{}, err
 		}
 		res.Created++
@@ -241,7 +223,7 @@ func (i *Importer) Commit(ctx context.Context, actor Actor, token string) (Impor
 		if err != nil {
 			continue
 		}
-		if err := i.writeErapor(ctx, actor, st.ID, row.Nilai); err != nil {
+		if err := i.writeProfile(ctx, actor, st.ID, row); err != nil {
 			return ImportResult{}, err
 		}
 		res.Updated++
@@ -250,8 +232,9 @@ func (i *Importer) Commit(ctx context.Context, actor Actor, token string) (Impor
 	return res, nil
 }
 
-// writeErapor: gabung nilai baru ke profil (tanpa menghapus mapel lain).
-func (i *Importer) writeErapor(ctx context.Context, actor Actor, studentID uuid.UUID, nilai []EraporRow) error {
+// writeProfile: gabung nilai baru ke nilai_erapor (tak hapus mapel lain) +
+// timpa absensi. Spec §10.3.
+func (i *Importer) writeProfile(ctx context.Context, actor Actor, studentID uuid.UUID, row ImportRow) error {
 	prof, err := i.queries.GetStudentProfile(ctx, studentID)
 	if err != nil {
 		return utils.NewErrInternal("gagal memuat profil")
@@ -268,7 +251,7 @@ func (i *Importer) writeErapor(ctx context.Context, actor Actor, studentID uuid.
 			}
 		}
 	}
-	for _, n := range nilai {
+	for _, n := range row.Nilai {
 		key := n.Mapel + "|" + n.Periode
 		if _, ok := merged[key]; !ok {
 			order = append(order, key)
@@ -283,6 +266,9 @@ func (i *Importer) writeErapor(ctx context.Context, actor Actor, studentID uuid.
 	_, err = i.queries.UpsertStudentProfile(ctx, db.UpsertStudentProfileParams{
 		StudentID:            studentID,
 		NilaiErapor:          nilaiJSON,
+		Sakit:                int32(row.Sakit),
+		Izin:                 int32(row.Izin),
+		Alpa:                 int32(row.Alpa),
 		MinatBakat:           prof.MinatBakat,
 		TanggalLahir:         prof.TanggalLahir,
 		CatatanPsikologis:    prof.CatatanPsikologis,
@@ -292,7 +278,7 @@ func (i *Importer) writeErapor(ctx context.Context, actor Actor, studentID uuid.
 		UpdatedBy:            &actor.UserID,
 	})
 	if err != nil {
-		return utils.NewErrInternal("gagal menyimpan nilai e-rapor")
+		return utils.NewErrInternal("gagal menyimpan profil")
 	}
 	return nil
 }
