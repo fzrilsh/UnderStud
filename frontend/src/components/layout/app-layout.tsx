@@ -21,7 +21,7 @@ export default function AppLayout() {
         {/* Sidebar */}
         <aside className="hidden w-60 shrink-0 border-r md:block">
           <div className="flex h-14 items-center border-b px-4 font-semibold tracking-tight">
-            Hackathon Starter
+            UnderStud
           </div>
           <nav className="flex flex-col gap-1 p-3">
             {navItems.map((item) => (
@@ -42,7 +42,7 @@ export default function AppLayout() {
         {/* Main */}
         <div className="flex min-w-0 flex-1 flex-col">
           <header className="flex h-14 items-center justify-between border-b px-4">
-            <span className="text-sm text-muted-foreground md:hidden">Hackathon Starter</span>
+            <span className="text-sm text-muted-foreground md:hidden">UnderStud</span>
             <div className="ml-auto flex items-center gap-3">
               <span className="text-sm text-muted-foreground">{user?.name}</span>
               <Button

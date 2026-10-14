@@ -6,7 +6,7 @@ export default function RootLayout() {
       <header className="border-b">
         <div className="mx-auto flex h-14 max-w-5xl items-center justify-between px-4">
           <Link to="/" className="font-semibold tracking-tight">
-            Hackathon Starter
+            UnderStud
           </Link>
           <nav className="flex items-center gap-4 text-sm">
             <Link to="/login" className="text-muted-foreground hover:text-foreground">

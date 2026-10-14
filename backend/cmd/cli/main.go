@@ -40,7 +40,7 @@ func main() {
 }
 
 func usage() {
-	fmt.Fprintln(os.Stderr, `JOINTS CLI
+	fmt.Fprintln(os.Stderr, `UnderStud CLI
 
   create-staff --email E --password P --name N --role BK|WALI_KELAS [--kelas XI-IPA-1]
   deactivate-staff --email E

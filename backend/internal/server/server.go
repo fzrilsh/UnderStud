@@ -54,6 +54,13 @@ func New(cfg config.Config, logger *slog.Logger, pool *pgxpool.Pool) http.Handle
 	observasiSvc := service.NewObservasi(queries, pool)
 
 	aiClient := ai.NewClient(cfg)
+	// Observability: tampilkan status AI saat start supaya operator tahu apakah
+	// ringkasan aktif (AI_API_KEY terisi) atau nonaktif.
+	if aiClient.Configured() {
+		logger.Info("AI ringkasan aktif", "base_url", cfg.AIBaseURL, "model", cfg.AIModel)
+	} else {
+		logger.Info("AI ringkasan nonaktif (AI_API_KEY kosong)")
+	}
 	aiQueue := ai.NewQueue(queries, aiClient, time.Duration(cfg.AIDebounceSeconds)*time.Second, logger)
 	go aiQueue.Start(context.Background())
 

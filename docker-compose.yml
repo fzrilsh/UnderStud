@@ -38,6 +38,22 @@ services:
       TZ: Asia/Jakarta
       # Lampiran chat (spec §8) — persisten via volume `uploads`.
       UPLOAD_DIR: /app/data/uploads
+      # AI (OpenAI-compatible) — dibaca dari file `.env` di folder ini (compose
+      # otomatis memuat `.env` untuk interpolasi ${...}) atau dari env shell.
+      # Kosong = fitur ringkasan AI nonaktif (backend tetap jalan normal).
+      AI_BASE_URL: ${AI_BASE_URL:-http://localhost:11434/v1}
+      AI_API_KEY: ${AI_API_KEY:-}
+      AI_MODEL: ${AI_MODEL:-gpt-4o-mini}
+      AI_DEBOUNCE_SECONDS: ${AI_DEBOUNCE_SECONDS:-5}
+      # Rate limit / geofence (opsional; default sudah aman)
+      GEO_FENCE_ENABLED: ${GEO_FENCE_ENABLED:-false}
+      SCHOOL_LAT: ${SCHOOL_LAT:-}
+      SCHOOL_LNG: ${SCHOOL_LNG:-}
+      SCHOOL_RADIUS_M: ${SCHOOL_RADIUS_M:-200}
+    # Agar container bisa menjangkau AI provider di HOST (mis. http://host.docker.internal:20128/v1).
+    # host-gateway berfungsi di Linux & Docker Desktop (macOS/Windows).
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     ports:
       # Override bila 8080 sudah dipakai: `API_PORT=8081 docker-compose up -d`
       - "${API_PORT:-8080}:8080"

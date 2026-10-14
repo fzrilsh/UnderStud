@@ -1,4 +1,4 @@
-# Hackathon Starter — React Frontend
+# UnderStud — React Frontend
 
 React 19 + TypeScript + Vite + TanStack Query + zustand + shadcn/Tailwind v4.
 Auth via httpOnly cookie (dikirim backend) — tidak ada token di JS.

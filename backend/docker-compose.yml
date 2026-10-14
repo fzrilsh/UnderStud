@@ -23,6 +23,12 @@ services:
       # JWT_SECRET TIDAK di-set: server generate acak (audit C1/NV-3).
       STAFF_TOKEN_TTL: 168h
       ANON_TOKEN_TTL: 87600h
+      # AI (OpenAI-compatible) — dari file `.env` di folder ini atau env shell.
+      # Kosong = ringkasan AI nonaktif (backend tetap jalan).
+      AI_BASE_URL: ${AI_BASE_URL:-http://localhost:11434/v1}
+      AI_API_KEY: ${AI_API_KEY:-}
+      AI_MODEL: ${AI_MODEL:-gpt-4o-mini}
+      AI_DEBOUNCE_SECONDS: ${AI_DEBOUNCE_SECONDS:-5}
     ports:
       - "8080:8080"
     depends_on:

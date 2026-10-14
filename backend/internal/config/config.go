@@ -8,6 +8,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/joho/godotenv"
 )
 
 // Config holds all runtime configuration. Every field has a default so that
@@ -56,7 +58,11 @@ type Config struct {
 }
 
 // Load reads configuration from environment variables with sane defaults.
+// Sebelum membaca, ia memuat file .env (bila ada) — sehingga cukup menaruh
+// AI_BASE_URL/AI_API_KEY/AI_MODEL di .env tanpa export manual. Env asli
+// (docker/VPS) menang atas .env karena godotenv tidak menimpa yang sudah ada.
 func Load() (Config, error) {
+	loadDotEnv()
 	cfg := Config{
 		Port: getEnv("PORT", "8080"),
 		// 127.0.0.1 + port 5433: hindari Postgres native di host yang biasanya
@@ -134,6 +140,20 @@ func getEnv(key, fallback string) string {
 		return v
 	}
 	return fallback
+}
+
+// loadDotEnv memuat `.env` dari CWD atau direktori induk (best-effort). Tidak
+// error bila file tak ada (default env tetap jalan). Nilai yang sudah ada di
+// environment TIDAK ditimpa (godotenv.Load semantics) — jadi env produksi/docker
+// selalu menang atas file .env lokal.
+func loadDotEnv() {
+	candidates := []string{".env", "backend/.env", "../.env", "../backend/.env"}
+	for _, p := range candidates {
+		if _, err := os.Stat(p); err == nil {
+			_ = godotenv.Load(p)
+			return
+		}
+	}
 }
 
 func getEnvBool(key string, fallback bool) bool {
