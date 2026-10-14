@@ -98,3 +98,15 @@ func TestParseFixtureFile(t *testing.T) {
 		t.Fatalf("fixture row0: %+v", l.Rows[0])
 	}
 }
+
+// F15: sel absensi raksasa/rusak → 0 (bukan overflow int32 → negatif).
+func TestAtoiSafeOverflow(t *testing.T) {
+	for _, s := range []string{"3000000000", "9999999999999999999999999999", "12a", "-5"} {
+		if got := atoiSafe(s); got != 0 {
+			t.Errorf("atoiSafe(%q)=%d, want 0", s, got)
+		}
+	}
+	if got := atoiSafe("12"); got != 12 {
+		t.Errorf("atoiSafe(12)=%d, want 12", got)
+	}
+}

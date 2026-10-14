@@ -1,6 +1,9 @@
 package middleware
 
 import (
+	"net"
+	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -10,6 +13,9 @@ import (
 type RatelimitConfig struct {
 	ChatsPerHour    int
 	MessagesPerHour int
+	// SessionsPerHour: batas pembuatan sesi anonim BARU per-IP (NV-2). Mencegah
+	// spammer membuang cookie → sesi tak terbatas. Default 60.
+	SessionsPerHour int
 	// IPMultiplier: batas per-IP = batas per-sesi × ini (IP dipakai bersama
 	// banyak siswa via NAT sekolah → jauh lebih longgar). Default 20.
 	IPMultiplier int
@@ -147,6 +153,58 @@ func (rl *RateLimiter) CheckMessage(sessionID, ip string) error {
 		return utils.NewErrRateLimited("Terlalu banyak permintaan. Coba lagi nanti.")
 	}
 	return nil
+}
+
+// AllowAnonSession menolak bila pembuatan sesi anonim baru per-IP melewati batas
+// (NV-2). Dipanggil middleware ResolveAnon SEBELUM membuat sesi baru.
+func (rl *RateLimiter) AllowAnonSession(ip string) bool {
+	limit := rl.cfg.SessionsPerHour
+	if limit < 1 {
+		limit = 60
+	}
+	key := "newsess:" + ip
+	rl.mu.Lock()
+	defer rl.mu.Unlock()
+	now := time.Now()
+	cutoff := now.Add(-time.Hour)
+	e, ok := rl.entries[key]
+	if !ok {
+		e = &rateEntry{}
+		rl.entries[key] = e
+	}
+	kept := e.timestamps[:0]
+	for _, ts := range e.timestamps {
+		if ts.After(cutoff) {
+			kept = append(kept, ts)
+		}
+	}
+	e.timestamps = kept
+	if len(e.timestamps) >= limit {
+		return false
+	}
+	e.timestamps = append(e.timestamps, now)
+	rl.evictLocked(cutoff)
+	return true
+}
+
+// ClientIP mengambil IP klien dari request. Bila trustProxyHeaders aktif
+// (API di belakang proxy tepercaya), pakai X-Real-IP/X-Forwarded-For.
+func ClientIP(r *http.Request, trustProxyHeaders bool) string {
+	if trustProxyHeaders {
+		if ip := strings.TrimSpace(r.Header.Get("X-Real-IP")); ip != "" {
+			return ip
+		}
+		if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
+			if first := strings.TrimSpace(strings.Split(xff, ",")[0]); first != "" {
+				return first
+			}
+		}
+	}
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		return r.RemoteAddr
+	}
+	return host
 }
 
 func (rl *RateLimiter) ipMultiplier() int {

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgxpool"
 
 	"backend/internal/ai"
 	"backend/internal/db"
@@ -17,15 +18,16 @@ import (
 )
 
 const maxImportBytes = 2 * 1024 * 1024 // 2 MB (spec §10.5)
-const previewTTL = 10 * time.Minute     // spec §10.3.1
+const previewTTL = 10 * time.Minute    // spec §10.3.1
 
 type Importer struct {
 	queries *db.Queries
+	pool    *pgxpool.Pool
 	queue   *ai.Queue
 }
 
-func NewImporter(q *db.Queries, queue *ai.Queue) *Importer {
-	return &Importer{queries: q, queue: queue}
+func NewImporter(q *db.Queries, pool *pgxpool.Pool, queue *ai.Queue) *Importer {
+	return &Importer{queries: q, pool: pool, queue: queue}
 }
 
 type ImportRow struct {
@@ -136,6 +138,20 @@ func (i *Importer) Preview(ctx context.Context, actor Actor, filename string, da
 			errs = append(errs, ImportError{Baris: line, NISN: r.NISN, Pesan: "Nama wajib diisi."})
 			continue
 		}
+		// F9: validasi nilai leger seperti SaveProfile (rentang 0–100, mapel tak
+		// kosong). Sel "inf"/"NaN" sudah dibuang parser; ini menangkap nilai di
+		// luar rentang (mis. 9999) yang tadinya tersimpan apa adanya.
+		badNilai := false
+		for _, n := range r.Nilai {
+			if strings.TrimSpace(n.Mapel) == "" || n.Nilai < 0 || n.Nilai > 100 {
+				badNilai = true
+				break
+			}
+		}
+		if badNilai {
+			errs = append(errs, ImportError{Baris: line, NISN: r.NISN, Pesan: "Ada nilai di luar rentang 0–100 atau mapel tanpa nama."})
+			continue
+		}
 		row := ImportRow{
 			NISN: r.NISN, Nama: r.Nama, Kelas: actor.Kelas,
 			Nilai: make([]EraporRow, 0, len(r.Nilai)),
@@ -162,7 +178,12 @@ func (i *Importer) Preview(ctx context.Context, actor Actor, filename string, da
 	}
 
 	token := uuid.NewString()
-	payload, _ := json.Marshal(map[string]any{"baru": baru, "update": upd, "errors": errs})
+	// F24: bersihkan preview kedaluwarsa (yang di-abandon) — best-effort.
+	_ = i.queries.DeleteExpiredImportPreviews(ctx)
+	payload, err := json.Marshal(map[string]any{"baru": baru, "update": upd, "errors": errs})
+	if err != nil {
+		return ImportPreview{}, utils.NewErrInternal("gagal menyusun preview")
+	}
 	if _, err := i.queries.CreateImportPreview(ctx, db.CreateImportPreviewParams{
 		Token: token, CreatedBy: actor.UserID, Payload: payload,
 		ExpiresAt: time.Now().Add(previewTTL),
@@ -189,7 +210,9 @@ func (i *Importer) Commit(ctx context.Context, actor Actor, token string) (Impor
 	if actor.Role != middleware.RoleWaliKelas {
 		return ImportResult{}, utils.NewErrForbidden("Hanya Wali Kelas yang bisa mengimpor data siswa.")
 	}
-	prev, err := i.queries.GetImportPreview(ctx, token)
+	// F7/L8: klaim token ATOMIK (hapus + kembalikan). Commit ganda/paralel
+	// dengan token yang sama → hanya satu yang lolos, sisanya 410.
+	prev, err := i.queries.ClaimImportPreview(ctx, token)
 	if err != nil {
 		return ImportResult{}, utils.NewErrPreviewExpired("Preview kedaluwarsa. Upload ulang file.")
 	}
@@ -204,50 +227,66 @@ func (i *Importer) Commit(ctx context.Context, actor Actor, token string) (Impor
 	if err := json.Unmarshal(prev.Payload, &payload); err != nil {
 		return ImportResult{}, utils.NewErrInternal("payload preview rusak")
 	}
-	// L8: token sekali-pakai — hapus preview setelah dibaca.
-	_ = i.queries.DeleteImportPreview(ctx, token)
 
-	res := ImportResult{Errors: len(payload.Errors)}
-	for _, row := range payload.Baru {
-		nisn := row.NISN
-		st, err := i.queries.CreateStudent(ctx, db.CreateStudentParams{Nisn: &nisn, Name: row.Nama, Kelas: row.Kelas})
-		if err != nil {
-			continue
-		}
-		_ = i.queries.CreateStudentProfileEmpty(ctx, st.ID)
-		if err := i.writeProfile(ctx, actor, st.ID, row); err != nil {
-			return ImportResult{}, err
-		}
-		res.Created++
-		i.queue.Enqueue(st.ID, actor.UserID, "profile_updated")
-	}
-	for _, row := range payload.Update {
-		nisn := row.NISN
-		st, err := i.queries.GetStudentByNISN(ctx, &nisn)
-		if err != nil {
-			continue
-		}
-		// L2: leger bisa membawa nama terbaru → update nama siswa (spec §10.3).
-		if row.Nama != "" && row.Nama != st.Name {
-			if _, err := i.queries.UpdateStudent(ctx, db.UpdateStudentParams{
-				ID: st.ID, Nisn: st.Nisn, Name: row.Nama, Kelas: st.Kelas,
-			}); err != nil {
-				return ImportResult{}, utils.NewErrInternal("gagal memperbarui nama siswa")
+	// F6: seluruh commit dalam SATU transaksi — error di baris mana pun →
+	// rollback penuh (tak ada impor parsial / baris diam-diam hilang).
+	var res ImportResult
+	var enqueueIDs []uuid.UUID
+	err = db.WithTx(ctx, i.pool, func(q *db.Queries) error {
+		res = ImportResult{Errors: len(payload.Errors)}
+		for _, row := range payload.Baru {
+			nisn := row.NISN
+			st, err := q.CreateStudent(ctx, db.CreateStudentParams{Nisn: &nisn, Name: row.Nama, Kelas: row.Kelas})
+			if err != nil {
+				return utils.NewErrInternal("gagal membuat siswa: " + row.NISN)
 			}
+			if err := q.CreateStudentProfileEmpty(ctx, st.ID); err != nil {
+				return utils.NewErrInternal("gagal membuat profil siswa: " + row.NISN)
+			}
+			if err := writeProfileTx(ctx, q, actor, st.ID, row); err != nil {
+				return err
+			}
+			res.Created++
+			enqueueIDs = append(enqueueIDs, st.ID)
 		}
-		if err := i.writeProfile(ctx, actor, st.ID, row); err != nil {
-			return ImportResult{}, err
+		for _, row := range payload.Update {
+			nisn := row.NISN
+			st, err := q.GetStudentByNISN(ctx, &nisn)
+			if err != nil {
+				return utils.NewErrInternal("siswa hilang saat commit: " + row.NISN)
+			}
+			// L2: leger bisa membawa nama terbaru → update nama siswa (spec §10.3).
+			if row.Nama != "" && row.Nama != st.Name {
+				if _, err := q.UpdateStudent(ctx, db.UpdateStudentParams{
+					ID: st.ID, Nisn: st.Nisn, Name: row.Nama, Kelas: st.Kelas,
+				}); err != nil {
+					return utils.NewErrInternal("gagal memperbarui nama siswa: " + row.NISN)
+				}
+			}
+			if err := writeProfileTx(ctx, q, actor, st.ID, row); err != nil {
+				return err
+			}
+			res.Updated++
+			enqueueIDs = append(enqueueIDs, st.ID)
 		}
-		res.Updated++
-		i.queue.Enqueue(st.ID, actor.UserID, "profile_updated")
+		return nil
+	})
+	if err != nil {
+		return ImportResult{}, err
+	}
+	// Enqueue AI hanya setelah commit sukses (biar tak menjadwalkan ringkasan
+	// untuk data yang ternyata di-rollback).
+	for _, id := range enqueueIDs {
+		i.queue.Enqueue(id, actor.UserID, "profile_updated")
 	}
 	return res, nil
 }
 
-// writeProfile: gabung nilai baru ke nilai_erapor (tak hapus mapel lain) +
-// timpa absensi. Spec §10.3.
-func (i *Importer) writeProfile(ctx context.Context, actor Actor, studentID uuid.UUID, row ImportRow) error {
-	prof, err := i.queries.GetStudentProfile(ctx, studentID)
+// writeProfileTx: gabung nilai baru ke nilai_erapor (tak hapus mapel lain) +
+// timpa absensi, di dalam transaksi dengan row-lock (F7: cegah lost update).
+// Spec §10.3.
+func writeProfileTx(ctx context.Context, q *db.Queries, actor Actor, studentID uuid.UUID, row ImportRow) error {
+	prof, err := q.GetStudentProfileForUpdate(ctx, studentID)
 	if err != nil {
 		return utils.NewErrInternal("gagal memuat profil")
 	}
@@ -274,8 +313,11 @@ func (i *Importer) writeProfile(ctx context.Context, actor Actor, studentID uuid
 	for _, k := range order {
 		out = append(out, merged[k])
 	}
-	nilaiJSON, _ := json.Marshal(out)
-	_, err = i.queries.UpsertStudentProfile(ctx, db.UpsertStudentProfileParams{
+	nilaiJSON, err := json.Marshal(out)
+	if err != nil {
+		return utils.NewErrInternal("gagal menyusun nilai e-rapor")
+	}
+	if _, err := q.UpsertStudentProfile(ctx, db.UpsertStudentProfileParams{
 		StudentID:            studentID,
 		NilaiErapor:          nilaiJSON,
 		Sakit:                int32(row.Sakit),
@@ -288,8 +330,7 @@ func (i *Importer) writeProfile(ctx context.Context, actor Actor, studentID uuid
 		MasukanBk:            prof.MasukanBk,
 		PendapatWaliKelas:    prof.PendapatWaliKelas,
 		UpdatedBy:            &actor.UserID,
-	})
-	if err != nil {
+	}); err != nil {
 		return utils.NewErrInternal("gagal menyimpan profil")
 	}
 	return nil

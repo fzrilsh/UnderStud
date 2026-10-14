@@ -4,6 +4,7 @@ import (
 	"encoding/csv"
 	"fmt"
 	"io"
+	"math"
 	"strconv"
 	"strings"
 
@@ -69,13 +70,15 @@ func allEmpty(rec []string) bool {
 }
 
 // parseNilai: "85" atau "85.5" → 85.0; bukan angka → (0,false).
+// F16: tolak nilai non-finite ("inf"/"NaN") — sel rusak tak boleh lolos ke
+// payload (json.Marshal menolak Inf/NaN → payload NULL → preview 500).
 func parseNilai(s string) (float64, bool) {
 	s = strings.TrimSpace(s)
 	if s == "" {
 		return 0, false
 	}
 	v, err := strconv.ParseFloat(strings.ReplaceAll(s, ",", "."), 64)
-	if err != nil {
+	if err != nil || math.IsNaN(v) || math.IsInf(v, 0) {
 		return 0, false
 	}
 	return v, true

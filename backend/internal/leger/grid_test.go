@@ -24,3 +24,15 @@ func TestGridFromCSVSkipsBlankLines(t *testing.T) {
 		t.Fatalf("want 2 rows, got %d", len(g.Rows))
 	}
 }
+
+// F16: nilai non-finite ("inf"/"NaN") harus ditolak, bukan lolos (→ payload NULL).
+func TestParseNilaiRejectsNonFinite(t *testing.T) {
+	for _, s := range []string{"inf", "Inf", "NaN", "-inf", "+Inf"} {
+		if _, ok := parseNilai(s); ok {
+			t.Errorf("parseNilai(%q) harus false", s)
+		}
+	}
+	if v, ok := parseNilai("85.5"); !ok || v != 85.5 {
+		t.Errorf("parseNilai(85.5)=%v,%v", v, ok)
+	}
+}

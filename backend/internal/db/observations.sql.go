@@ -214,10 +214,17 @@ func (q *Queries) ListActiveRedFlagsScoped(ctx context.Context, arg ListActiveRe
 const listObservationRevisions = `-- name: ListObservationRevisions :many
 SELECT id, observation_id, edited_by, snapshot, created_at FROM observation_revisions WHERE observation_id = $1
 ORDER BY created_at DESC
+LIMIT $2 OFFSET $3
 `
 
-func (q *Queries) ListObservationRevisions(ctx context.Context, observationID uuid.UUID) ([]ObservationRevision, error) {
-	rows, err := q.db.Query(ctx, listObservationRevisions, observationID)
+type ListObservationRevisionsParams struct {
+	ObservationID uuid.UUID
+	Limit         int32
+	Offset        int32
+}
+
+func (q *Queries) ListObservationRevisions(ctx context.Context, arg ListObservationRevisionsParams) ([]ObservationRevision, error) {
+	rows, err := q.db.Query(ctx, listObservationRevisions, arg.ObservationID, arg.Limit, arg.Offset)
 	if err != nil {
 		return nil, err
 	}
@@ -307,6 +314,47 @@ func (q *Queries) ListObservationsByStudent(ctx context.Context, arg ListObserva
 		return nil, err
 	}
 	return items, nil
+}
+
+const listRedFlagStudentIDs = `-- name: ListRedFlagStudentIDs :many
+SELECT DISTINCT student_id FROM observations
+WHERE red_flag = true AND handled_at IS NULL AND student_id = ANY($1::uuid[])
+`
+
+// NEW-1: satu query untuk semua siswa ter-scope (hindari N+1 di list).
+func (q *Queries) ListRedFlagStudentIDs(ctx context.Context, ids []uuid.UUID) ([]uuid.UUID, error) {
+	rows, err := q.db.Query(ctx, listRedFlagStudentIDs, ids)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []uuid.UUID
+	for rows.Next() {
+		var student_id uuid.UUID
+		if err := rows.Scan(&student_id); err != nil {
+			return nil, err
+		}
+		items = append(items, student_id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const studentHasRedFlag = `-- name: StudentHasRedFlag :one
+SELECT EXISTS (
+  SELECT 1 FROM observations
+  WHERE student_id = $1 AND red_flag = true AND handled_at IS NULL
+) AS has_red_flag
+`
+
+// NEW-1: cek red flag belum ditangani via EXISTS (tanpa LIMIT 200, tanpa N+1).
+func (q *Queries) StudentHasRedFlag(ctx context.Context, studentID uuid.UUID) (bool, error) {
+	row := q.db.QueryRow(ctx, studentHasRedFlag, studentID)
+	var has_red_flag bool
+	err := row.Scan(&has_red_flag)
+	return has_red_flag, err
 }
 
 const updateObservation = `-- name: UpdateObservation :one

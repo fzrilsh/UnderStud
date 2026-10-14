@@ -2,7 +2,6 @@ package handler
 
 import (
 	"errors"
-	"net"
 	"net/http"
 	"strconv"
 
@@ -15,10 +14,13 @@ import (
 )
 
 type ChatHandlers struct {
-	chat *service.Chat
+	chat              *service.Chat
+	trustProxyHeaders bool
 }
 
-func NewChatHandlers(chat *service.Chat) *ChatHandlers { return &ChatHandlers{chat: chat} }
+func NewChatHandlers(chat *service.Chat, trustProxyHeaders bool) *ChatHandlers {
+	return &ChatHandlers{chat: chat, trustProxyHeaders: trustProxyHeaders}
+}
 
 // parseMultipart membaca body + files[] dari multipart.
 func parseMultipart(r *http.Request) (string, []service.UploadFile, error) {
@@ -60,14 +62,11 @@ func atof(s string) float64 {
 	return v
 }
 
-// clientIP mengambil IP klien dari RemoteAddr (tanpa mempercayai header yang
-// bisa dipalsukan). Dipakai untuk rate limit per-IP (audit M4).
-func clientIP(r *http.Request) string {
-	host, _, err := net.SplitHostPort(r.RemoteAddr)
-	if err != nil {
-		return r.RemoteAddr
-	}
-	return host
+// clientIP mengambil IP klien untuk rate limit per-IP (audit M4/NV-1).
+// Delegasi ke middleware.ClientIP agar satu implementasi (header hanya dipercaya
+// bila trustProxyHeaders aktif).
+func (h *ChatHandlers) clientIP(r *http.Request) string {
+	return middleware.ClientIP(r, h.trustProxyHeaders)
 }
 
 // Create handles POST /api/v1/lapor/chats (multipart).
@@ -89,7 +88,7 @@ func (h *ChatHandlers) Create(w http.ResponseWriter, r *http.Request) {
 		Lat:          atof(r.FormValue("lat")),
 		Lng:          atof(r.FormValue("lng")),
 		Accuracy:     atof(r.FormValue("accuracy")),
-		ClientIP:     clientIP(r),
+		ClientIP:     h.clientIP(r),
 	})
 	if err != nil {
 		Error(w, err)
@@ -151,7 +150,7 @@ func (h *ChatHandlers) Reply(w http.ResponseWriter, r *http.Request) {
 		Error(w, err)
 		return
 	}
-	msg, err := h.chat.Reply(r.Context(), session, id, service.ReplyInput{Body: body, Files: files, ClientIP: clientIP(r)})
+	msg, err := h.chat.Reply(r.Context(), session, id, service.ReplyInput{Body: body, Files: files, ClientIP: h.clientIP(r)})
 	if err != nil {
 		Error(w, err)
 		return

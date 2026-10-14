@@ -12,6 +12,26 @@ import (
 	"github.com/google/uuid"
 )
 
+const claimImportPreview = `-- name: ClaimImportPreview :one
+DELETE FROM import_previews
+WHERE token = $1 AND expires_at > now()
+RETURNING token, created_by, payload, expires_at
+`
+
+// F7: klaim token secara ATOMIK (hapus + kembalikan dalam satu statement).
+// Commit ganda/paralel dengan token sama → hanya satu yang berhasil.
+func (q *Queries) ClaimImportPreview(ctx context.Context, token string) (ImportPreview, error) {
+	row := q.db.QueryRow(ctx, claimImportPreview, token)
+	var i ImportPreview
+	err := row.Scan(
+		&i.Token,
+		&i.CreatedBy,
+		&i.Payload,
+		&i.ExpiresAt,
+	)
+	return i, err
+}
+
 const createExportRecord = `-- name: CreateExportRecord :one
 INSERT INTO export_records (summary_id, exported_by, format)
 VALUES ($1, $2, $3)
@@ -65,6 +85,16 @@ func (q *Queries) CreateImportPreview(ctx context.Context, arg CreateImportPrevi
 		&i.ExpiresAt,
 	)
 	return i, err
+}
+
+const deleteExpiredImportPreviews = `-- name: DeleteExpiredImportPreviews :exec
+DELETE FROM import_previews WHERE expires_at <= now()
+`
+
+// F24: bersihkan preview kedaluwarsa (yang di-abandon) agar tabel tak tumbuh.
+func (q *Queries) DeleteExpiredImportPreviews(ctx context.Context) error {
+	_, err := q.db.Exec(ctx, deleteExpiredImportPreviews)
+	return err
 }
 
 const deleteImportPreview = `-- name: DeleteImportPreview :exec

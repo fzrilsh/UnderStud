@@ -3,10 +3,12 @@ package service
 import (
 	"context"
 	"errors"
+	"math"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgxpool"
 
 	"backend/internal/config"
 	"backend/internal/db"
@@ -24,13 +26,14 @@ var (
 
 type Chat struct {
 	queries *db.Queries
+	pool    *pgxpool.Pool
 	store   *storage.Store
 	rl      *middleware.RateLimiter
 	cfg     config.Config
 }
 
-func NewChat(q *db.Queries, store *storage.Store, rl *middleware.RateLimiter, cfg config.Config) *Chat {
-	return &Chat{queries: q, store: store, rl: rl, cfg: cfg}
+func NewChat(q *db.Queries, pool *pgxpool.Pool, store *storage.Store, rl *middleware.RateLimiter, cfg config.Config) *Chat {
+	return &Chat{queries: q, pool: pool, store: store, rl: rl, cfg: cfg}
 }
 
 type UploadFile struct {
@@ -73,6 +76,7 @@ type ChatSummary struct {
 	IdentityMode  string `json:"identity_mode"`
 	Status        string `json:"status"`
 	LastMessageAt string `json:"last_message_at"`
+	HasNewReply   bool   `json:"has_new_reply"` // F23: pesan terakhir dari BK
 }
 
 type ChatView struct {
@@ -102,7 +106,9 @@ func (c *Chat) checkGeo(lat, lng, accuracy float64) error {
 	if dist > float64(c.cfg.SchoolRadiusM) {
 		return utils.NewErrOutOfRange("Kamu di luar area sekolah. Laporan hanya bisa dikirim dari lingkungan sekolah.")
 	}
-	if accuracy > float64(c.cfg.SchoolRadiusM) {
+	// F18: accuracy NaN lolos cek (NaN > radius = false) — perlakukan sebagai
+	// tidak valid (minta aktifkan ulang izin lokasi).
+	if math.IsNaN(accuracy) || math.IsInf(accuracy, 0) || accuracy > float64(c.cfg.SchoolRadiusM) {
 		return utils.NewErrLocationImprecise("Sinyal lokasi kurang akurat. Coba lagi di area lebih terbuka.")
 	}
 	return nil
@@ -140,25 +146,36 @@ func (c *Chat) Create(ctx context.Context, session db.AnonSession, in CreateChat
 		return ChatView{}, err
 	}
 
-	chat, err := c.queries.CreateChat(ctx, db.CreateChatParams{
-		SessionID:     session.ID,
-		IdentityMode:  mode,
-		SnapshotName:  snapName,
-		SnapshotKelas: snapKelas,
+	// F8: chat + pesan pertama + lampiran dalam SATU transaksi. Bila ada langkah
+	// gagal → rollback DB dan hapus file tersimpan (cegah chat kosong / file orphan).
+	var view ChatView
+	err = db.WithTx(ctx, c.pool, func(q *db.Queries) error {
+		chat, err := q.CreateChat(ctx, db.CreateChatParams{
+			SessionID:     session.ID,
+			IdentityMode:  mode,
+			SnapshotName:  snapName,
+			SnapshotKelas: snapKelas,
+		})
+		if err != nil {
+			return utils.NewErrInternal("gagal membuat laporan")
+		}
+		msg, err := q.CreateMessage(ctx, db.CreateMessageParams{
+			ChatID: chat.ID, Sender: "SISWA", SenderUserID: nil, Body: body,
+		})
+		if err != nil {
+			return utils.NewErrInternal("gagal menyimpan pesan")
+		}
+		if err := attachFilesTx(ctx, q, msg.ID, saved); err != nil {
+			return err
+		}
+		view = ChatView{ID: chat.ID.String(), IdentityMode: chat.IdentityMode, Status: chat.Status}
+		return nil
 	})
 	if err != nil {
-		return ChatView{}, utils.NewErrInternal("gagal membuat laporan")
-	}
-	msg, err := c.queries.CreateMessage(ctx, db.CreateMessageParams{
-		ChatID: chat.ID, Sender: "SISWA", SenderUserID: nil, Body: body,
-	})
-	if err != nil {
-		return ChatView{}, utils.NewErrInternal("gagal menyimpan pesan")
-	}
-	if err := c.attachFiles(ctx, msg.ID, saved); err != nil {
+		c.discardFiles(saved)
 		return ChatView{}, err
 	}
-	return ChatView{ID: chat.ID.String(), IdentityMode: chat.IdentityMode, Status: chat.Status}, nil
+	return view, nil
 }
 
 // saveFiles memvalidasi & menyimpan; mengembalikan daftar file tersimpan.
@@ -200,10 +217,10 @@ func (c *Chat) saveFiles(files []UploadFile) ([]storage.SavedFile, error) {
 	return out, nil
 }
 
-func (c *Chat) attachFiles(ctx context.Context, messageID uuid.UUID, saved []storage.SavedFile) error {
+func attachFilesTx(ctx context.Context, q *db.Queries, messageID uuid.UUID, saved []storage.SavedFile) error {
 	for _, sf := range saved {
 		name := sf.OriginalName
-		if _, err := c.queries.CreateAttachment(ctx, db.CreateAttachmentParams{
+		if _, err := q.CreateAttachment(ctx, db.CreateAttachmentParams{
 			MessageID:    messageID,
 			StoredPath:   sf.StoredPath,
 			OriginalName: &name,
@@ -216,34 +233,47 @@ func (c *Chat) attachFiles(ctx context.Context, messageID uuid.UUID, saved []sto
 	return nil
 }
 
-// fillAttachments mengisi lampiran untuk sekumpulan pesan (1 query per pesan;
-// jumlah pesan per detail dibatasi 200 sehingga aman). Dipakai Chat & Report.
+// discardFiles menghapus file yang sudah ditulis ke disk saat transaksi DB
+// gagal (F8) — cegah file orphan.
+func (c *Chat) discardFiles(saved []storage.SavedFile) {
+	for _, sf := range saved {
+		c.store.Delete(sf.StoredPath)
+	}
+}
+
+// fillAttachments mengisi lampiran untuk sekumpulan pesan dalam SATU query
+// (F4: hindari N+1). Dipakai Chat & Report.
 func fillAttachments(ctx context.Context, q *db.Queries, views []MessageView, msgs []db.Message) ([]MessageView, error) {
+	if len(msgs) == 0 {
+		return views, nil
+	}
+	ids := make([]uuid.UUID, 0, len(msgs))
+	for i := range msgs {
+		ids = append(ids, msgs[i].ID)
+	}
+	atts, err := q.ListAttachmentsByMessages(ctx, ids)
+	if err != nil {
+		return nil, utils.NewErrInternal("gagal memuat lampiran")
+	}
+	if len(atts) == 0 {
+		return views, nil
+	}
 	byID := make(map[string]int, len(msgs))
 	for i, m := range msgs {
 		byID[m.ID.String()] = i
 	}
-	for i := range msgs {
-		atts, err := q.ListAttachmentsByMessage(ctx, msgs[i].ID)
-		if err != nil {
-			return nil, utils.NewErrInternal("gagal memuat lampiran")
-		}
-		if len(atts) == 0 {
+	for _, a := range atts {
+		idx, ok := byID[a.MessageID.String()]
+		if !ok {
 			continue
 		}
-		list := make([]AttachmentView, 0, len(atts))
-		for _, a := range atts {
-			name := "lampiran"
-			if a.OriginalName != nil && *a.OriginalName != "" {
-				name = *a.OriginalName
-			}
-			list = append(list, AttachmentView{
-				ID: a.ID.String(), Name: name, Mime: a.Mime, Size: a.SizeBytes,
-			})
+		name := "lampiran"
+		if a.OriginalName != nil && *a.OriginalName != "" {
+			name = *a.OriginalName
 		}
-		if idx, ok := byID[msgs[i].ID.String()]; ok {
-			views[idx].Attachments = list
-		}
+		views[idx].Attachments = append(views[idx].Attachments, AttachmentView{
+			ID: a.ID.String(), Name: name, Mime: a.Mime, Size: a.SizeBytes,
+		})
 	}
 	return views, nil
 }
@@ -256,11 +286,24 @@ func (c *Chat) ListBySession(ctx context.Context, session db.AnonSession, limit,
 		return nil, 0, utils.NewErrInternal("gagal memuat daftar")
 	}
 	out := make([]ChatSummary, 0, len(chats))
-	for _, ch := range chats {
-		out = append(out, ChatSummary{
-			ID: ch.ID.String(), IdentityMode: ch.IdentityMode, Status: ch.Status,
-			LastMessageAt: ch.LastMessageAt.Format(time.RFC3339),
-		})
+	if len(chats) > 0 {
+		ids := make([]uuid.UUID, 0, len(chats))
+		for _, ch := range chats {
+			ids = append(ids, ch.ID)
+		}
+		senders := map[uuid.UUID]string{}
+		if rows, err := c.queries.ListLastMessageSenders(ctx, ids); err == nil {
+			for _, r := range rows {
+				senders[r.ChatID] = r.Sender
+			}
+		}
+		for _, ch := range chats {
+			out = append(out, ChatSummary{
+				ID: ch.ID.String(), IdentityMode: ch.IdentityMode, Status: ch.Status,
+				LastMessageAt: ch.LastMessageAt.Format(time.RFC3339),
+				HasNewReply:   senders[ch.ID] == "BK",
+			})
+		}
 	}
 	// H5: total = jumlah seluruh baris (bukan ukuran halaman).
 	total, err := c.queries.CountChatsBySession(ctx, session.ID)
@@ -334,23 +377,33 @@ func (c *Chat) Reply(ctx context.Context, session db.AnonSession, chatID uuid.UU
 	if err != nil {
 		return MessageView{}, err
 	}
-	msg, err := c.queries.CreateMessage(ctx, db.CreateMessageParams{
-		ChatID: chat.ID, Sender: "SISWA", SenderUserID: nil, Body: body,
+	// F8: pesan + lampiran + requeue (status/touch) dalam SATU transaksi.
+	var view MessageView
+	err = db.WithTx(ctx, c.pool, func(q *db.Queries) error {
+		msg, err := q.CreateMessage(ctx, db.CreateMessageParams{
+			ChatID: chat.ID, Sender: "SISWA", SenderUserID: nil, Body: body,
+		})
+		if err != nil {
+			return utils.NewErrInternal("gagal menyimpan pesan")
+		}
+		if err := attachFilesTx(ctx, q, msg.ID, saved); err != nil {
+			return err
+		}
+		// requeue: status balik 'baru' (keputusan #4/#55) + touch last_message_at
+		if _, err := q.UpdateChatStatus(ctx, db.UpdateChatStatusParams{ID: chat.ID, Status: "baru"}); err != nil {
+			return utils.NewErrInternal("gagal memperbarui status")
+		}
+		if _, err := q.TouchChatMessage(ctx, chat.ID); err != nil {
+			return utils.NewErrInternal("gagal memperbarui waktu")
+		}
+		view = MessageView{ID: msg.ID.String(), Sender: "SISWA", Body: body, Attachments: []AttachmentView{}, CreatedAt: msg.CreatedAt.Format(time.RFC3339)}
+		return nil
 	})
 	if err != nil {
-		return MessageView{}, utils.NewErrInternal("gagal menyimpan pesan")
-	}
-	if err := c.attachFiles(ctx, msg.ID, saved); err != nil {
+		c.discardFiles(saved)
 		return MessageView{}, err
 	}
-	// requeue: status balik 'baru' (keputusan #4/#55) + touch last_message_at
-	if _, err := c.queries.UpdateChatStatus(ctx, db.UpdateChatStatusParams{ID: chat.ID, Status: "baru"}); err != nil {
-		return MessageView{}, utils.NewErrInternal("gagal memperbarui status")
-	}
-	if _, err := c.queries.TouchChatMessage(ctx, chat.ID); err != nil {
-		return MessageView{}, utils.NewErrInternal("gagal memperbarui waktu")
-	}
-	return MessageView{ID: msg.ID.String(), Sender: "SISWA", Body: body, Attachments: []AttachmentView{}, CreatedAt: msg.CreatedAt.Format(time.RFC3339)}, nil
+	return view, nil
 }
 
 func (c *Chat) HideByStudent(ctx context.Context, session db.AnonSession, chatID uuid.UUID) error {

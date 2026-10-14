@@ -29,10 +29,17 @@ type Queue struct {
 
 	mu      sync.Mutex
 	pending map[uuid.UUID]*job
+
+	// F2: batasi jumlah generate paralel (tiap panggilan AI bisa sampai 60s).
+	// Worker tunggal → satu panggilan lambat memblokir SEMUA siswa (head-of-line).
+	sem chan struct{}
 }
 
 func NewQueue(q *db.Queries, client *Client, debounce time.Duration, logger *slog.Logger) *Queue {
-	return &Queue{queries: q, client: client, debounce: debounce, logger: logger, pending: map[uuid.UUID]*job{}}
+	return &Queue{
+		queries: q, client: client, debounce: debounce, logger: logger,
+		pending: map[uuid.UUID]*job{}, sem: make(chan struct{}, 4),
+	}
 }
 
 // Enqueue menjadwalkan generate untuk siswa; aman dipanggil berkali-kali.
@@ -73,9 +80,25 @@ func (q *Queue) drain(ctx context.Context) {
 		}
 	}
 	q.mu.Unlock()
+	// F2: jalankan job siap secara paralel (dibatasi semaphore). Tiap job
+	// punya recover sendiri (F1) — panic di satu job tak mematikan worker.
 	for _, j := range ready {
-		q.generate(ctx, j)
+		q.sem <- struct{}{}
+		go func(j *job) {
+			defer func() { <-q.sem }()
+			q.generateSafe(ctx, j)
+		}(j)
 	}
+}
+
+// generateSafe memanggil generate dengan pemulihan panic (F1).
+func (q *Queue) generateSafe(ctx context.Context, j *job) {
+	defer func() {
+		if rec := recover(); rec != nil {
+			q.logger.Error("ai worker panic recovered", "student", j.studentID, "panic", rec)
+		}
+	}()
+	q.generate(ctx, j)
 }
 
 func (q *Queue) generate(ctx context.Context, j *job) {

@@ -114,13 +114,22 @@ func cellAt(row []string, j int) string {
 	return strings.TrimSpace(row[j])
 }
 
+// atoiSafe: parse bilangan bulat non-negatif dari sel leger. F15: nilai di luar
+// ambang wajar (mis. sel rusak/raksasa) dikembalikan 0, bukan overflow int/int32.
 func atoiSafe(s string) int {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return 0
+	}
 	n := 0
-	for _, r := range strings.TrimSpace(s) {
+	for _, r := range s {
 		if r < '0' || r > '9' {
 			return 0
 		}
 		n = n*10 + int(r-'0')
+		if n > 1_000_000 { // absensi sekolah tak pernah sebesar ini → anggap rusak
+			return 0
+		}
 	}
 	return n
 }

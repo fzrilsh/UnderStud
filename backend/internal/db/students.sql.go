@@ -162,6 +162,33 @@ func (q *Queries) GetStudentProfile(ctx context.Context, studentID uuid.UUID) (S
 	return i, err
 }
 
+const getStudentProfileForUpdate = `-- name: GetStudentProfileForUpdate :one
+SELECT student_id, nilai_erapor, minat_bakat, tanggal_lahir, catatan_psikologis, catatan_kasus_prestasi, masukan_bk, pendapat_wali_kelas, updated_by, updated_at, sakit, izin, alpa FROM student_profiles WHERE student_id = $1 FOR UPDATE
+`
+
+// F7: kunci baris profil untuk read-modify-write (gabung nilai_erapor) agar
+// dua commit/update paralel tak saling menimpa (lost update).
+func (q *Queries) GetStudentProfileForUpdate(ctx context.Context, studentID uuid.UUID) (StudentProfile, error) {
+	row := q.db.QueryRow(ctx, getStudentProfileForUpdate, studentID)
+	var i StudentProfile
+	err := row.Scan(
+		&i.StudentID,
+		&i.NilaiErapor,
+		&i.MinatBakat,
+		&i.TanggalLahir,
+		&i.CatatanPsikologis,
+		&i.CatatanKasusPrestasi,
+		&i.MasukanBk,
+		&i.PendapatWaliKelas,
+		&i.UpdatedBy,
+		&i.UpdatedAt,
+		&i.Sakit,
+		&i.Izin,
+		&i.Alpa,
+	)
+	return i, err
+}
+
 const listStudents = `-- name: ListStudents :many
 SELECT id, nisn, name, kelas, archived_at, created_at, updated_at FROM students
 WHERE ($1::text = '' OR kelas = $1)

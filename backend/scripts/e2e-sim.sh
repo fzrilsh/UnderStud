@@ -209,6 +209,54 @@ expect "sesi lain baca chat -> 404" 404 "$(code -b "$JAR_ANON2" "$BASE_URL/api/v
 expect "sesi lain balas chat -> 404" 404 "$(code -b "$JAR_ANON2" -X POST "$BASE_URL/api/v1/lapor/chats/$CHAT/messages" -F 'body=x')"
 
 # ---------------------------------------------------------------------------
+sec "[12] Re-audit fix (F10/F12/F13/F16/F19/F23)"
+# ---------------------------------------------------------------------------
+# F23: bootstrap kirim daftar chat nyata + has_new_reply (bukan hardcode []).
+expect_true "bootstrap: chats bukan hardcode kosong (F23)" \
+  "$(curl -s -b "$JAR_ANON" "$BASE_URL/api/v1/lapor" | jq '.data.chats | length >= 1')"
+expect_true "bootstrap: chat punya has_new_reply (F23)" \
+  "$(curl -s -b "$JAR_ANON" "$BASE_URL/api/v1/lapor" | jq '.data.chats[0] | has("has_new_reply")')"
+expect_true "/reports item punya unread_by_staff (F23)" \
+  "$(curl -s -b "$JAR_BK" "$BASE_URL/api/v1/reports" | jq '.data[0] | has("unread_by_staff")')"
+
+# F12: absensi raksasa → 400 (bukan tersimpan negatif via int32 overflow).
+expect "absensi 3 miliar -> 400 (F12)" 400 "$(code -b "$JAR_WALI" -X PUT "$BASE_URL/api/v1/students/$NEWID/profile" \
+  -H 'Content-Type: application/json' -d '{"sakit":3000000000}')"
+
+# F13: PATCH tanpa nisn → NISN lama TIDAK terhapus.
+expect_true "PATCH tanpa nisn → nisn tetap ada (F13)" \
+  "$(curl -s -b "$JAR_WALI" -X PATCH "$BASE_URL/api/v1/students/$NEWID" \
+     -H 'Content-Type: application/json' -d '{"name":"Siswa Sim","kelas":"X TJKT 1"}' | jq '.data.nisn != null and .data.nisn != ""')"
+
+# F19: tanggal observasi BESOK → 400 (bukan lolos).
+TOMORROW=$(date -v+1d +%Y-%m-%d 2>/dev/null || date -d '+1 day' +%Y-%m-%d)
+expect "observasi tanggal besok -> 400 (F19)" 400 "$(code -b "$JAR_WALI" -X POST "$BASE_URL/api/v1/students/$NEWID/observations" \
+  -H 'Content-Type: application/json' -d "{\"items\":[\"emosi:murung\"],\"tanggal\":\"$TOMORROW\"}")"
+
+# F16/F15: leger dengan sel nilai "inf" & absensi raksasa → preview 200 (tak 500),
+# nilai non-finite dilewati, absensi rusak jadi 0.
+IMP2="99$RANDOM$RANDOM"
+cat > "$TMP/leger2.csv" <<EOF
+Sekolah,,SMKN 1 TANGERANG
+NPSN,,20606915
+Kelas,,X TJKT 1
+Tahun Pelajaran,,2025/2026 Genap
+
+No,NAMA PESERTA DIDIK,NISN,Matematika (Umum),S,I,A
+1,Siswa Rusak,$IMP2,inf,3000000000,0,0
+EOF
+PREV2=$(curl -sf -b "$JAR_WALI" -X POST "$BASE_URL/api/v1/students/import/preview" -F "file=@$TMP/leger2.csv;filename=leger2.csv")
+expect_true "leger sel 'inf' → preview 200, tak 500 (F16)" "$(echo "$PREV2" | jq '.data.preview_token != null')"
+TOKEN2=$(echo "$PREV2" | jqr '.data.preview_token')
+curl -s -b "$JAR_WALI" -X POST "$BASE_URL/api/v1/students/import/commit" -H 'Content-Type: application/json' -d "{\"preview_token\":\"$TOKEN2\"}" > /dev/null
+LSID2=$(curl -sf -b "$JAR_WALI" "$BASE_URL/api/v1/students?q=Siswa%20Rusak" | jqr '.data[0].id')
+expect_true "absensi rusak (3e9) → 0, bukan negatif (F15)" "$(curl -s -b "$JAR_WALI" "$BASE_URL/api/v1/students/$LSID2" | jq '.data.profile.sakit == 0')"
+
+# F10: sesi anonim valid (bootstrap sukses → ok). Sesi zero-value tak lagi lolos.
+expect_true "anon session bootstrap sehat (F10)" \
+  "$(curl -s -b "$JAR_ANON" "$BASE_URL/api/v1/lapor/profile" | jq '.data.profile | has("name") and has("kelas")')"
+
+# ---------------------------------------------------------------------------
 echo
 echo "==================================================================="
 printf "  HASIL: \033[32m%d lulus\033[0m · \033[31m%d gagal\033[0m\n" "$PASS" "$FAIL"

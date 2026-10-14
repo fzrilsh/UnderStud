@@ -5,8 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"image"
-	"image/jpeg"
 	_ "image/gif"
+	"image/jpeg"
 	_ "image/png"
 	"os"
 	"path/filepath"
@@ -114,6 +114,15 @@ func (s *Store) Open(storedPath string) (*os.File, error) {
 	return os.Open(filepath.Join(s.dir, storedPath))
 }
 
+// Delete menghapus file tersimpan (best-effort). Dipakai saat transaksi DB
+// gagal setelah file ditulis (audit F8) — cegah file orphan.
+func (s *Store) Delete(storedPath string) {
+	if storedPath == "" {
+		return
+	}
+	_ = os.Remove(filepath.Join(s.dir, storedPath))
+}
+
 type kind int
 
 const (
@@ -158,20 +167,23 @@ func isProbablyText(b []byte) bool {
 	return true
 }
 
-// looksLikeMarkup menolak SVG/HTML/XML (audit M8) — spec memblokir eksplisit
-// SVG/HTML/JS. Deteksi: setelah spasi/BOM opsional, dokumen diawali '<'
-// diikuti huruf/!/? (ciri dokumen markup). Teks biasa jarang diawali '<'.
+// looksLikeMarkup menolak SVG/HTML/XML (audit M8/NV-4) — spec memblokir eksplisit
+// SVG/HTML/JS. Deteksi: lewati BOM UTF-8 + spasi/baris kosong (dalam urutan
+// apa pun), lalu bila dokumen diawali '<' diikuti huruf/!/? → markup.
+// Teks biasa jarang diawali '<'.
 func looksLikeMarkup(b []byte) bool {
 	i := 0
-	// lewati BOM UTF-8 & spasi/baris kosong di awal
-	for i < len(b) && (b[i] == ' ' || b[i] == '\t' || b[i] == '\n' || b[i] == '\r') {
-		i++
-	}
-	if len(b) >= 3 && bytes.Equal(b[:3], []byte{0xEF, 0xBB, 0xBF}) {
-		i = 3
-		for i < len(b) && (b[i] == ' ' || b[i] == '\t' || b[i] == '\n' || b[i] == '\r') {
-			i++
+	for {
+		// lewati BOM UTF-8 (bisa muncul sebelum spasi)
+		if i+3 <= len(b) && bytes.Equal(b[i:i+3], []byte{0xEF, 0xBB, 0xBF}) {
+			i += 3
+			continue
 		}
+		if i < len(b) && (b[i] == ' ' || b[i] == '\t' || b[i] == '\n' || b[i] == '\r') {
+			i++
+			continue
+		}
+		break
 	}
 	if i >= len(b) || b[i] != '<' || i+1 >= len(b) {
 		return false

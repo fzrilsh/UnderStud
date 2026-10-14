@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/jackc/pgx/v5/pgxpool"
 
 	"backend/internal/db"
 	"backend/internal/middleware"
@@ -17,7 +18,7 @@ import (
 
 // ChecklistItem = satu item observasi (referensi tetap, spec §4.4).
 type ChecklistItem struct {
-	Key      string `json:"key"`      // "<kategori>:<item>"
+	Key      string `json:"key"` // "<kategori>:<item>"
 	Kategori string `json:"kategori"`
 	Label    string `json:"label"`
 }
@@ -133,9 +134,12 @@ func ValidateItems(raw []string) ([]string, []string, bool, error) {
 
 type Observasi struct {
 	queries *db.Queries
+	pool    *pgxpool.Pool
 }
 
-func NewObservasi(q *db.Queries) *Observasi { return &Observasi{queries: q} }
+func NewObservasi(q *db.Queries, pool *pgxpool.Pool) *Observasi {
+	return &Observasi{queries: q, pool: pool}
+}
 
 type ObservationInput struct {
 	Items        []string `json:"items"`
@@ -226,7 +230,11 @@ func tanggalObservasi(s string) (pgtype.Date, error) {
 	if err != nil {
 		return pgtype.Date{}, utils.NewErrInvalidInput("Tanggal observasi harus format YYYY-MM-DD.")
 	}
-	if t.After(time.Now().In(loc).AddDate(0, 0, 1)) {
+	// F19: bandingkan tanggal (bukan waktu) terhadap HARI INI. Sebelumnya
+	// AddDate(0,0,1) membuat tanggal besok lolos (off-by-one).
+	now := time.Now().In(loc)
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, loc)
+	if t.After(today) {
 		return pgtype.Date{}, utils.NewErrInvalidInput("Tanggal observasi tidak boleh di masa depan.")
 	}
 	return pgtype.Date{Time: t, Valid: true}, nil
@@ -288,20 +296,39 @@ func (o *Observasi) Update(ctx context.Context, actor Actor, obsID uuid.UUID, in
 		"red_flag": old.RedFlag, "catatan": old.Catatan, "tanggal": old.Tanggal.Time.Format("2006-01-02"),
 		"tindakan_awal": old.TindakanAwal,
 	}
-	snapJSON, _ := json.Marshal(snapshot)
-	if _, err := o.queries.CreateObservationRevision(ctx, db.CreateObservationRevisionParams{
-		ObservationID: obsID, EditedBy: actor.UserID, Snapshot: snapJSON,
-	}); err != nil {
-		return ObservationView{}, utils.NewErrInternal("gagal menyimpan revisi")
+	snapJSON, err := json.Marshal(snapshot)
+	if err != nil {
+		return ObservationView{}, utils.NewErrInternal("gagal menyusun revisi")
 	}
-	itemsJSON, _ := json.Marshal(items)
-	catsJSON, _ := json.Marshal(cats)
-	obs, err := o.queries.UpdateObservation(ctx, db.UpdateObservationParams{
-		ID: obsID, Items: itemsJSON, Categories: catsJSON, RedFlag: redFlag,
-		Catatan: optStr(in.Catatan), Tanggal: tgl, TindakanAwal: optStr(in.TindakanAwal),
+	itemsJSON, err := json.Marshal(items)
+	if err != nil {
+		return ObservationView{}, utils.NewErrInternal("gagal menyusun observasi")
+	}
+	catsJSON, err := json.Marshal(cats)
+	if err != nil {
+		return ObservationView{}, utils.NewErrInternal("gagal menyusun observasi")
+	}
+	// F8: revisi + update dalam SATU transaksi — bila update gagal, revisi
+	// (snapshot edit yang tak terjadi) ikut di-rollback.
+	var obs db.Observation
+	err = db.WithTx(ctx, o.pool, func(q *db.Queries) error {
+		if _, err := q.CreateObservationRevision(ctx, db.CreateObservationRevisionParams{
+			ObservationID: obsID, EditedBy: actor.UserID, Snapshot: snapJSON,
+		}); err != nil {
+			return utils.NewErrInternal("gagal menyimpan revisi")
+		}
+		updated, err := q.UpdateObservation(ctx, db.UpdateObservationParams{
+			ID: obsID, Items: itemsJSON, Categories: catsJSON, RedFlag: redFlag,
+			Catatan: optStr(in.Catatan), Tanggal: tgl, TindakanAwal: optStr(in.TindakanAwal),
+		})
+		if err != nil {
+			return utils.NewErrInternal("gagal memperbarui observasi")
+		}
+		obs = updated
+		return nil
 	})
 	if err != nil {
-		return ObservationView{}, utils.NewErrInternal("gagal memperbarui observasi")
+		return ObservationView{}, err
 	}
 	return toObservationView(obsFieldsFromObservation(obs), ""), nil
 }
@@ -310,7 +337,9 @@ func (o *Observasi) Revisions(ctx context.Context, actor Actor, obsID uuid.UUID)
 	if _, _, err := o.studentOf(ctx, actor, obsID); err != nil {
 		return nil, err
 	}
-	rows, err := o.queries.ListObservationRevisions(ctx, obsID)
+	rows, err := o.queries.ListObservationRevisions(ctx, db.ListObservationRevisionsParams{
+		ObservationID: obsID, Limit: 200, Offset: 0,
+	})
 	if err != nil {
 		return nil, utils.NewErrInternal("gagal memuat riwayat")
 	}

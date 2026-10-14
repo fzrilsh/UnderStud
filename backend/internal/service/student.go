@@ -46,9 +46,11 @@ type CreateStudentInput struct {
 }
 
 type UpdateStudentInput struct {
-	NISN  string `json:"nisn"`
-	Name  string `json:"name"`
-	Kelas string `json:"kelas"`
+	// F13: pointer agar field yang DIHILANGKAN dari PATCH tidak mengosongkan
+	// NISN. nil = biarkan apa adanya; "" eksplisit = kosongkan; selain itu = set.
+	NISN  *string `json:"nisn"`
+	Name  string  `json:"name"`
+	Kelas string  `json:"kelas"`
 }
 
 type ProfileInput struct {
@@ -123,7 +125,7 @@ func scopeKelas(actor Actor) string {
 }
 
 // requireScopeClass: fail-closed untuk non-BK yang kelasnya kosong (audit M1).
-// Mencegah Wali Kelas tanpa kelas melihat SELURUH sekolah (query `kelas=''` = tanpa filter).
+// Mencegah Wali Kelas tanpa kelas melihat SELURUH sekolah (query `kelas=”` = tanpa filter).
 func requireScopeClass(actor Actor) error {
 	if !isBK(actor) && strings.TrimSpace(actor.Kelas) == "" {
 		return utils.NewErrForbidden("Akunmu belum punya kelas. Hubungi administrator.")
@@ -165,10 +167,11 @@ func validateNISN(nisn string) error {
 }
 
 func validateNameKelas(name, kelas string) error {
-	if strings.TrimSpace(name) == "" || len(name) > 80 {
+	// F24: ukur dalam RUNE (konsisten dengan validator lain), bukan byte.
+	if strings.TrimSpace(name) == "" || len([]rune(name)) > 80 {
 		return utils.NewErrInvalidInput("Nama siswa wajib diisi, maksimal 80 karakter.")
 	}
-	if strings.TrimSpace(kelas) == "" || len(kelas) > 40 {
+	if strings.TrimSpace(kelas) == "" || len([]rune(kelas)) > 40 {
 		return utils.NewErrInvalidInput("Kelas wajib diisi, maksimal 40 karakter.")
 	}
 	return nil
@@ -203,31 +206,36 @@ func (s *Student) List(ctx context.Context, actor Actor, q string, includeArchiv
 	if err != nil {
 		return nil, 0, utils.NewErrInternal("gagal memuat daftar siswa")
 	}
+	// NEW-1: ambil himpunan siswa ber-red-flag dalam SATU query (hindari N+1).
+	ids := make([]uuid.UUID, 0, len(rows))
+	for _, st := range rows {
+		ids = append(ids, st.ID)
+	}
+	redSet := map[uuid.UUID]bool{}
+	if len(ids) > 0 {
+		redIDs, err := s.queries.ListRedFlagStudentIDs(ctx, ids)
+		if err != nil {
+			return nil, 0, utils.NewErrInternal("gagal memeriksa red flag")
+		}
+		for _, id := range redIDs {
+			redSet[id] = true
+		}
+	}
 	out := make([]StudentItem, 0, len(rows))
 	for _, st := range rows {
-		red, err := s.hasRedFlag(ctx, st.ID)
-		if err != nil {
-			return nil, 0, err
-		}
-		out = append(out, toStudentItem(st, red))
+		out = append(out, toStudentItem(st, redSet[st.ID]))
 	}
 	return out, total, nil
 }
 
 // hasRedFlag: siswa punya ≥1 observasi red_flag belum ditangani.
+// NEW-1: pakai EXISTS (tanpa batas 200, tanpa menarik semua baris).
 func (s *Student) hasRedFlag(ctx context.Context, studentID uuid.UUID) (bool, error) {
-	obs, err := s.queries.ListObservationsByStudent(ctx, db.ListObservationsByStudentParams{
-		StudentID: studentID, Limit: 200, Offset: 0,
-	})
+	ok, err := s.queries.StudentHasRedFlag(ctx, studentID)
 	if err != nil {
 		return false, utils.NewErrInternal("gagal memeriksa red flag")
 	}
-	for _, o := range obs {
-		if o.RedFlag && o.HandledAt == nil {
-			return true, nil
-		}
-	}
-	return false, nil
+	return ok, nil
 }
 
 func (s *Student) Create(ctx context.Context, actor Actor, in CreateStudentInput) (StudentItem, error) {
@@ -277,12 +285,23 @@ func (s *Student) Update(ctx context.Context, actor Actor, id uuid.UUID, in Upda
 	if in.Kelas != actor.Kelas {
 		return StudentItem{}, utils.NewErrOutOfScope("Kamu hanya bisa memindahkan siswa dalam kelasmu.")
 	}
+	// F13: NISN hanya diubah bila field-nya dikirim eksplisit (non-nil).
 	var nisn *string
-	if strings.TrimSpace(in.NISN) != "" {
-		if err := validateNISN(in.NISN); err != nil {
-			return StudentItem{}, err
+	if in.NISN != nil {
+		if v := strings.TrimSpace(*in.NISN); v != "" {
+			if err := validateNISN(v); err != nil {
+				return StudentItem{}, err
+			}
+			nisn = &v
+		} else {
+			empty := ""
+			nisn = &empty // eksplisit dikosongkan
 		}
-		nisn = &in.NISN
+	} else {
+		// Tidak dikirim → pertahankan NISN lama.
+		if cur, err := s.queries.GetStudentByID(ctx, id); err == nil {
+			nisn = cur.Nisn
+		}
 	}
 	st, err := s.queries.UpdateStudent(ctx, db.UpdateStudentParams{ID: id, Nisn: nisn, Name: in.Name, Kelas: in.Kelas})
 	if err != nil {
@@ -409,14 +428,28 @@ func (s *Student) Detail(ctx context.Context, actor Actor, id uuid.UUID) (Studen
 
 // --- helper konversi ---
 
-// jakartaLoc: lokasi WIB untuk tampilan tanggal/waktu (spec §5 timezone).
-func jakartaLoc() *time.Location {
-	loc, err := time.LoadLocation("Asia/Jakarta")
-	if err != nil {
-		return time.UTC
+// appLocation: zona waktu aplikasi (F21: di-set dari cfg.Timezone/TZ saat start).
+// Default WIB; fallback UTC bila tzdata tak tersedia (LoadLocation → nil → panic).
+var appLocation = func() *time.Location {
+	if loc, err := time.LoadLocation("Asia/Jakarta"); err == nil {
+		return loc
 	}
-	return loc
+	return time.UTC
+}()
+
+// SetTimezone mengeset zona waktu aplikasi dari config (F21). Dipanggil sekali
+// saat server start; TZ kosong/invalid → tetap default.
+func SetTimezone(tz string) {
+	if strings.TrimSpace(tz) == "" {
+		return
+	}
+	if loc, err := time.LoadLocation(tz); err == nil {
+		appLocation = loc
+	}
 }
+
+// jakartaLoc: lokasi WIB (atau TZ terkonfigurasi) untuk tampilan tanggal/waktu.
+func jakartaLoc() *time.Location { return appLocation }
 
 // isUniqueViolation: error Postgres kode 23505 (unique_violation).
 func isUniqueViolation(err error) bool {
@@ -545,9 +578,15 @@ func obsFieldsFromRow(o db.ListObservationsByStudentRow) obsFields {
 }
 
 func validateProfile(in ProfileInput) error {
+	// F12: batas atas juga wajib — nilai raksasa → cast int32 overflow → tersimpan
+	// negatif. 366 hari/tahun adalah batas atas longgar yang tetap masuk akal.
+	const maxAbsensi = 366
 	for _, n := range []int{in.Sakit, in.Izin, in.Alpa} {
 		if n < 0 {
 			return utils.NewErrInvalidInput("Absensi tidak boleh negatif.")
+		}
+		if n > maxAbsensi {
+			return utils.NewErrInvalidInput("Jumlah absensi tidak wajar (maksimal 366).")
 		}
 	}
 	if len(in.MinatBakat) > 1000 {

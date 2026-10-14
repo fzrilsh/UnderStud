@@ -454,6 +454,41 @@ func (q *Queries) ListAttachmentsByMessage(ctx context.Context, messageID uuid.U
 	return items, nil
 }
 
+const listAttachmentsByMessages = `-- name: ListAttachmentsByMessages :many
+SELECT id, message_id, stored_path, original_name, mime, size_bytes, created_at FROM attachments
+WHERE message_id = ANY($1::uuid[])
+ORDER BY created_at ASC
+`
+
+// F4: ambil lampiran untuk BANYAK pesan dalam satu query (hindari N+1).
+func (q *Queries) ListAttachmentsByMessages(ctx context.Context, messageIds []uuid.UUID) ([]Attachment, error) {
+	rows, err := q.db.Query(ctx, listAttachmentsByMessages, messageIds)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Attachment
+	for rows.Next() {
+		var i Attachment
+		if err := rows.Scan(
+			&i.ID,
+			&i.MessageID,
+			&i.StoredPath,
+			&i.OriginalName,
+			&i.Mime,
+			&i.SizeBytes,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listChatsBySession = `-- name: ListChatsBySession :many
 SELECT id, session_id, status, identity_mode, snapshot_name, snapshot_kelas, pinned_at, drafted_at, hidden_by_student_at, hidden_by_staff_at, last_message_at, created_at, updated_at FROM chats
 WHERE session_id = $1 AND hidden_by_student_at IS NULL
@@ -491,6 +526,40 @@ func (q *Queries) ListChatsBySession(ctx context.Context, arg ListChatsBySession
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listLastMessageSenders = `-- name: ListLastMessageSenders :many
+SELECT DISTINCT ON (m.chat_id) m.chat_id, m.sender
+FROM messages m
+WHERE m.chat_id = ANY($1::uuid[])
+ORDER BY m.chat_id, m.created_at DESC, m.id DESC
+`
+
+type ListLastMessageSendersRow struct {
+	ChatID uuid.UUID
+	Sender string
+}
+
+// F23: pengirim pesan TERAKHIR per chat (batch) — turunkan has_new_reply
+// (siswa) & unread_by_staff (BK) tanpa tabel read-state baru.
+func (q *Queries) ListLastMessageSenders(ctx context.Context, chatIds []uuid.UUID) ([]ListLastMessageSendersRow, error) {
+	rows, err := q.db.Query(ctx, listLastMessageSenders, chatIds)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListLastMessageSendersRow
+	for rows.Next() {
+		var i ListLastMessageSendersRow
+		if err := rows.Scan(&i.ChatID, &i.Sender); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

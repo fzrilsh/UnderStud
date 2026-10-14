@@ -20,8 +20,9 @@ services:
     environment:
       DATABASE_URL: postgres://postgres:postgres@db:5432/hackathon?sslmode=disable
       PORT: "8080"
-      JWT_SECRET: dev-secret-change-me-in-prod
-      AUTH_TOKEN_TTL: 87600h
+      # JWT_SECRET TIDAK di-set: server generate acak (audit C1/NV-3).
+      STAFF_TOKEN_TTL: 168h
+      ANON_TOKEN_TTL: 87600h
     ports:
       - "8080:8080"
     depends_on:

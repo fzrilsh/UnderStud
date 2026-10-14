@@ -32,6 +32,7 @@ type ReportItem struct {
 	DraftedAt     *string        `json:"drafted_at"` // M11
 	Identity      ReportIdentity `json:"identity"`
 	LastMessageAt string         `json:"last_message_at"`
+	UnreadByStaff bool           `json:"unread_by_staff"` // F23: pesan terakhir dari siswa
 }
 
 type ReportDetail struct {
@@ -39,7 +40,7 @@ type ReportDetail struct {
 	Messages []MessageView `json:"messages"`
 }
 
-func toReportItem(ch db.Chat) ReportItem {
+func toReportItem(ch db.Chat, unread bool) ReportItem {
 	ident := ReportIdentity{Mode: ch.IdentityMode}
 	if ch.IdentityMode == "profil" {
 		ident.Name = ch.SnapshotName
@@ -49,6 +50,7 @@ func toReportItem(ch db.Chat) ReportItem {
 		ID: ch.ID.String(), Status: ch.Status,
 		Pinned: ch.PinnedAt != nil, Drafted: ch.DraftedAt != nil,
 		Identity: ident, LastMessageAt: ch.LastMessageAt.Format(time.RFC3339),
+		UnreadByStaff: unread,
 	}
 	if ch.PinnedAt != nil {
 		s := ch.PinnedAt.Format(time.RFC3339)
@@ -70,11 +72,7 @@ func (r *Report) Queue(ctx context.Context, limit, offset int32) ([]ReportItem, 
 	if err != nil {
 		return nil, 0, utils.NewErrInternal("gagal memuat antrean")
 	}
-	out := make([]ReportItem, 0, len(chats))
-	for _, ch := range chats {
-		out = append(out, toReportItem(ch))
-	}
-	return out, total, nil
+	return r.withUnread(ctx, chats), total, nil
 }
 
 // History = riwayat: laporan 'dilewati' atau di-hide BK (spec §7.2, §13).
@@ -87,11 +85,30 @@ func (r *Report) History(ctx context.Context, limit, offset int32) ([]ReportItem
 	if err != nil {
 		return nil, 0, utils.NewErrInternal("gagal memuat riwayat")
 	}
+	return r.withUnread(ctx, chats), total, nil
+}
+
+// withUnread: bikin ReportItem + unread_by_staff (F23) lewat satu query batch
+// pengirim pesan terakhir per chat.
+func (r *Report) withUnread(ctx context.Context, chats []db.Chat) []ReportItem {
 	out := make([]ReportItem, 0, len(chats))
-	for _, ch := range chats {
-		out = append(out, toReportItem(ch))
+	if len(chats) == 0 {
+		return out
 	}
-	return out, total, nil
+	ids := make([]uuid.UUID, 0, len(chats))
+	for _, ch := range chats {
+		ids = append(ids, ch.ID)
+	}
+	senders := map[uuid.UUID]string{}
+	if rows, err := r.queries.ListLastMessageSenders(ctx, ids); err == nil {
+		for _, row := range rows {
+			senders[row.ChatID] = row.Sender
+		}
+	}
+	for _, ch := range chats {
+		out = append(out, toReportItem(ch, senders[ch.ID] == "SISWA"))
+	}
+	return out
 }
 
 func (r *Report) get(ctx context.Context, chatID uuid.UUID) (db.Chat, error) {
@@ -126,7 +143,11 @@ func (r *Report) Detail(ctx context.Context, chatID uuid.UUID) (ReportDetail, er
 	if err != nil {
 		return ReportDetail{}, err
 	}
-	return ReportDetail{Chat: toReportItem(ch), Messages: views}, nil
+	unread := false
+	if len(msgs) > 0 {
+		unread = msgs[len(msgs)-1].Sender == "SISWA"
+	}
+	return ReportDetail{Chat: toReportItem(ch, unread), Messages: views}, nil
 }
 
 // requireReplied menegakkan syarat "balas ≥1×" (keputusan #40/#53).

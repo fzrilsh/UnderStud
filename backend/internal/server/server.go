@@ -24,22 +24,26 @@ import (
 
 // New builds the chi router with middleware chain and all routes mounted.
 func New(cfg config.Config, logger *slog.Logger, pool *pgxpool.Pool) http.Handler {
+	// F21: pakai TZ terkonfigurasi (bukan hardcode) untuk semua tanggal/waktu.
+	service.SetTimezone(cfg.Timezone)
 	queries := db.New(pool)
 	tm := tokens.New(cfg.JWTSecret, cfg.StaffTokenTTL)
 	authSvc := service.NewAuth(queries, tm)
 	authHandler := handler.NewAuthHandlers(authSvc, cfg.StaffTokenTTL, cfg.CookieSecure)
 
-	anonSvc := service.NewAnon(queries)
-	anonHandler := handler.NewAnonHandlers(anonSvc)
-	anonMW := middleware.ResolveAnon(queries, cfg.AnonTokenTTL, cfg.CookieSecure)
-
 	rateLimiter := middleware.NewRateLimiter(middleware.RatelimitConfig{
 		ChatsPerHour:    cfg.RateLimitChatsPerHour,
 		MessagesPerHour: cfg.RateLimitMessagesPerHour,
+		SessionsPerHour: cfg.RateLimitSessionsPerHour,
 		IPMultiplier:    cfg.RateLimitIPMultiplier,
 	})
-	chatSvc := service.NewChat(queries, storage.New(cfg.UploadDir), rateLimiter, cfg)
-	chatHandler := handler.NewChatHandlers(chatSvc)
+
+	anonSvc := service.NewAnon(queries)
+	anonMW := middleware.ResolveAnon(queries, cfg.AnonTokenTTL, cfg.CookieSecure, rateLimiter, cfg.TrustProxyHeaders)
+
+	chatSvc := service.NewChat(queries, pool, storage.New(cfg.UploadDir), rateLimiter, cfg)
+	chatHandler := handler.NewChatHandlers(chatSvc, cfg.TrustProxyHeaders)
+	anonHandler := handler.NewAnonHandlers(anonSvc, chatSvc)
 
 	reportSvc := service.NewReport(queries)
 	reportHandler := handler.NewReportHandlers(reportSvc)
@@ -47,14 +51,14 @@ func New(cfg config.Config, logger *slog.Logger, pool *pgxpool.Pool) http.Handle
 	attachmentHandler := handler.NewAttachmentHandlers(chatSvc)
 
 	studentSvc := service.NewStudent(queries)
-	observasiSvc := service.NewObservasi(queries)
+	observasiSvc := service.NewObservasi(queries, pool)
 
 	aiClient := ai.NewClient(cfg)
 	aiQueue := ai.NewQueue(queries, aiClient, time.Duration(cfg.AIDebounceSeconds)*time.Second, logger)
 	go aiQueue.Start(context.Background())
 
 	summarySvc := service.NewSummary(queries, aiClient.Configured())
-	importerSvc := service.NewImporter(queries, aiQueue)
+	importerSvc := service.NewImporter(queries, pool, aiQueue)
 	studentHandler := handler.NewStudentHandlers(studentSvc, observasiSvc, summarySvc, importerSvc).
 		WithEnqueue(func(sid, by uuid.UUID, reason string) { aiQueue.Enqueue(sid, by, reason) })
 	summaryHandler := handler.NewSummaryHandlers(summarySvc)

@@ -122,6 +122,14 @@ SELECT EXISTS (
   SELECT 1 FROM messages WHERE chat_id = $1 AND sender = 'BK'
 ) AS has_replied;
 
+-- name: ListLastMessageSenders :many
+-- F23: pengirim pesan TERAKHIR per chat (batch) — turunkan has_new_reply
+-- (siswa) & unread_by_staff (BK) tanpa tabel read-state baru.
+SELECT DISTINCT ON (m.chat_id) m.chat_id, m.sender
+FROM messages m
+WHERE m.chat_id = ANY(sqlc.arg(chat_ids)::uuid[])
+ORDER BY m.chat_id, m.created_at DESC, m.id DESC;
+
 -- name: CreateAttachment :one
 INSERT INTO attachments (message_id, stored_path, original_name, mime, size_bytes)
 VALUES ($1, $2, $3, $4, $5)
@@ -132,3 +140,9 @@ SELECT * FROM attachments WHERE id = $1;
 
 -- name: ListAttachmentsByMessage :many
 SELECT * FROM attachments WHERE message_id = $1 ORDER BY created_at ASC;
+
+-- name: ListAttachmentsByMessages :many
+-- F4: ambil lampiran untuk BANYAK pesan dalam satu query (hindari N+1).
+SELECT * FROM attachments
+WHERE message_id = ANY(sqlc.arg(message_ids)::uuid[])
+ORDER BY created_at ASC;

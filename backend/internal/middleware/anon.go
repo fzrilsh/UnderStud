@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/google/uuid"
+
 	"backend/internal/anontoken"
 	"backend/internal/db"
 	"backend/internal/tokens"
@@ -43,7 +45,9 @@ const AnonCookieName = "anon_token"
 
 // ResolveAnon membaca cookie anon_token → session. Bila belum ada / invalid,
 // membuat session baru + set cookie (bootstrap, spec §5 keputusan #38).
-func ResolveAnon(queries *db.Queries, ttl time.Duration, secure bool) func(http.Handler) http.Handler {
+// NV-2: pembuatan sesi BARU dibatasi per-IP (cegah spammer membuang cookie →
+// sesi tak terbatas). rl/trustProxyHeaders boleh nil/false (tanpa batas).
+func ResolveAnon(queries *db.Queries, ttl time.Duration, secure bool, rl *RateLimiter, trustProxyHeaders bool) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			var session db.AnonSession
@@ -56,6 +60,11 @@ func ResolveAnon(queries *db.Queries, ttl time.Duration, secure bool) func(http.
 			}
 
 			if !ok {
+				// Hanya batasi saat MEMBUAT sesi baru (bukan saat resolve cookie valid).
+				if rl != nil && !rl.AllowAnonSession(ClientIP(r, trustProxyHeaders)) {
+					utils.WriteAppError(w, utils.NewErrRateLimited("Terlalu banyak permintaan. Coba lagi nanti."))
+					return
+				}
 				raw, hash, err := anontoken.New()
 				if err == nil {
 					if s, err := queries.CreateAnonSession(r.Context(), hash); err == nil {
@@ -80,7 +89,10 @@ func ResolveAnon(queries *db.Queries, ttl time.Duration, secure bool) func(http.
 }
 
 // AnonSessionFrom mengambil session anonim dari context (ok=false bila gagal bootstrap).
+// F10: cek terhadap uuid.Nil, BUKAN string kosong — uuid.Nil.String() =
+// "00000000-0000-0000-0000-000000000000" (non-kosong) sehingga sesi zero-value
+// yang gagal bootstrap sebelumnya lolos sebagai ok=true.
 func AnonSessionFrom(ctx context.Context) (db.AnonSession, bool) {
 	s, ok := ctx.Value(anonSessionKey).(db.AnonSession)
-	return s, ok && s.ID.String() != ""
+	return s, ok && s.ID != uuid.Nil
 }

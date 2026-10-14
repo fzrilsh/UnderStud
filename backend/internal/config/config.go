@@ -26,6 +26,9 @@ type Config struct {
 	StaffTokenTTL time.Duration // staf: 1 minggu
 	AnonTokenTTL  time.Duration // siswa anonim: 10 tahun
 	CookieSecure  bool
+	// TrustProxyHeaders: percayai X-Real-IP/X-Forwarded-For untuk rate-limit per-IP.
+	// true hanya bila API DI BELAKANG reverse proxy tepercaya (nginx compose).
+	TrustProxyHeaders bool
 
 	// Geofence
 	GeoFenceEnabled bool
@@ -40,13 +43,15 @@ type Config struct {
 	AIDebounceSeconds int
 
 	// Upload
+	// Catatan: batas per-file adalah storage.MaxFileBytes (10 MB, dipakai untuk
+	// validasi magic-bytes). Tidak ada env terpisah agar tak ada config "mati".
 	UploadDir        string
-	MaxUploadMB      int
 	MaxUploadTotalMB int
 
 	// Rate limit
 	RateLimitChatsPerHour    int
 	RateLimitMessagesPerHour int
+	RateLimitSessionsPerHour int // NV-2: batas pembuatan sesi anonim baru per-IP
 	RateLimitIPMultiplier    int
 }
 
@@ -63,7 +68,8 @@ func Load() (Config, error) {
 		LogLevel:    getEnv("LOG_LEVEL", "info"),
 		Timezone:    getEnv("TZ", "Asia/Jakarta"),
 
-		CookieSecure: getEnvBool("COOKIE_SECURE", false),
+		CookieSecure:      getEnvBool("COOKIE_SECURE", false),
+		TrustProxyHeaders: getEnvBool("TRUST_PROXY_HEADERS", false),
 
 		GeoFenceEnabled: getEnvBool("GEO_FENCE_ENABLED", false),
 		SchoolRadiusM:   getEnvInt("SCHOOL_RADIUS_M", 200),
@@ -74,11 +80,11 @@ func Load() (Config, error) {
 		AIDebounceSeconds: getEnvInt("AI_DEBOUNCE_SECONDS", 5),
 
 		UploadDir:        getEnv("UPLOAD_DIR", "./data/uploads"),
-		MaxUploadMB:      getEnvInt("MAX_UPLOAD_MB", 10),
 		MaxUploadTotalMB: getEnvInt("MAX_UPLOAD_TOTAL_MB", 20),
 
 		RateLimitChatsPerHour:    getEnvInt("RATE_LIMIT_CHATS_PER_HOUR", 10),
 		RateLimitMessagesPerHour: getEnvInt("RATE_LIMIT_MESSAGES_PER_HOUR", 30),
+		RateLimitSessionsPerHour: getEnvInt("RATE_LIMIT_SESSIONS_PER_HOUR", 60),
 		RateLimitIPMultiplier:    getEnvInt("RATE_LIMIT_IP_MULTIPLIER", 20),
 	}
 

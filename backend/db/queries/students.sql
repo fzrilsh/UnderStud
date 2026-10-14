@@ -45,6 +45,11 @@ UPDATE students SET archived_at = NULL, updated_at = now() WHERE id = $1 RETURNI
 -- name: GetStudentProfile :one
 SELECT * FROM student_profiles WHERE student_id = $1;
 
+-- name: GetStudentProfileForUpdate :one
+-- F7: kunci baris profil untuk read-modify-write (gabung nilai_erapor) agar
+-- dua commit/update paralel tak saling menimpa (lost update).
+SELECT * FROM student_profiles WHERE student_id = $1 FOR UPDATE;
+
 -- name: UpsertStudentProfile :one
 INSERT INTO student_profiles (
   student_id, nilai_erapor, sakit, izin, alpa, minat_bakat, tanggal_lahir,

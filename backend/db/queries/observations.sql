@@ -29,7 +29,8 @@ RETURNING *;
 
 -- name: ListObservationRevisions :many
 SELECT * FROM observation_revisions WHERE observation_id = $1
-ORDER BY created_at DESC;
+ORDER BY created_at DESC
+LIMIT $2 OFFSET $3;
 
 -- name: HandleRedFlag :one
 UPDATE observations SET handled_at = now(), handled_by = $2, updated_at = now()
@@ -50,3 +51,15 @@ SELECT count(*) FROM observations o
 JOIN students s ON s.id = o.student_id
 WHERE o.red_flag = true AND o.handled_at IS NULL
   AND (sqlc.arg(kelas)::text = '' OR s.kelas = sqlc.arg(kelas));
+
+-- name: StudentHasRedFlag :one
+-- NEW-1: cek red flag belum ditangani via EXISTS (tanpa LIMIT 200, tanpa N+1).
+SELECT EXISTS (
+  SELECT 1 FROM observations
+  WHERE student_id = $1 AND red_flag = true AND handled_at IS NULL
+) AS has_red_flag;
+
+-- name: ListRedFlagStudentIDs :many
+-- NEW-1: satu query untuk semua siswa ter-scope (hindari N+1 di list).
+SELECT DISTINCT student_id FROM observations
+WHERE red_flag = true AND handled_at IS NULL AND student_id = ANY(sqlc.arg(ids)::uuid[]);
