@@ -34,6 +34,7 @@ func (c *Client) Configured() bool { return strings.TrimSpace(c.apiKey) != "" }
 
 type SummarizeInput struct {
 	Kelas                string
+	Kehadiran            string
 	NilaiErapor          string
 	MinatBakat           string
 	CatatanPsikologis    string
@@ -71,6 +72,7 @@ func BuildUserPrompt(in SummarizeInput) string {
 	}
 	return fmt.Sprintf(`Data siswa:
 - Kelas: %s
+- Kehadiran: %s
 - Nilai e-rapor: %s
 - Minat & bakat: %s
 - Catatan psikologis: %s
@@ -81,7 +83,7 @@ func BuildUserPrompt(in SummarizeInput) string {
 %s
 
 Buat ringkasan profil siswa sesuai aturan.`,
-		orNA(in.Kelas), orNA(in.NilaiErapor), orNA(in.MinatBakat),
+		orNA(in.Kelas), orNA(in.Kehadiran), orNA(in.NilaiErapor), orNA(in.MinatBakat),
 		orNA(in.CatatanPsikologis), orNA(in.CatatanKasusPrestasi),
 		orNA(in.MasukanBK), orNA(in.PendapatWaliKelas),
 		len(in.Observasi), obs)

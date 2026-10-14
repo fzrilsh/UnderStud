@@ -3,6 +3,7 @@ package ai
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"sync"
 	"time"
@@ -135,8 +136,13 @@ func (q *Queue) gather(ctx context.Context, studentID uuid.UUID) (SummarizeInput
 	in.MasukanBK = deref(prof.MasukanBk)
 	in.PendapatWaliKelas = deref(prof.PendapatWaliKelas)
 
+	if prof.Sakit > 0 || prof.Izin > 0 || prof.Alpa > 0 {
+		in.Kehadiran = fmt.Sprintf("sakit %d, izin %d, alpa %d", prof.Sakit, prof.Izin, prof.Alpa)
+	}
+
 	meaningful := in.NilaiErapor != "" || in.MinatBakat != "" || in.CatatanPsikologis != "" ||
-		in.CatatanKasusPrestasi != "" || in.MasukanBK != "" || in.PendapatWaliKelas != "" || len(obsRows) > 0
+		in.CatatanKasusPrestasi != "" || in.MasukanBK != "" || in.PendapatWaliKelas != "" ||
+		in.Kehadiran != "" || len(obsRows) > 0
 	if !meaningful {
 		return SummarizeInput{}, false, nil
 	}
@@ -180,6 +186,9 @@ func (in SummarizeInput) sources() []map[string]string {
 	today := time.Now().Format("2006-01-02")
 	if in.NilaiErapor != "" {
 		add("Akademik", "nilai_erapor", today)
+	}
+	if in.Kehadiran != "" {
+		add("Kehadiran", "absensi", today)
 	}
 	if in.MinatBakat != "" {
 		add("Minat", "minat_bakat", today)

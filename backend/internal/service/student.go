@@ -50,6 +50,9 @@ type UpdateStudentInput struct {
 
 type ProfileInput struct {
 	NilaiErapor          []EraporRow `json:"nilai_erapor"`
+	Sakit                int         `json:"sakit"`
+	Izin                 int         `json:"izin"`
+	Alpa                 int         `json:"alpa"`
 	MinatBakat           string      `json:"minat_bakat"`
 	TanggalLahir         string      `json:"tanggal_lahir"` // YYYY-MM-DD
 	CatatanPsikologis    string      `json:"catatan_psikologis"`
@@ -66,6 +69,9 @@ type EraporRow struct {
 
 type ProfileView struct {
 	NilaiErapor          []EraporRow `json:"nilai_erapor"`
+	Sakit                int         `json:"sakit"`
+	Izin                 int         `json:"izin"`
+	Alpa                 int         `json:"alpa"`
 	MinatBakat           string      `json:"minat_bakat,omitempty"`
 	TanggalLahir         string      `json:"tanggal_lahir,omitempty"`
 	CatatanPsikologis    string      `json:"catatan_psikologis,omitempty"`
@@ -325,6 +331,9 @@ func (s *Student) SaveProfile(ctx context.Context, actor Actor, id uuid.UUID, in
 	p, err := s.queries.UpsertStudentProfile(ctx, db.UpsertStudentProfileParams{
 		StudentID:            id,
 		NilaiErapor:          nilaiJSON,
+		Sakit:                int32(in.Sakit),
+		Izin:                 int32(in.Izin),
+		Alpa:                 int32(in.Alpa),
 		MinatBakat:           optStr(in.MinatBakat),
 		TanggalLahir:         toPgDate(tgl),
 		CatatanPsikologis:    optStr(in.CatatanPsikologis),
@@ -403,7 +412,13 @@ func toPgDate(t *time.Time) pgtype.Date {
 }
 
 func toProfileView(p db.StudentProfile) ProfileView {
-	v := ProfileView{UpdatedAt: p.UpdatedAt.Format(time.RFC3339), NilaiErapor: []EraporRow{}}
+	v := ProfileView{
+		UpdatedAt:   p.UpdatedAt.Format(time.RFC3339),
+		NilaiErapor: []EraporRow{},
+		Sakit:       int(p.Sakit),
+		Izin:        int(p.Izin),
+		Alpa:        int(p.Alpa),
+	}
 	if len(p.NilaiErapor) > 0 {
 		_ = json.Unmarshal(p.NilaiErapor, &v.NilaiErapor)
 	}
@@ -449,6 +464,11 @@ func toObservationView(o db.Observation, authorName string) ObservationView {
 }
 
 func validateProfile(in ProfileInput) error {
+	for _, n := range []int{in.Sakit, in.Izin, in.Alpa} {
+		if n < 0 {
+			return utils.NewErrInvalidInput("Absensi tidak boleh negatif.")
+		}
+	}
 	if len(in.MinatBakat) > 1000 {
 		return utils.NewErrInvalidInput("Minat & bakat maksimal 1.000 karakter.")
 	}
