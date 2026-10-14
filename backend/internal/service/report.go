@@ -100,6 +100,10 @@ func (r *Report) Detail(ctx context.Context, chatID uuid.UUID) (ReportDetail, er
 	if err != nil {
 		return ReportDetail{}, err
 	}
+	// H2: BK membuka laporan → transisi status baru→dibuka (spec §7.1).
+	if opened, err := r.queries.MarkChatOpened(ctx, chatID); err == nil {
+		ch = opened
+	}
 	msgs, err := r.queries.ListMessagesByChat(ctx, db.ListMessagesByChatParams{ChatID: ch.ID, Limit: 200, Offset: 0})
 	if err != nil {
 		return ReportDetail{}, utils.NewErrInternal("gagal memuat pesan")
@@ -131,8 +135,15 @@ func (r *Report) requireReplied(ctx context.Context, chatID uuid.UUID) error {
 }
 
 func (r *Report) Pin(ctx context.Context, chatID uuid.UUID) error {
-	if _, err := r.get(ctx, chatID); err != nil {
+	ch, err := r.get(ctx, chatID)
+	if err != nil {
 		return err
+	}
+	// M7: Pin dari Draft wajib balas ≥1× (spec §7.2/#53). Dari Antrean bebas.
+	if ch.DraftedAt != nil {
+		if err := r.requireReplied(ctx, chatID); err != nil {
+			return err
+		}
 	}
 	if _, err := r.queries.PinChat(ctx, chatID); err != nil {
 		return utils.NewErrInternal("gagal menyematkan")
@@ -160,8 +171,8 @@ func (r *Report) Draft(ctx context.Context, chatID uuid.UUID) error {
 	return nil
 }
 
-// Next = keluar dari antrean: lepas draft + status 'dilewati' (fix audit A1).
-// Syarat: BK sudah membalas ≥1× (keputusan #40/#53).
+// Next = keluar dari antrean total: lepas pin + draft + status 'dilewati'
+// (fix audit A1 + H1). Syarat: BK sudah membalas ≥1× (keputusan #40/#53).
 func (r *Report) Next(ctx context.Context, chatID uuid.UUID) error {
 	if _, err := r.get(ctx, chatID); err != nil {
 		return err
@@ -169,10 +180,7 @@ func (r *Report) Next(ctx context.Context, chatID uuid.UUID) error {
 	if err := r.requireReplied(ctx, chatID); err != nil {
 		return err
 	}
-	if _, err := r.queries.UndraftChat(ctx, chatID); err != nil {
-		return utils.NewErrInternal("gagal melewati laporan")
-	}
-	if _, err := r.queries.UpdateChatStatus(ctx, db.UpdateChatStatusParams{ID: chatID, Status: "dilewati"}); err != nil {
+	if _, err := r.queries.SetChatSkipped(ctx, chatID); err != nil {
 		return utils.NewErrInternal("gagal melewati laporan")
 	}
 	return nil

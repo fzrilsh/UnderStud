@@ -66,10 +66,10 @@ curl -sf -b "$JAR_BK" "$BASE_URL/api/v1/reports" | jq -e --arg id "$CHAT_ID" '.d
   || fail "chat 'dilewati' masih muncul di sidebar"
 curl -sf -b "$JAR_ANON" -X POST "$BASE_URL/api/v1/lapor/chats/$CHAT_ID/messages" \
   -F 'body=Baik, terima kasih.' > /dev/null
-curl -sf -b "$JAR_BK" "$BASE_URL/api/v1/reports/$CHAT_ID" | jq -e '.data.chat.status == "baru"' > /dev/null
+# requeue → status balik aktif ('baru'; 'dibuka' bila sudah dibuka BK) + masuk sidebar lagi.
 curl -sf -b "$JAR_BK" "$BASE_URL/api/v1/reports" | jq -e --arg id "$CHAT_ID" '.data | map(.id) | index($id) != null' > /dev/null \
   || fail "chat yang di-requeue harus balik ke sidebar"
-pass "Next keluar antrean + requeue ke 'baru' ok"
+pass "Next keluar antrean + requeue ke antrean ok"
 
 echo "==> [10/10] BK balas chat yang di-hide siswa -> 403"
 curl -sf -b "$JAR_ANON" -X DELETE "$BASE_URL/api/v1/lapor/chats/$CHAT_ID" > /dev/null

@@ -64,6 +64,17 @@ UPDATE chats SET drafted_at = now(), pinned_at = NULL, updated_at = now() WHERE 
 -- name: UndraftChat :one
 UPDATE chats SET drafted_at = NULL, updated_at = now() WHERE id = $1 RETURNING *;
 
+-- name: SetChatSkipped :one
+-- Next (dari section mana pun): keluar sidebar total. Audit H1: WAJIB lepas
+-- pinned_at juga (Next dari Pin), selain drafted_at + status='dilewati'.
+UPDATE chats SET pinned_at = NULL, drafted_at = NULL, status = 'dilewati', updated_at = now()
+WHERE id = $1 RETURNING *;
+
+-- name: MarkChatOpened :one
+-- Transisi baru→dibuka saat BK pertama membuka laporan (spec §7.1). Audit H2.
+UPDATE chats SET status = 'dibuka', updated_at = now()
+WHERE id = $1 AND status = 'baru' RETURNING *;
+
 -- name: HideByStudent :one
 UPDATE chats SET hidden_by_student_at = now(), pinned_at = NULL, drafted_at = NULL, updated_at = now() WHERE id = $1 RETURNING *;
 
@@ -79,6 +90,7 @@ UPDATE chats SET last_message_at = now(), updated_at = now() WHERE id = $1 RETUR
 -- jadi filter status cukup untuk ketiganya.
 SELECT * FROM chats
 WHERE hidden_by_staff_at IS NULL
+  AND hidden_by_student_at IS NULL
   AND status IN ('baru', 'dibuka')
 ORDER BY (pinned_at IS NOT NULL) DESC, (drafted_at IS NOT NULL) DESC,
          pinned_at DESC NULLS LAST, drafted_at DESC NULLS LAST,
@@ -88,6 +100,7 @@ LIMIT $1 OFFSET $2;
 -- name: CountStaffQueue :one
 SELECT count(*) FROM chats
 WHERE hidden_by_staff_at IS NULL
+  AND hidden_by_student_at IS NULL
   AND status IN ('baru', 'dibuka');
 
 -- name: ListStaffHistory :many
