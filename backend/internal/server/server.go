@@ -85,12 +85,13 @@ func New(cfg config.Config, logger *slog.Logger, pool *pgxpool.Pool) http.Handle
 			r.Post("/login", authHandler.Login)
 			r.Post("/logout", authHandler.Logout)
 			r.Group(func(r chi.Router) {
-				r.Use(middleware.RequireAuth(tm))
+				r.Use(middleware.RequireAuth(tm, queries))
 				r.Get("/me", authHandler.Me)
 			})
 		})
 
 		r.Route("/lapor", func(r chi.Router) {
+			r.Use(middleware.RejectStaff(tm))
 			r.Use(anonMW)
 			r.Get("/", anonHandler.Bootstrap)
 			r.Get("/profile", anonHandler.GetProfile)
@@ -106,12 +107,12 @@ func New(cfg config.Config, logger *slog.Logger, pool *pgxpool.Pool) http.Handle
 		})
 
 		r.Route("/attachments", func(r chi.Router) {
-			r.Use(middleware.RequireAuth(tm))
+			r.Use(middleware.RequireAuth(tm, queries))
 			r.Get("/{id}", attachmentHandler.Serve)
 		})
 
 		r.Route("/reports", func(r chi.Router) {
-			r.Use(middleware.RequireAuth(tm))
+			r.Use(middleware.RequireAuth(tm, queries))
 			r.Use(middleware.RequireRole(middleware.RoleBK))
 			r.Get("/", reportHandler.Queue)
 			r.Get("/history", reportHandler.History)
@@ -125,7 +126,7 @@ func New(cfg config.Config, logger *slog.Logger, pool *pgxpool.Pool) http.Handle
 		})
 
 		r.Route("/students", func(r chi.Router) {
-			r.Use(middleware.RequireAuth(tm))
+			r.Use(middleware.RequireAuth(tm, queries))
 			r.Get("/", studentHandler.List)
 			r.Post("/", studentHandler.Create)
 			r.Get("/import/template", studentHandler.ImportTemplate)
@@ -144,19 +145,19 @@ func New(cfg config.Config, logger *slog.Logger, pool *pgxpool.Pool) http.Handle
 		})
 
 		r.Route("/observations", func(r chi.Router) {
-			r.Use(middleware.RequireAuth(tm))
+			r.Use(middleware.RequireAuth(tm, queries))
 			r.Put("/{id}", studentHandler.UpdateObservation)
 			r.Get("/{id}/revisions", studentHandler.Revisions)
 			r.Post("/{id}/handle", studentHandler.HandleRedFlag)
 		})
 
 		r.Route("/red-flags", func(r chi.Router) {
-			r.Use(middleware.RequireAuth(tm))
+			r.Use(middleware.RequireAuth(tm, queries))
 			r.Get("/", studentHandler.RedFlags)
 		})
 
 		r.Route("/checklist", func(r chi.Router) {
-			r.Use(middleware.RequireAuth(tm))
+			r.Use(middleware.RequireAuth(tm, queries))
 			r.Get("/", func(w http.ResponseWriter, req *http.Request) {
 				handler.OK(w, service.ChecklistCatalog())
 			})

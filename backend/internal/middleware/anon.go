@@ -7,7 +7,32 @@ import (
 
 	"backend/internal/anontoken"
 	"backend/internal/db"
+	"backend/internal/tokens"
+	"backend/internal/utils"
 )
+
+// RejectStaff menolak request ke domain anonim bila membawa token staf yang
+// VALID (audit M3, spec §6.1: staf ❌ kirim laporan anonim). Token invalid/expired
+// diabaikan — supaya cookie basi tak mengunci akses /lapor.
+func RejectStaff(tm *tokens.Manager) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			tokenStr := ""
+			if c, err := r.Cookie("auth_token"); err == nil && c.Value != "" {
+				tokenStr = c.Value
+			} else if h := r.Header.Get("Authorization"); len(h) > 7 && h[:7] == "Bearer " {
+				tokenStr = h[7:]
+			}
+			if tokenStr != "" {
+				if _, err := tm.ParseClaims(tokenStr); err == nil {
+					utils.WriteAppError(w, utils.NewErrForbidden("Kamu sedang masuk sebagai staf. Keluar dulu untuk memakai kanal anonim."))
+					return
+				}
+			}
+			next.ServeHTTP(w, r)
+		})
+	}
+}
 
 type anonCtxKey int
 

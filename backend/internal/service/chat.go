@@ -44,11 +44,13 @@ type CreateChatInput struct {
 	Files        []UploadFile
 	Lat, Lng     float64
 	Accuracy     float64
+	ClientIP     string // untuk rate limit per-IP (audit M4)
 }
 
 type ReplyInput struct {
-	Body  string
-	Files []UploadFile
+	Body     string
+	Files    []UploadFile
+	ClientIP string
 }
 
 type MessageView struct {
@@ -114,7 +116,7 @@ func (c *Chat) Create(ctx context.Context, session db.AnonSession, in CreateChat
 	if body == "" && len(in.Files) == 0 {
 		return ChatView{}, utils.NewErrInvalidInput("Tulis laporan sebelum mengirim.")
 	}
-	if err := c.rl.CheckChat(session.ID.String()); err != nil {
+	if err := c.rl.CheckChat(session.ID.String(), in.ClientIP); err != nil {
 		return ChatView{}, err
 	}
 	if err := c.checkGeo(in.Lat, in.Lng, in.Accuracy); err != nil {
@@ -320,7 +322,7 @@ func (c *Chat) Reply(ctx context.Context, session db.AnonSession, chatID uuid.UU
 	if body == "" && len(in.Files) == 0 {
 		return MessageView{}, utils.NewErrInvalidInput("Tulis pesan sebelum mengirim.")
 	}
-	if err := c.rl.CheckMessage(session.ID.String()); err != nil {
+	if err := c.rl.CheckMessage(session.ID.String(), in.ClientIP); err != nil {
 		return MessageView{}, err
 	}
 	saved, err := c.saveFiles(in.Files)

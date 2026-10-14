@@ -2,6 +2,7 @@ package handler
 
 import (
 	"errors"
+	"net"
 	"net/http"
 	"strconv"
 
@@ -59,6 +60,16 @@ func atof(s string) float64 {
 	return v
 }
 
+// clientIP mengambil IP klien dari RemoteAddr (tanpa mempercayai header yang
+// bisa dipalsukan). Dipakai untuk rate limit per-IP (audit M4).
+func clientIP(r *http.Request) string {
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		return r.RemoteAddr
+	}
+	return host
+}
+
 // Create handles POST /api/v1/lapor/chats (multipart).
 func (h *ChatHandlers) Create(w http.ResponseWriter, r *http.Request) {
 	session, ok := middleware.AnonSessionFrom(r.Context())
@@ -78,6 +89,7 @@ func (h *ChatHandlers) Create(w http.ResponseWriter, r *http.Request) {
 		Lat:          atof(r.FormValue("lat")),
 		Lng:          atof(r.FormValue("lng")),
 		Accuracy:     atof(r.FormValue("accuracy")),
+		ClientIP:     clientIP(r),
 	})
 	if err != nil {
 		Error(w, err)
@@ -139,7 +151,7 @@ func (h *ChatHandlers) Reply(w http.ResponseWriter, r *http.Request) {
 		Error(w, err)
 		return
 	}
-	msg, err := h.chat.Reply(r.Context(), session, id, service.ReplyInput{Body: body, Files: files})
+	msg, err := h.chat.Reply(r.Context(), session, id, service.ReplyInput{Body: body, Files: files, ClientIP: clientIP(r)})
 	if err != nil {
 		Error(w, err)
 		return
@@ -179,7 +191,11 @@ func pageParams(r *http.Request) (int32, int32) {
 	}
 	offset := int32(0)
 	if v := r.URL.Query().Get("offset"); v != "" {
-		if n, err := strconv.Atoi(v); err == nil && n >= 0 {
+		// L5: clamp ke rentang aman — cegah overflow int32 (offset raksasa → negatif).
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			if n > 1_000_000 {
+				n = 1_000_000
+			}
 			offset = int32(n)
 		}
 	}

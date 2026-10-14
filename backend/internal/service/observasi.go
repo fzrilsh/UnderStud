@@ -345,6 +345,9 @@ func (o *Observasi) Handle(ctx context.Context, actor Actor, obsID uuid.UUID) er
 }
 
 func (o *Observasi) RedFlags(ctx context.Context, actor Actor, limit, offset int32) ([]RedFlagItem, int64, error) {
+	if err := requireScopeClass(actor); err != nil {
+		return nil, 0, err
+	}
 	kelas := ""
 	if actor.Role != middleware.RoleBK {
 		kelas = actor.Kelas

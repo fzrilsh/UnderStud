@@ -106,11 +106,21 @@ type StudentDetail struct {
 func isBK(actor Actor) bool { return actor.Role == middleware.RoleBK }
 
 // scopeKelas: Wali Kelas → kelasnya; BK → "" (tanpa filter).
+// M1: non-BK dengan kelas kosong ditolak (fail-closed) — bukan berarti "semua kelas".
 func scopeKelas(actor Actor) string {
 	if isBK(actor) {
 		return ""
 	}
 	return actor.Kelas
+}
+
+// requireScopeClass: fail-closed untuk non-BK yang kelasnya kosong (audit M1).
+// Mencegah Wali Kelas tanpa kelas melihat SELURUH sekolah (query `kelas=''` = tanpa filter).
+func requireScopeClass(actor Actor) error {
+	if !isBK(actor) && strings.TrimSpace(actor.Kelas) == "" {
+		return utils.NewErrForbidden("Akunmu belum punya kelas. Hubungi administrator.")
+	}
+	return nil
 }
 
 // ensureWritable: hanya Wali Kelas yang boleh menulis Data Siswa.
@@ -168,6 +178,9 @@ func toStudentItem(st db.Student, hasRedFlag bool) StudentItem {
 }
 
 func (s *Student) List(ctx context.Context, actor Actor, q string, includeArchived bool, limit, offset int32) ([]StudentItem, int64, error) {
+	if err := requireScopeClass(actor); err != nil {
+		return nil, 0, err
+	}
 	kelas := scopeKelas(actor)
 	rows, err := s.queries.ListStudents(ctx, db.ListStudentsParams{
 		Kelas: kelas, IncludeArchived: includeArchived, Search: strings.TrimSpace(q), Lim: limit, Off: offset,
