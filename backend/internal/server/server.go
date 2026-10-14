@@ -120,6 +120,7 @@ func New(cfg config.Config, logger *slog.Logger, pool *pgxpool.Pool) http.Handle
 			r.Use(middleware.RequireAuth(tm))
 			r.Get("/", studentHandler.List)
 			r.Post("/", studentHandler.Create)
+			r.Get("/import/template", studentHandler.ImportTemplate)
 			r.Post("/import/preview", studentHandler.ImportPreview)
 			r.Post("/import/commit", studentHandler.ImportCommit)
 			r.Get("/{id}", studentHandler.Detail)

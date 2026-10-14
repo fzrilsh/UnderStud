@@ -367,6 +367,29 @@ func (h *StudentHandlers) ImportPreview(w http.ResponseWriter, r *http.Request) 
 	OK(w, prev)
 }
 
+// ImportTemplate handles GET /api/v1/students/import/template?format=xlsx|csv.
+func (h *StudentHandlers) ImportTemplate(w http.ResponseWriter, r *http.Request) {
+	actor, err := actorFrom(r)
+	if err != nil {
+		Error(w, err)
+		return
+	}
+	if actor.Role != middleware.RoleWaliKelas {
+		Error(w, utils.NewErrForbidden("Hanya Wali Kelas yang bisa mengunduh template."))
+		return
+	}
+	data, ct, fn, err := service.BuildTemplate(r.URL.Query().Get("format"), actor.Kelas)
+	if err != nil {
+		Error(w, err)
+		return
+	}
+	w.Header().Set("Content-Type", ct)
+	w.Header().Set("Content-Disposition", `attachment; filename="`+fn+`"`)
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write(data)
+}
+
 // ImportCommit handles POST /api/v1/students/import/commit (JSON {preview_token}).
 func (h *StudentHandlers) ImportCommit(w http.ResponseWriter, r *http.Request) {
 	actor, err := actorFrom(r)
