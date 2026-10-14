@@ -38,7 +38,8 @@ services:
       # Lampiran chat (spec §8) — persisten via volume `uploads`.
       UPLOAD_DIR: /app/data/uploads
     ports:
-      - "8080:8080"
+      # Override bila 8080 sudah dipakai: `API_PORT=8081 docker-compose up -d`
+      - "${API_PORT:-8080}:8080"
     volumes:
       - uploads:/app/data
     depends_on:

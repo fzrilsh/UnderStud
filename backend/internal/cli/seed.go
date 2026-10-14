@@ -27,7 +27,7 @@ func SeedDemo(cfg config.Config) error {
 	if err := upsertStaff(ctx, q, "bk@demo.local", "password123", "Rina Pratiwi", "BK", nil); err != nil {
 		return err
 	}
-	kelas := "XI-IPA-1"
+	kelas := "X TJKT 1"
 	if err := upsertStaff(ctx, q, "wali@demo.local", "password123", "Budi Santoso", "WALI_KELAS", &kelas); err != nil {
 		return err
 	}
@@ -41,28 +41,29 @@ func SeedDemo(cfg config.Config) error {
 		catatan string
 	}
 	siswa := []struct {
-		nis   string
-		name  string
-		nilai []map[string]any
-		minat string
-		psik  string
-		obs   []seedObs
+		nisn              string
+		name              string
+		nilai             []map[string]any
+		minat             string
+		psik              string
+		sakit, izin, alpa int
+		obs               []seedObs
 	}{
-		{"2026001", "Andi Pratama", erapor5(), "Basket", "", []seedObs{
+		{"2060691501", "Andi Pratama", erapor5(), "Basket", "", 0, 0, 0, []seedObs{
 			{[]string{"emosi:murung", "emosi:cemas_berlebihan"}, "Terlihat murung 2 minggu terakhir."},
 		}},
-		{"2026002", "Bunga Lestari", erapor5(), "Menulis", "", []seedObs{
+		{"2060691502", "Bunga Lestari", erapor5(), "Menulis", "", 0, 0, 0, []seedObs{
 			{[]string{"red_flag:menyakiti_diri"}, "Menulis di buku: 'aku capek hidup'."},
 		}},
-		{"2026003", "Citra Dewi", erapor5(), "", "", []seedObs{
+		{"2060691503", "Citra Dewi", erapor5(), "", "", 3, 1, 0, []seedObs{
 			{[]string{"akademik:nilai_turun"}, "Nilai matematika turun drastis."},
 			{[]string{"kehadiran:terlambat_bolos"}, "Bolos 3x minggu ini."},
 		}},
-		{"2026004", "Dimas Saputra", erapor5(), "", "Sedang menghadapi perceraian orang tua.", nil},
+		{"2060691504", "Dimas Saputra", erapor5(), "", "Sedang menghadapi perceraian orang tua.", 0, 0, 0, nil},
 	}
 
 	for _, s := range siswa {
-		nisn := s.nis
+		nisn := s.nisn
 		st, err := q.GetStudentByNISN(ctx, &nisn)
 		if err != nil {
 			st, err = q.CreateStudent(ctx, db.CreateStudentParams{Nisn: &nisn, Name: s.name, Kelas: kelas})
@@ -73,7 +74,7 @@ func SeedDemo(cfg config.Config) error {
 				return err
 			}
 		}
-		if err := seedProfile(ctx, q, st.ID, wali.ID, s.nilai, s.minat, s.psik); err != nil {
+		if err := seedProfile(ctx, q, st.ID, wali.ID, s.nilai, s.minat, s.psik, s.sakit, s.izin, s.alpa); err != nil {
 			return err
 		}
 		existing, err := q.CountObservationsByStudent(ctx, st.ID)
@@ -110,17 +111,20 @@ func SeedDemo(cfg config.Config) error {
 
 func erapor5() []map[string]any {
 	return []map[string]any{
-		{"mapel": "Matematika", "nilai": 85, "periode": "2026-Ganjil"},
-		{"mapel": "Fisika", "nilai": 78, "periode": "2026-Ganjil"},
-		{"mapel": "Kimia", "nilai": 82, "periode": "2026-Ganjil"},
-		{"mapel": "Biologi", "nilai": 88, "periode": "2026-Ganjil"},
-		{"mapel": "Bahasa Indonesia", "nilai": 90, "periode": "2026-Ganjil"},
+		{"mapel": "Matematika (Umum)", "nilai": 85, "periode": "2025/2026 Genap"},
+		{"mapel": "Fisika", "nilai": 78, "periode": "2025/2026 Genap"},
+		{"mapel": "Kimia", "nilai": 82, "periode": "2025/2026 Genap"},
+		{"mapel": "Biologi", "nilai": 88, "periode": "2025/2026 Genap"},
+		{"mapel": "Bahasa Indonesia", "nilai": 90, "periode": "2025/2026 Genap"},
 	}
 }
 
-func seedProfile(ctx context.Context, q *db.Queries, studentID, waliID uuid.UUID, nilai []map[string]any, minat, psik string) error {
+func seedProfile(ctx context.Context, q *db.Queries, studentID, waliID uuid.UUID, nilai []map[string]any, minat, psik string, sakit, izin, alpa int) error {
 	nilaiJSON, _ := json.Marshal(nilai)
-	params := db.UpsertStudentProfileParams{StudentID: studentID, NilaiErapor: nilaiJSON, UpdatedBy: &waliID}
+	params := db.UpsertStudentProfileParams{
+		StudentID: studentID, NilaiErapor: nilaiJSON, UpdatedBy: &waliID,
+		Sakit: int32(sakit), Izin: int32(izin), Alpa: int32(alpa),
+	}
 	if minat != "" {
 		params.MinatBakat = &minat
 	}
