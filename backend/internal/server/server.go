@@ -36,6 +36,7 @@ func New(cfg config.Config, logger *slog.Logger, pool *pgxpool.Pool) http.Handle
 	rateLimiter := middleware.NewRateLimiter(middleware.RatelimitConfig{
 		ChatsPerHour:    cfg.RateLimitChatsPerHour,
 		MessagesPerHour: cfg.RateLimitMessagesPerHour,
+		IPMultiplier:    cfg.RateLimitIPMultiplier,
 	})
 	chatSvc := service.NewChat(queries, storage.New(cfg.UploadDir), rateLimiter, cfg)
 	chatHandler := handler.NewChatHandlers(chatSvc)

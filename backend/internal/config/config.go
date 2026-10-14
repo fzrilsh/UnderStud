@@ -47,6 +47,7 @@ type Config struct {
 	// Rate limit
 	RateLimitChatsPerHour    int
 	RateLimitMessagesPerHour int
+	RateLimitIPMultiplier    int
 }
 
 // Load reads configuration from environment variables with sane defaults.
@@ -78,6 +79,7 @@ func Load() (Config, error) {
 
 		RateLimitChatsPerHour:    getEnvInt("RATE_LIMIT_CHATS_PER_HOUR", 10),
 		RateLimitMessagesPerHour: getEnvInt("RATE_LIMIT_MESSAGES_PER_HOUR", 30),
+		RateLimitIPMultiplier:    getEnvInt("RATE_LIMIT_IP_MULTIPLIER", 20),
 	}
 
 	var err error

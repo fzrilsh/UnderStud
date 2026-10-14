@@ -10,6 +10,9 @@ import (
 type RatelimitConfig struct {
 	ChatsPerHour    int
 	MessagesPerHour int
+	// IPMultiplier: batas per-IP = batas per-sesi × ini (IP dipakai bersama
+	// banyak siswa via NAT sekolah → jauh lebih longgar). Default 20.
+	IPMultiplier int
 }
 
 type rateEntry struct {
@@ -82,20 +85,29 @@ func (rl *RateLimiter) evictLocked(cutoff time.Time) {
 	}
 }
 
-// AllowAny mengecek beberapa kunci sekaligus (mis. sesi + IP): lolos hanya bila
-// SEMUA kunci di bawah batas (audit M4 — cegah bypass dengan membuang cookie).
-func (rl *RateLimiter) AllowAny(keys []string, kind string) bool {
+// AllowAny mengecek beberapa kunci sekaligus (mis. sesi + IP). Kunci PERTAMA
+// memakai batas normal; kunci berikutnya memakai batas × ipMultiplier (IP
+// dibagi banyak siswa via NAT sekolah → batas harus jauh lebih longgar; ini
+// backstop anti-abuse, bukan kuota per-siswa). Lolos hanya bila SEMUA di bawah.
+func (rl *RateLimiter) AllowAny(keys []string, kind string, ipMultiplier int) bool {
+	if ipMultiplier < 1 {
+		ipMultiplier = 1
+	}
 	rl.mu.Lock()
 	defer rl.mu.Unlock()
 	now := time.Now()
 	cutoff := now.Add(-time.Hour)
-	limit := rl.cfg.ChatsPerHour
+	base := rl.cfg.ChatsPerHour
 	if kind == "message" {
-		limit = rl.cfg.MessagesPerHour
+		base = rl.cfg.MessagesPerHour
 	}
 	// Cek semua dulu (jangan tambah timestamp kalau ada yang penuh).
 	counts := make([]*rateEntry, 0, len(keys))
-	for _, k := range keys {
+	for i, k := range keys {
+		limit := base
+		if i > 0 {
+			limit = base * ipMultiplier
+		}
 		e, ok := rl.entries[k]
 		if !ok {
 			e = &rateEntry{}
@@ -123,7 +135,7 @@ func (rl *RateLimiter) AllowAny(keys []string, kind string) bool {
 // CheckChat menolak bila kuota chat habis. Membatasi per-sesi DAN per-IP
 // (audit M4): membuang cookie tidak menambah kuota karena IP tetap dihitung.
 func (rl *RateLimiter) CheckChat(sessionID, ip string) error {
-	if !rl.AllowAny([]string{"s:" + sessionID, "ip:" + ip}, "chat") {
+	if !rl.AllowAny([]string{"s:" + sessionID, "ip:" + ip}, "chat", rl.ipMultiplier()) {
 		return utils.NewErrRateLimited("Terlalu banyak laporan. Coba lagi nanti.")
 	}
 	return nil
@@ -131,8 +143,15 @@ func (rl *RateLimiter) CheckChat(sessionID, ip string) error {
 
 // CheckMessage menolak bila kuota pesan habis (per-sesi + per-IP).
 func (rl *RateLimiter) CheckMessage(sessionID, ip string) error {
-	if !rl.AllowAny([]string{"s:" + sessionID, "ip:" + ip}, "message") {
+	if !rl.AllowAny([]string{"s:" + sessionID, "ip:" + ip}, "message", rl.ipMultiplier()) {
 		return utils.NewErrRateLimited("Terlalu banyak permintaan. Coba lagi nanti.")
 	}
 	return nil
+}
+
+func (rl *RateLimiter) ipMultiplier() int {
+	if rl.cfg.IPMultiplier < 1 {
+		return 20
+	}
+	return rl.cfg.IPMultiplier
 }
