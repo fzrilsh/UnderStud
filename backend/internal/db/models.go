@@ -109,7 +109,7 @@ type ObservationRevision struct {
 
 type Student struct {
 	ID         uuid.UUID
-	Nis        *string
+	Nisn       *string
 	Name       string
 	Kelas      string
 	ArchivedAt *time.Time
@@ -128,6 +128,9 @@ type StudentProfile struct {
 	PendapatWaliKelas    *string
 	UpdatedBy            *uuid.UUID
 	UpdatedAt            time.Time
+	Sakit                int32
+	Izin                 int32
+	Alpa                 int32
 }
 
 type User struct {

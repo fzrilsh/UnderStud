@@ -1,11 +1,11 @@
 -- name: GetStudentByID :one
 SELECT * FROM students WHERE id = $1;
 
--- name: GetStudentByNIS :one
-SELECT * FROM students WHERE nis = $1;
+-- name: GetStudentByNISN :one
+SELECT * FROM students WHERE nisn = $1;
 
 -- name: CreateStudent :one
-INSERT INTO students (nis, name, kelas)
+INSERT INTO students (nisn, name, kelas)
 VALUES ($1, $2, $3)
 RETURNING *;
 
@@ -20,7 +20,7 @@ SELECT count(*) FROM observations WHERE student_id = $1;
 SELECT * FROM students
 WHERE (sqlc.arg(kelas)::text = '' OR kelas = sqlc.arg(kelas))
   AND (sqlc.arg(include_archived)::bool = true OR archived_at IS NULL)
-  AND (sqlc.arg(search)::text = '' OR lower(name) LIKE '%' || lower(sqlc.arg(search)) || '%' OR nis LIKE '%' || sqlc.arg(search) || '%')
+  AND (sqlc.arg(search)::text = '' OR lower(name) LIKE '%' || lower(sqlc.arg(search)) || '%' OR nisn LIKE '%' || sqlc.arg(search) || '%')
 ORDER BY name ASC
 LIMIT sqlc.arg(lim) OFFSET sqlc.arg(off);
 
@@ -28,11 +28,11 @@ LIMIT sqlc.arg(lim) OFFSET sqlc.arg(off);
 SELECT count(*) FROM students
 WHERE (sqlc.arg(kelas)::text = '' OR kelas = sqlc.arg(kelas))
   AND (sqlc.arg(include_archived)::bool = true OR archived_at IS NULL)
-  AND (sqlc.arg(search)::text = '' OR lower(name) LIKE '%' || lower(sqlc.arg(search)) || '%' OR nis LIKE '%' || sqlc.arg(search) || '%');
+  AND (sqlc.arg(search)::text = '' OR lower(name) LIKE '%' || lower(sqlc.arg(search)) || '%' OR nisn LIKE '%' || sqlc.arg(search) || '%');
 
 -- name: UpdateStudent :one
 UPDATE students
-SET nis = $2, name = $3, kelas = $4, updated_at = now()
+SET nisn = $2, name = $3, kelas = $4, updated_at = now()
 WHERE id = $1
 RETURNING *;
 
@@ -47,11 +47,15 @@ SELECT * FROM student_profiles WHERE student_id = $1;
 
 -- name: UpsertStudentProfile :one
 INSERT INTO student_profiles (
-  student_id, nilai_erapor, minat_bakat, tanggal_lahir, catatan_psikologis,
-  catatan_kasus_prestasi, masukan_bk, pendapat_wali_kelas, updated_by, updated_at
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, now())
+  student_id, nilai_erapor, sakit, izin, alpa, minat_bakat, tanggal_lahir,
+  catatan_psikologis, catatan_kasus_prestasi, masukan_bk, pendapat_wali_kelas,
+  updated_by, updated_at
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, now())
 ON CONFLICT (student_id) DO UPDATE SET
   nilai_erapor           = EXCLUDED.nilai_erapor,
+  sakit                  = EXCLUDED.sakit,
+  izin                   = EXCLUDED.izin,
+  alpa                   = EXCLUDED.alpa,
   minat_bakat            = EXCLUDED.minat_bakat,
   tanggal_lahir          = EXCLUDED.tanggal_lahir,
   catatan_psikologis     = EXCLUDED.catatan_psikologis,
