@@ -4,6 +4,8 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"net"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -80,7 +82,7 @@ func Load() (Config, error) {
 		GeoFenceEnabled: getEnvBool("GEO_FENCE_ENABLED", false),
 		SchoolRadiusM:   getEnvInt("SCHOOL_RADIUS_M", 200),
 
-		AIBaseURL:         getEnv("AI_BASE_URL", "http://localhost:11434/v1"),
+		AIBaseURL:         normalizeAIBaseURL(getEnv("AI_BASE_URL", "http://localhost:11434/v1")),
 		AIAPIKey:          getEnv("AI_API_KEY", ""),
 		AIModel:           getEnv("AI_MODEL", "gpt-4o-mini"),
 		AIDebounceSeconds: getEnvInt("AI_DEBOUNCE_SECONDS", 5),
@@ -140,6 +142,59 @@ func getEnv(key, fallback string) string {
 		return v
 	}
 	return fallback
+}
+
+// normalizeAIBaseURL membuat `.env` yang sama jalan di dua lingkungan tanpa
+// perlu diedit: provider AI yang dijalankan di HOST dijangkau lewat `localhost`
+// saat app jalan di host, tapi harus `host.docker.internal` saat app jalan di
+// dalam container (di sana `localhost` = container itu sendiri).
+//
+// Aturan: bila app DI DALAM container dan host URL = localhost/127.0.0.1/::1,
+// tulis ulang jadi host.docker.internal. Bila app di HOST dan host URL =
+// host.docker.internal (tak bisa di-resolve di host), tulis ulang jadi 127.0.0.1.
+func normalizeAIBaseURL(raw string) string {
+	u, err := url.Parse(strings.TrimSpace(raw))
+	if err != nil || u.Host == "" {
+		return raw
+	}
+	host := u.Hostname()
+	if host == "" {
+		return raw
+	}
+	port := u.Port()
+	inContainer := runningInContainer()
+
+	loopback := host == "localhost" || host == "127.0.0.1" || host == "::1" || host == "[::1]"
+	dockerHost := host == "host.docker.internal"
+
+	if inContainer && loopback {
+		host = "host.docker.internal"
+	} else if !inContainer && dockerHost {
+		// Di host, host.docker.internal tidak resolve → pakai loopback IPv4
+		// (hindari `localhost` yang bisa nyangkut ke IPv6 ::1 saat provider
+		// hanya listen di IPv4).
+		host = "127.0.0.1"
+	} else {
+		return raw
+	}
+	if port != "" {
+		u.Host = net.JoinHostPort(host, port)
+	} else {
+		u.Host = host
+	}
+	return u.String()
+}
+
+// runningInContainer: heuristik murah — ada file /.dockerenv (Docker) atau
+// env container (kubernetes). Tanpa dependensi tambahan.
+func runningInContainer() bool {
+	if _, err := os.Stat("/.dockerenv"); err == nil {
+		return true
+	}
+	if _, err := os.Stat("/run/.containerenv"); err == nil { // podman
+		return true
+	}
+	return os.Getenv("KUBERNETES_SERVICE_HOST") != ""
 }
 
 // loadDotEnv memuat `.env` dari CWD atau direktori induk (best-effort). Tidak
