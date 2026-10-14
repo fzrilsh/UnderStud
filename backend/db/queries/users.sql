@@ -16,3 +16,8 @@ RETURNING *;
 
 -- name: DeactivateStaff :exec
 UPDATE users SET is_active = false WHERE email = $1;
+
+-- name: UpdateStaff :one
+UPDATE users SET name = $2, role = $3, kelas = $4, updated_at = now()
+WHERE email = $1
+RETURNING *;

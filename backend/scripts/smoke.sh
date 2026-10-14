@@ -25,7 +25,7 @@ JAR2="$(mktemp)"
 curl -sf -X POST "$BASE_URL/api/v1/auth/login" \
   -H 'Content-Type: application/json' -c "$JAR2" \
   -d '{"email":"wali@demo.local","password":"password123"}' \
-  | jq -e '.data.user.role == "WALI_KELAS" and .data.user.kelas == "XI-IPA-1"' > /dev/null
+  | jq -e '.data.user.role == "WALI_KELAS" and .data.user.kelas == "X TJKT 1"' > /dev/null
 rm -f "$JAR2"
 
 echo "==> [5/6] login salah -> 401"

@@ -1,6 +1,10 @@
 package leger
 
-import "testing"
+import (
+	"os"
+	"strings"
+	"testing"
+)
 
 func sampleGrid() Grid {
 	return Grid{Rows: [][]string{
@@ -71,5 +75,26 @@ func TestParseNoHeader(t *testing.T) {
 	_, err := Parse(Grid{Rows: [][]string{{"a", "b"}, {"c", "d"}}})
 	if err == nil {
 		t.Fatal("want error saat header tak ditemukan")
+	}
+}
+
+func TestParseFixtureFile(t *testing.T) {
+	data, err := os.ReadFile("testdata/leger-sample.csv")
+	if err != nil {
+		t.Fatalf("fixture: %v", err)
+	}
+	g, err := GridFromCSV(strings.NewReader(string(data)))
+	if err != nil {
+		t.Fatalf("grid: %v", err)
+	}
+	l, err := Parse(g)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	if l.Kelas != "X TJKT 1" || len(l.Rows) != 2 {
+		t.Fatalf("fixture parse: kelas=%q rows=%d", l.Kelas, len(l.Rows))
+	}
+	if l.Rows[0].Nilai[0].Mapel != "Matematika (Umum)" || l.Rows[0].Sakit != 3 {
+		t.Fatalf("fixture row0: %+v", l.Rows[0])
 	}
 }

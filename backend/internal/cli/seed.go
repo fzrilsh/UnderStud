@@ -136,9 +136,13 @@ func seedProfile(ctx context.Context, q *db.Queries, studentID, waliID uuid.UUID
 }
 
 func upsertStaff(ctx context.Context, q *db.Queries, email, pass, name, role string, kelas *string) error {
-	_, err := q.GetUserByEmail(ctx, email)
+	existing, err := q.GetUserByEmail(ctx, email)
 	if err == nil {
-		return nil // sudah ada
+		// Sudah ada → sinkronkan role/kelas (mis. kelas seed berubah antar versi).
+		_, err = q.UpdateStaff(ctx, db.UpdateStaffParams{
+			Email: existing.Email, Name: name, Role: role, Kelas: kelas,
+		})
+		return err
 	}
 	hash, err := utils.HashPassword(pass)
 	if err != nil {
