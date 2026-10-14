@@ -900,6 +900,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/students/import/template": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Download a leger template (xlsx/csv) pre-filled with the Wali Kelas kelas */
+        get: {
+            parameters: {
+                query?: {
+                    format?: "xlsx" | "csv";
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description File download (Content-Disposition attachment) */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": string;
+                        "text/csv": string;
+                    };
+                };
+                403: components["responses"]["ErrorResponse"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/students/import/preview": {
         parameters: {
             query?: never;
@@ -909,7 +949,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Upload E-Rapor CSV → preview (no DB writes; returns preview_token) */
+        /** Upload leger E-Rapor (.xlsx/.csv) → preview (no DB writes; returns preview_token) */
         post: {
             parameters: {
                 query?: never;
@@ -956,7 +996,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Apply a preview (upsert by NIS) */
+        /** Apply a preview (upsert by NISN) */
         post: {
             parameters: {
                 query?: never;
@@ -1032,7 +1072,7 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        /** Edit student name/NIS/kelas (Wali Kelas only) */
+        /** Edit student name/NISN/kelas (Wali Kelas only) */
         patch: {
             parameters: {
                 query?: never;
@@ -1662,7 +1702,8 @@ export interface components {
         StudentItem: {
             /** Format: uuid */
             id: string;
-            nis?: string;
+            /** @description Nomor Induk Siswa Nasional (digit, 4-20) */
+            nisn?: string;
             name: string;
             kelas: string;
             /** Format: date-time */
@@ -1670,7 +1711,8 @@ export interface components {
             has_red_flag?: boolean;
         };
         CreateStudentInput: {
-            nis?: string;
+            /** @description Nomor Induk Siswa Nasional (digit, 4-20) */
+            nisn?: string;
             name: string;
             kelas: string;
         };
@@ -1681,6 +1723,9 @@ export interface components {
         };
         ProfileInput: {
             nilai_erapor?: components["schemas"]["EraporRow"][];
+            sakit?: number;
+            izin?: number;
+            alpa?: number;
             minat_bakat?: string;
             /** Format: date */
             tanggal_lahir?: string;
@@ -1691,6 +1736,9 @@ export interface components {
         };
         ProfileView: {
             nilai_erapor?: components["schemas"]["EraporRow"][];
+            sakit?: number;
+            izin?: number;
+            alpa?: number;
             minat_bakat?: string;
             /** Format: date */
             tanggal_lahir?: string;
@@ -1764,10 +1812,13 @@ export interface components {
             created_at?: string;
         };
         ImportRow: {
-            nis?: string;
+            nisn?: string;
             nama?: string;
             kelas?: string;
             nilai_erapor?: components["schemas"]["EraporRow"][];
+            sakit?: number;
+            izin?: number;
+            alpa?: number;
         };
         ImportPreview: {
             preview_token?: string;
@@ -1775,7 +1826,7 @@ export interface components {
             update?: components["schemas"]["ImportRow"][];
             errors?: {
                 baris?: number;
-                nis?: string;
+                nisn?: string;
                 pesan?: string;
             }[];
             ringkasan?: {

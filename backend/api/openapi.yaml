@@ -513,10 +513,29 @@ paths:
         "400": { $ref: "#/components/responses/ErrorResponse" }
         "403": { $ref: "#/components/responses/ErrorResponse" }
         "409": { $ref: "#/components/responses/ErrorResponse" }
+  /api/v1/students/import/template:
+    get:
+      tags: [students]
+      summary: Download a leger template (xlsx/csv) pre-filled with the Wali Kelas kelas
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: format
+          in: query
+          schema: { type: string, enum: [xlsx, csv], default: xlsx }
+      responses:
+        "200":
+          description: File download (Content-Disposition attachment)
+          content:
+            application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+              schema: { type: string, format: binary }
+            text/csv:
+              schema: { type: string }
+        "403": { $ref: "#/components/responses/ErrorResponse" }
   /api/v1/students/import/preview:
     post:
       tags: [students]
-      summary: Upload E-Rapor CSV → preview (no DB writes; returns preview_token)
+      summary: Upload leger E-Rapor (.xlsx/.csv) → preview (no DB writes; returns preview_token)
       security:
         - cookieAuth: []
       requestBody:
@@ -541,7 +560,7 @@ paths:
   /api/v1/students/import/commit:
     post:
       tags: [students]
-      summary: Apply a preview (upsert by NIS)
+      summary: Apply a preview (upsert by NISN)
       security:
         - cookieAuth: []
       requestBody:
@@ -588,7 +607,7 @@ paths:
         "404": { $ref: "#/components/responses/ErrorResponse" }
     patch:
       tags: [students]
-      summary: Edit student name/NIS/kelas (Wali Kelas only)
+      summary: Edit student name/NISN/kelas (Wali Kelas only)
       security:
         - cookieAuth: []
       parameters:
@@ -1040,7 +1059,7 @@ components:
       required: [id, name, kelas]
       properties:
         id: { type: string, format: uuid }
-        nis: { type: string }
+        nisn: { type: string, description: 'Nomor Induk Siswa Nasional (digit, 4-20)' }
         name: { type: string }
         kelas: { type: string }
         archived_at: { type: string, format: date-time, nullable: true }
@@ -1049,7 +1068,7 @@ components:
       type: object
       required: [name, kelas]
       properties:
-        nis: { type: string }
+        nisn: { type: string, description: 'Nomor Induk Siswa Nasional (digit, 4-20)' }
         name: { type: string }
         kelas: { type: string }
     EraporRow:
@@ -1065,6 +1084,9 @@ components:
         nilai_erapor:
           type: array
           items: { $ref: "#/components/schemas/EraporRow" }
+        sakit: { type: integer, minimum: 0 }
+        izin: { type: integer, minimum: 0 }
+        alpa: { type: integer, minimum: 0 }
         minat_bakat: { type: string, maxLength: 1000 }
         tanggal_lahir: { type: string, format: date }
         catatan_psikologis: { type: string, maxLength: 2000 }
@@ -1077,6 +1099,9 @@ components:
         nilai_erapor:
           type: array
           items: { $ref: "#/components/schemas/EraporRow" }
+        sakit: { type: integer }
+        izin: { type: integer }
+        alpa: { type: integer }
         minat_bakat: { type: string }
         tanggal_lahir: { type: string, format: date }
         catatan_psikologis: { type: string }
@@ -1151,12 +1176,15 @@ components:
     ImportRow:
       type: object
       properties:
-        nis: { type: string }
+        nisn: { type: string }
         nama: { type: string }
         kelas: { type: string }
         nilai_erapor:
           type: array
           items: { $ref: "#/components/schemas/EraporRow" }
+        sakit: { type: integer }
+        izin: { type: integer }
+        alpa: { type: integer }
     ImportPreview:
       type: object
       properties:
@@ -1173,7 +1201,7 @@ components:
             type: object
             properties:
               baris: { type: integer }
-              nis: { type: string }
+              nisn: { type: string }
               pesan: { type: string }
         ringkasan:
           type: object
