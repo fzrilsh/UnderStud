@@ -107,10 +107,12 @@ func (i *Importer) Preview(ctx context.Context, actor Actor, filename string, da
 	}
 	grid, err := toGrid(format, data)
 	if err != nil {
-		return ImportPreview{}, utils.NewErrInvalidInput("File tidak dapat dibaca: " + err.Error())
+		// L19: pesan generik (jangan bocorkan detail internal parser).
+		return ImportPreview{}, utils.NewErrInvalidInput("File tidak dapat dibaca. Pastikan format leger benar.")
 	}
 	lg, err := leger.Parse(grid)
 	if err != nil {
+		// Pesan leger.Parse sudah Indonesia & terkurasi (mis. header tak ditemukan).
 		return ImportPreview{}, utils.NewErrInvalidInput(err.Error())
 	}
 
@@ -202,6 +204,8 @@ func (i *Importer) Commit(ctx context.Context, actor Actor, token string) (Impor
 	if err := json.Unmarshal(prev.Payload, &payload); err != nil {
 		return ImportResult{}, utils.NewErrInternal("payload preview rusak")
 	}
+	// L8: token sekali-pakai — hapus preview setelah dibaca.
+	_ = i.queries.DeleteImportPreview(ctx, token)
 
 	res := ImportResult{Errors: len(payload.Errors)}
 	for _, row := range payload.Baru {

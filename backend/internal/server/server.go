@@ -83,6 +83,8 @@ func New(cfg config.Config, logger *slog.Logger, pool *pgxpool.Pool) http.Handle
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Route("/auth", func(r chi.Router) {
 			r.Post("/login", authHandler.Login)
+			// Logout sengaja TANPA auth: hanya membersihkan cookie milik pemanggil
+			// (idempotent). Bila token sudah kedaluwarsa, user tetap harus bisa logout.
 			r.Post("/logout", authHandler.Logout)
 			r.Group(func(r chi.Router) {
 				r.Use(middleware.RequireAuth(tm, queries))
@@ -127,28 +129,39 @@ func New(cfg config.Config, logger *slog.Logger, pool *pgxpool.Pool) http.Handle
 
 		r.Route("/students", func(r chi.Router) {
 			r.Use(middleware.RequireAuth(tm, queries))
+			// Read: BK (semua) + Wali Kelas (kelasnya) — scoping di service.
 			r.Get("/", studentHandler.List)
-			r.Post("/", studentHandler.Create)
-			r.Get("/import/template", studentHandler.ImportTemplate)
-			r.Post("/import/preview", studentHandler.ImportPreview)
-			r.Post("/import/commit", studentHandler.ImportCommit)
 			r.Get("/{id}", studentHandler.Detail)
-			r.Patch("/{id}", studentHandler.Update)
-			r.Put("/{id}/profile", studentHandler.SaveProfile)
-			r.Post("/{id}/archive", studentHandler.Archive)
-			r.Post("/{id}/restore", studentHandler.Restore)
-			r.Post("/{id}/observations", studentHandler.CreateObservation)
 			r.Get("/{id}/observations", studentHandler.ListObservations)
 			r.Get("/{id}/summaries", summaryHandler.List)
 			r.Get("/{id}/summaries/latest", summaryHandler.Latest)
 			r.Get("/{id}/summaries/{sid}/export", summaryHandler.Export)
+			// Write: Wali Kelas saja (L14 defense-in-depth; service tetap cek).
+			r.Group(func(r chi.Router) {
+				r.Use(middleware.RequireRole(middleware.RoleWaliKelas))
+				r.Post("/", studentHandler.Create)
+				r.Get("/import/template", studentHandler.ImportTemplate)
+				r.Post("/import/preview", studentHandler.ImportPreview)
+				r.Post("/import/commit", studentHandler.ImportCommit)
+				r.Patch("/{id}", studentHandler.Update)
+				r.Put("/{id}/profile", studentHandler.SaveProfile)
+				r.Post("/{id}/archive", studentHandler.Archive)
+				r.Post("/{id}/restore", studentHandler.Restore)
+				r.Post("/{id}/observations", studentHandler.CreateObservation)
+			})
 		})
 
 		r.Route("/observations", func(r chi.Router) {
 			r.Use(middleware.RequireAuth(tm, queries))
-			r.Put("/{id}", studentHandler.UpdateObservation)
-			r.Get("/{id}/revisions", studentHandler.Revisions)
-			r.Post("/{id}/handle", studentHandler.HandleRedFlag)
+			r.Get("/{id}/revisions", studentHandler.Revisions) // baca: staf scoped
+			r.Group(func(r chi.Router) {
+				r.Use(middleware.RequireRole(middleware.RoleWaliKelas))
+				r.Put("/{id}", studentHandler.UpdateObservation)
+			})
+			r.Group(func(r chi.Router) {
+				r.Use(middleware.RequireRole(middleware.RoleBK))
+				r.Post("/{id}/handle", studentHandler.HandleRedFlag)
+			})
 		})
 
 		r.Route("/red-flags", func(r chi.Router) {

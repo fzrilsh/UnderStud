@@ -49,6 +49,11 @@ func run() error {
 		Addr:              ":" + cfg.Port,
 		Handler:           server.New(cfg, logger, pool),
 		ReadHeaderTimeout: 5 * time.Second,
+		// L4: batas waktu lain — cegah slowloris / koneksi menggantung.
+		ReadTimeout:    30 * time.Second,
+		WriteTimeout:   60 * time.Second,
+		IdleTimeout:    120 * time.Second,
+		MaxHeaderBytes: 1 << 20, // 1 MB
 	}
 
 	errCh := make(chan error, 1)

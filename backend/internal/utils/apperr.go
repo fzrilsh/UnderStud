@@ -20,7 +20,7 @@ const (
 	CodeUnsupportedMedia    = "UNSUPPORTED_MEDIA"
 	CodePreviewExpired      = "PREVIEW_EXPIRED"
 	CodeAINotConfigured     = "AI_NOT_CONFIGURED"
-	CodeAIFailed            = "AI_FAILED"
+	CodeAIFailed            = "AI_FAILED" // reserved: AI async, kegagalan tersimpan di ai_summaries.status
 	CodeInternal            = "INTERNAL"
 )
 

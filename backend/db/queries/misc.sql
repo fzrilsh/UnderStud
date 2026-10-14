@@ -10,3 +10,6 @@ RETURNING *;
 
 -- name: GetImportPreview :one
 SELECT * FROM import_previews WHERE token = $1 AND expires_at > now();
+
+-- name: DeleteImportPreview :exec
+DELETE FROM import_previews WHERE token = $1;

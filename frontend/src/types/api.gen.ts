@@ -27,7 +27,9 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["HealthResponse"];
+                        "application/json": {
+                            data?: components["schemas"]["HealthResponse"];
+                        };
                     };
                 };
                 /** @description DB down */

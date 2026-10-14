@@ -9,7 +9,7 @@ JAR="$(mktemp)"
 trap 'rm -f "$JAR"' EXIT
 
 echo "==> [1/6] healthz"
-curl -sf "$BASE_URL/healthz" | jq -e '.status == "ok"' > /dev/null
+curl -sf "$BASE_URL/healthz" | jq -e '.data.status == "ok"' > /dev/null
 
 echo "==> [2/6] login staf seed (BK)"
 curl -sf -X POST "$BASE_URL/api/v1/auth/login" \

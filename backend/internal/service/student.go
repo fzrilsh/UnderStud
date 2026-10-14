@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 
@@ -74,12 +75,12 @@ type ProfileView struct {
 	Sakit                int         `json:"sakit"`
 	Izin                 int         `json:"izin"`
 	Alpa                 int         `json:"alpa"`
-	MinatBakat           string      `json:"minat_bakat,omitempty"`
-	TanggalLahir         string      `json:"tanggal_lahir,omitempty"`
-	CatatanPsikologis    string      `json:"catatan_psikologis,omitempty"`
-	CatatanKasusPrestasi string      `json:"catatan_kasus_prestasi,omitempty"`
-	MasukanBK            string      `json:"masukan_bk,omitempty"`
-	PendapatWaliKelas    string      `json:"pendapat_wali_kelas,omitempty"`
+	MinatBakat           string      `json:"minat_bakat"`
+	TanggalLahir         string      `json:"tanggal_lahir"`
+	CatatanPsikologis    string      `json:"catatan_psikologis"`
+	CatatanKasusPrestasi string      `json:"catatan_kasus_prestasi"`
+	MasukanBK            string      `json:"masukan_bk"`
+	PendapatWaliKelas    string      `json:"pendapat_wali_kelas"`
 	UpdatedAt            string      `json:"updated_at"`
 }
 
@@ -327,9 +328,9 @@ func (s *Student) GetProfile(ctx context.Context, actor Actor, id uuid.UUID) (Pr
 	if _, err := s.ensureScope(ctx, actor, id); err != nil {
 		return ProfileView{}, err
 	}
-	p, err := s.queries.GetStudentProfile(ctx, id)
+	p, err := s.getProfileOrEmpty(ctx, id)
 	if err != nil {
-		return ProfileView{}, utils.NewErrInternal("gagal memuat profil")
+		return ProfileView{}, err
 	}
 	return toProfileView(p), nil
 }
@@ -385,9 +386,9 @@ func (s *Student) Detail(ctx context.Context, actor Actor, id uuid.UUID) (Studen
 	if err != nil {
 		return StudentDetail{}, err
 	}
-	prof, err := s.queries.GetStudentProfile(ctx, id)
+	prof, err := s.getProfileOrEmpty(ctx, id)
 	if err != nil {
-		return StudentDetail{}, utils.NewErrInternal("gagal memuat profil")
+		return StudentDetail{}, err
 	}
 	obsRows, err := s.queries.ListObservationsByStudent(ctx, db.ListObservationsByStudentParams{
 		StudentID: id, Limit: 200, Offset: 0,
@@ -443,6 +444,19 @@ func toPgDate(t *time.Time) pgtype.Date {
 		return pgtype.Date{}
 	}
 	return pgtype.Date{Time: *t, Valid: true}
+}
+
+// getProfileOrEmpty: profil kosong bila baris belum ada (L7) — invariant
+// "1 baris selalu dibuat" diandalkan tapi tak ditegakkan; jangan 500.
+func (s *Student) getProfileOrEmpty(ctx context.Context, id uuid.UUID) (db.StudentProfile, error) {
+	p, err := s.queries.GetStudentProfile(ctx, id)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return db.StudentProfile{StudentID: id}, nil
+		}
+		return db.StudentProfile{}, utils.NewErrInternal("gagal memuat profil")
+	}
+	return p, nil
 }
 
 func toProfileView(p db.StudentProfile) ProfileView {

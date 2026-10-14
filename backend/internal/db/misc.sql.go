@@ -67,6 +67,15 @@ func (q *Queries) CreateImportPreview(ctx context.Context, arg CreateImportPrevi
 	return i, err
 }
 
+const deleteImportPreview = `-- name: DeleteImportPreview :exec
+DELETE FROM import_previews WHERE token = $1
+`
+
+func (q *Queries) DeleteImportPreview(ctx context.Context, token string) error {
+	_, err := q.db.Exec(ctx, deleteImportPreview, token)
+	return err
+}
+
 const getImportPreview = `-- name: GetImportPreview :one
 SELECT token, created_by, payload, expires_at FROM import_previews WHERE token = $1 AND expires_at > now()
 `

@@ -24,7 +24,9 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/HealthResponse"
+                type: object
+                properties:
+                  data: { $ref: "#/components/schemas/HealthResponse" }
         "503":
           description: DB down
           content:
