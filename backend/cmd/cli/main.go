@@ -21,6 +21,8 @@ func main() {
 	cmd := os.Args[1]
 	args := os.Args[2:]
 	switch cmd {
+	case "migrate":
+		err = cli.Migrate(cfg)
 	case "create-staff":
 		err = cli.CreateStaff(cfg, args)
 	case "deactivate-staff":
@@ -42,6 +44,7 @@ func main() {
 func usage() {
 	fmt.Fprintln(os.Stderr, `UnderStud CLI
 
+  migrate                                                      jalankan migrasi database lalu keluar
   create-staff --email E --password P --name N --role BK|WALI_KELAS [--kelas XI-IPA-1]
   deactivate-staff --email E
   check-location --lat LAT --lng LNG [--radius 200]

@@ -46,6 +46,11 @@ type Config struct {
 	AIModel           string
 	AIDebounceSeconds int
 
+	// Migrasi otomatis saat startup. Matikan (false) bila database diakses lewat
+	// connection pooler mode transaction (pgbouncer) — migrasi dijalankan
+	// terpisah via `cli migrate` langsung ke Postgres.
+	MigrateOnStart bool
+
 	// Upload
 	// Catatan: batas per-file adalah storage.MaxFileBytes (10 MB, dipakai untuk
 	// validasi magic-bytes). Tidak ada env terpisah agar tak ada config "mati".
@@ -86,6 +91,8 @@ func Load() (Config, error) {
 		AIAPIKey:          getEnv("AI_API_KEY", ""),
 		AIModel:           getEnv("AI_MODEL", "gpt-4o-mini"),
 		AIDebounceSeconds: getEnvInt("AI_DEBOUNCE_SECONDS", 5),
+
+		MigrateOnStart: getEnvBool("MIGRATE_ON_START", true),
 
 		UploadDir:        getEnv("UPLOAD_DIR", "./data/uploads"),
 		MaxUploadTotalMB: getEnvInt("MAX_UPLOAD_TOTAL_MB", 20),

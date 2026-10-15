@@ -40,10 +40,17 @@ func run() error {
 	}
 	defer pool.Close()
 
-	if err := db.Migrate(pool); err != nil {
-		return err
+	// Migrasi otomatis. Di produksi yang memakai connection pooler (pgbouncer
+	// mode transaction), set MIGRATE_ON_START=false dan jalankan `cli migrate`
+	// terpisah langsung ke Postgres.
+	if cfg.MigrateOnStart {
+		if err := db.Migrate(pool); err != nil {
+			return err
+		}
+		logger.Info("migrations applied")
+	} else {
+		logger.Info("migrasi otomatis dimatikan (MIGRATE_ON_START=false); pastikan `cli migrate` sudah dijalankan")
 	}
-	logger.Info("migrations applied")
 
 	srv := &http.Server{
 		Addr:              ":" + cfg.Port,

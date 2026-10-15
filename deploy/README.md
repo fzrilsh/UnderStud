@@ -1,284 +1,343 @@
-# Deploy UnderStud ke Server (VPS)
+# Deploy UnderStud ke Server
 
-Panduan menyalakan UnderStud di server pribadi, dengan domain
-`understud.fazrilsh.com` di belakang Cloudflare.
+Panduan menyalakan UnderStud di server yang sudah menjalankan **infra bersama**
+(compose di `~/infra`, Cloudflare Tunnel bersama, dan Postgres + pgbouncer milik sendiri).
 
-Image dibangun otomatis oleh GitHub Actions dan dipublikasikan ke **GHCR**
-(GitHub Container Registry) sebagai paket **publik**, jadi server cukup
-`pull` tanpa perlu `build` sama sekali.
+Image dibangun otomatis oleh GitHub Actions dan dipublikasikan ke **GHCR** sebagai
+paket publik, jadi server cukup `pull` tanpa `build`.
 
-Ringkas: **2 langkah** (set Docker, jalankan script). Sisanya sudah diurus.
+Ringkas alurnya:
+
+```
+push ke main  ->  GitHub Actions build image  ->  push ke GHCR
+                                                      |
+                                        server: docker compose pull
+                                                      |
+                                    ~/infra/docker-compose.yml (service understud-*)
+                                                      |
+                                     cloudflared -> understud.fazrilsh.com
+```
+
+**Tidak ada auto-deploy via SSH.** Deploy ke server dijalankan manual (3 perintah).
 
 ---
 
-## Arsitektur Deployment
+## Isi Folder Ini
 
-```
-Internet
-   │  HTTPS (Cloudflare)
-   ▼
-Cloudflare  ──►  reverse proxy / tunnel di server
-                        │  http://127.0.0.1:3000
-                        ▼
-                 ┌─────────────────────────────┐
-                 │  web (nginx, SPA + /api)    │  ← satu-satunya yang terbuka
-                 └──────────────┬──────────────┘
-                                │  jaringan internal docker
-                 ┌──────────────▼──────────────┐
-                 │  api (Go)                   │  ← tidak dipublikasikan
-                 └──────────────┬──────────────┘
-                 ┌──────────────▼──────────────┐
-                 │  db (PostgreSQL 17)         │  ← tidak dipublikasikan
-                 └─────────────────────────────┘
-```
-
-Yang penting: **hanya `web`** yang mendengarkan di server (dan hanya di
-`127.0.0.1`). Database dan API tidak bisa dijangkau dari internet.
+| File | Isi |
+|---|---|
+| `compose.service.yml` | Fragmen service untuk ditempel ke `~/infra/docker-compose.yml` |
+| `.env.prod.example` | Template konfigurasi (diisi manual di server) |
+| `migrate.sh` | Jalankan migrasi database (karena migrasi otomatis dimatikan) |
+| `README.md` | Dokumen ini |
 
 ---
 
-## Yang Dibutuhkan
+## Yang Dibutuhkan di Server
 
-- Server Linux (VPS) dengan akses root/sudo. Arsitektur **x86_64** (amd64).
-- **Docker** dan **Docker Compose** terpasang.
-- **Cloudflare** mengelola domain `fazrilsh.com`.
-- (Kalau mau AI) URL + API key provider OpenAI-compatible.
-
----
-
-## Langkah 1: Pasang Docker
-
-Kalau Docker belum ada:
-
-```bash
-curl -fsSL https://get.docker.com | sh
-sudo usermod -aG docker $USER    # supaya tak perlu sudo lagi (login ulang)
-```
-
-Pastikan:
-
-```bash
-docker --version
-docker-compose --version    # atau: docker compose version
-```
-
-> Catatan: kalau server hanya punya plugin `docker compose` (dengan spasi),
-> script deploy tetap jalan. Keduanya didukung.
+- Docker + Docker Compose (sudah ada, karena infra bersama jalan).
+- Postgres + pgbouncer (sudah ada).
+- Cloudflare Tunnel (sudah ada).
+- Network docker internal yang dipakai service lain (mis. `internal`).
 
 ---
 
-## Langkah 2: Ambil project & jalankan
+## Langkah 1: Bikin Database UnderStud
+
+Jalankan di server. Ganti password dengan yang kuat.
 
 ```bash
-# Ambil hanya file yang dibutuhkan untuk deploy
-git clone https://github.com/fzrilsh/UnderStud.git understud
-cd understud
-git checkout main
+# Masuk ke Postgres
+docker exec -it <nama-container-postgres> psql -U postgres
+
+CREATE DATABASE understud;
+CREATE USER understud WITH PASSWORD 'PASSWORD_KUAT_DI_SINI';
+GRANT ALL PRIVILEGES ON DATABASE understud TO understud;
+\c understud
+GRANT ALL ON SCHEMA public TO understud;
+ALTER SCHEMA public OWNER TO understud;
+\q
 ```
 
-Jalankan script deploy:
+> Migrasi goose perlu membuat tabel, jadi user ini butuh hak di schema `public`.
 
-```bash
-bash deploy/deploy.sh
+---
+
+## Langkah 2: Daftarkan di pgbouncer
+
+Tambahkan entry baru di `pgbouncer.ini` dan `userlist.txt`.
+
+**`pgbouncer.ini`** (bagian `[databases]`):
+
+```ini
+understud = host=postgres port=5432 dbname=understud
 ```
 
-Yang script lakukan otomatis:
-
-1. Cek Docker & Compose.
-2. Buat `.env.prod` dari template, lalu **mengisi `JWT_SECRET` dan
-   `POSTGRES_PASSWORD` dengan nilai acak** (via `openssl`).
-3. Tarik image `ghcr.io/fzrilsh/understud-api:latest` dan
-   `understud-web:latest`.
-4. Jalankan stack.
-5. Tunggu sampai API sehat, lalu tampilkan ringkasan.
-
-Kalau berhasil, aplikasi sudah jalan di `http://127.0.0.1:3000` di server.
-
-**Isi data demo** (opsional, sekali saja):
+**`userlist.txt`**: hash md5 yang sama dengan role Postgres. Bikin hash-nya:
 
 ```bash
-bash deploy/deploy.sh --seed
+echo -n "PASSWORD_KUAT_DI_SINI" | md5sum | awk '{print "md5"$1}'
 ```
 
-**Bikin akun staf asli** (bukan akun demo):
+Lalu pastikan role di Postgres memakai hash yang sama:
+
+```sql
+ALTER ROLE understud WITH PASSWORD 'md5<hash-yang-sama>';
+```
+
+Tambahkan ke `userlist.txt`:
+
+```txt
+"understud" "md5<hash-yang-sama>"
+```
+
+Restart pgbouncer setelah selesai.
+
+---
+
+## Langkah 3: Isi Konfigurasi
 
 ```bash
-docker-compose -f docker-compose.prod.yml --env-file .env.prod \
-  exec api /app/cli create-staff \
+mkdir -p ~/services/understud
+cp <repo>/deploy/.env.prod.example ~/services/understud/.env
+nano ~/services/understud/.env
+chmod 600 ~/services/understud/.env
+```
+
+Yang **wajib** diisi:
+
+| Variabel | Isi |
+|---|---|
+| `DATABASE_URL` | Lewat pgbouncer, dengan `default_query_exec_mode=simple_protocol` |
+| `JWT_SECRET` | `openssl rand -hex 32` (minimal 32 karakter) |
+| `CORS_ORIGINS` | `https://understud.fazrilsh.com` (sudah default) |
+| `COOKIE_SECURE` | `true` (sudah default) |
+| `TRUST_PROXY_HEADERS` | `true` (sudah default) |
+
+Catatan penting:
+
+- `MIGRATE_ON_START=false` (sudah default). Aplikasi **tidak** menjalankan migrasi
+  sendiri, karena di balik pgbouncer mode transaction itu bisa gagal. Migrasi
+  dijalankan terpisah di Langkah 5.
+- Kalau password mengandung karakter khusus (`@ : / ? # & =`), **URL-encode** dulu.
+- `AI_BASE_URL` jangan diisi `localhost` (api jalan di container lain). Kosongkan
+  saja kalau belum ada provider; fitur ringkasan AI nonaktif dan aplikasi tetap jalan.
+
+---
+
+## Langkah 4: Tambah Service ke `~/infra/docker-compose.yml`
+
+Buka `~/infra/docker-compose.yml` dan tempel dua service dari
+`deploy/compose.service.yml` ke dalam key `services:`.
+
+Sesuaikan tiga hal:
+
+```yaml
+  understud-api:
+    networks: [internal]                            # <- nama network milikmu
+    env_file: /home/deploy/services/understud/.env   # <- path .env kamu
+
+  understud-web:
+    ports:
+      - "127.0.0.1:3010:80"                         # <- ganti kalau 3010 dipakai
+```
+
+Port `3010` di sini hanya didengarkan di `127.0.0.1` (tidak terbuka ke internet);
+cloudflared yang meneruskan ke situ.
+
+---
+
+## Langkah 5: Jalankan Migrasi
+
+Migrasi dijalankan **langsung ke Postgres** (bukan pgbouncer), karena goose butuh
+sesi yang stabil.
+
+```bash
+cd ~/infra
+bash <repo>/deploy/migrate.sh
+```
+
+Script butuh `DIRECT_DATABASE_URL` yang menunjuk langsung ke Postgres:
+
+```bash
+DIRECT_DATABASE_URL='postgres://understud:PASSWORD@postgres:5432/understud?sslmode=disable' \
+  bash <repo>/deploy/migrate.sh
+```
+
+Perintah itu menjalankan container sekali pakai di network yang sama, menjalankan
+`cli migrate`, lalu menghapus container itu. Kalau berhasil akan muncul
+`OK — migrasi database selesai.`
+
+---
+
+## Langkah 6: Nyalakan Service
+
+```bash
+cd ~/infra
+docker compose pull understud-api understud-web
+docker compose up -d understud-api understud-web
+```
+
+Cek:
+
+```bash
+docker compose ps understud-api understud-web
+docker compose logs --tail=30 understud-api
+```
+
+Di log harus muncul `api listening` dan `migrasi otomatis dimatikan (MIGRATE_ON_START=false)`.
+
+Tes dari server:
+
+```bash
+curl -s http://127.0.0.1:3010/healthz
+# harus: {"data":{"db":"up","status":"ok"}}
+```
+
+> Kalau `db` bukan `up`, cek `DATABASE_URL` (password, host pgbouncer, dan
+> `default_query_exec_mode=simple_protocol`).
+
+---
+
+## Langkah 7: Daftarkan ke Cloudflare Tunnel
+
+Buka `~/infra/cloudflared/config.yml` dengan `sudo nano`, lalu tambahkan ingress
+**di atas** baris `http_status:404`:
+
+```yaml
+  - hostname: understud.fazrilsh.com
+    service: http://understud-web:80
+```
+
+> Perhatikan: karena cloudflared jalan sebagai container di network yang sama,
+> pakai **nama service** (`understud-web:80`), bukan `127.0.0.1:3010`.
+
+Lalu daftarkan DNS route:
+
+```bash
+docker run -it --rm \
+  -v ~/infra/cloudflared:/home/nonroot/.cloudflared \
+  cloudflare/cloudflared:latest tunnel route dns backend-tunnel understud.fazrilsh.com
+```
+
+> Ganti `backend-tunnel` dengan nama tunnel milikmu (lihat `tunnel:` di `config.yml`).
+
+Restart cloudflared:
+
+```bash
+cd ~/infra && docker compose restart cloudflared
+```
+
+---
+
+## Langkah 8: Verifikasi
+
+```bash
+docker compose ps understud-api understud-web
+docker compose logs --tail=30 understud-api
+curl -I https://understud.fazrilsh.com
+```
+
+Terakhir, buka **https://understud.fazrilsh.com** di browser.
+
+---
+
+## Bikin Akun Staf
+
+Setelah aplikasi jalan, bikin akun asli (jangan pakai akun demo di produksi):
+
+```bash
+cd ~/infra
+docker compose exec understud-api /app/cli create-staff \
   --email guru@sekolah.sch.id --password 'password-kuat' \
   --name 'Ibu Rina' --role BK --kelas ''
 ```
 
-Nilai `--role`: `BK` (Guru BK, akses semua kelas) atau `WALI_KELAS`
-(wajib isi `--kelas`, mis. `--kelas 'X TJKT 1'`).
+Nilai `--role`: `BK` (Guru BK, semua kelas) atau `WALI_KELAS` (wajib isi
+`--kelas`, mis. `--kelas 'X TJKT 1'`).
+
+Data demo (opsional, hanya untuk uji coba):
+
+```bash
+docker compose exec understud-api /app/cli seed-demo
+```
 
 ---
 
-## Langkah 3: Hubungkan Domain
+## Cara Update
 
-Pilih salah satu cara. Keduanya sudah teruji di lapangan.
-
-### Cara A: Cloudflare Tunnel (paling aman, tanpa buka port)
-
-Server tidak perlu membuka port 80/443 sama sekali.
+Setiap push ke `main` yang menyentuh `backend/` atau `frontend/` akan membangun
+image baru di GitHub Actions. Setelah selesai (cek tab **Actions**):
 
 ```bash
-# Pasang cloudflared
-curl -fsSL https://pkg.cloudflare.com/cloudflared/install.sh | sudo bash 2>/dev/null || \
-  curl -L -o cloudflared https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 && \
-  sudo mv cloudflared /usr/local/bin/ && sudo chmod +x /usr/local/bin/cloudflared
-
-cloudflared tunnel login
-cloudflared tunnel create understud
-cloudflared tunnel route dns understud understud.fazrilsh.com
+cd ~/infra
+docker compose pull understud-api understud-web
+docker compose up -d --no-deps understud-api understud-web
+docker image prune -f
 ```
 
-Buat `~/.cloudflared/config.yml`:
+Kalau ada migrasi baru (ada file baru di `backend/internal/db/migrations/`),
+jalankan Langkah 5 dulu sebelum `up -d`.
+
+Untuk memakai versi tertentu (bukan `latest`), ubah tag di
+`~/infra/docker-compose.yml`:
 
 ```yaml
-tunnel: understud
-credentials-file: /root/.cloudflared/<TUNNEL-ID>.json
-ingress:
-  - hostname: understud.fazrilsh.com
-    service: http://127.0.0.1:3000
-  - service: http_status:404
+image: ghcr.io/fzrilsh/understud-api:sha-935a557
 ```
-
-Jalankan sebagai layanan:
-
-```bash
-sudo cloudflared service install
-sudo systemctl enable --now cloudflared
-```
-
-### Cara B: Cloudflare Proxy (A record)
-
-1. Di Cloudflare DNS, tambah **A record** `understud` -> IP server, dengan
-   **Proxy status: Proxied** (awan oranye).
-2. Di server, pasang reverse proxy yang menangani TLS dari Cloudflare.
-
-**Opsi B1, pakai Caddy (paling ringkas):**
-
-```bash
-sudo apt install -y caddy     # atau sesuai distro
-```
-
-`/etc/caddy/Caddyfile`:
-
-```
-understud.fazrilsh.com {
-    reverse_proxy 127.0.0.1:3000
-}
-```
-
-```bash
-sudo systemctl reload caddy
-```
-
-> Catatan: kalau Cloudflare di-set **Full (Strict)**, Caddy perlu sertifikat
-> asli (bisa pakai Cloudflare Origin Certificate). Kalau **Flexible**,
-> Cloudflare sudah menangani HTTPS ke pengguna dan Caddy cukup HTTP.
-
-**Opsi B2, pakai nginx host:**
-
-```nginx
-server {
-    listen 80;
-    server_name understud.fazrilsh.com;
-    location / {
-        proxy_pass http://127.0.0.1:3000;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        client_max_body_size 25m;
-    }
-}
-```
-
-### Setelah domain terhubung
-
-1. Pastikan `CORS_ORIGINS` di `.env.prod` memuat `https://understud.fazrilsh.com`
-   (sudah default).
-2. Pastikan `COOKIE_SECURE=true` (sudah default).
-3. Cek: buka `https://understud.fazrilsh.com` di browser.
-
-> Penting: `COOKIE_SECURE=true` artinya cookie hanya dikirim lewat HTTPS.
-> Kalau diakses lewat `http://<ip>:3000` langsung, login staf akan gagal
-> (memang begitu seharusnya). Selalu akses lewat domain HTTPS.
 
 ---
 
-## Cara Update ke Versi Terbaru
+## Lampiran: Supaya File Upload Bertahan
 
-Setiap push ke `main` yang menyentuh `backend/` atau `frontend/` akan
-membangun ulang image di GitHub Actions. Setelah build selesai (cek tab
-**Actions** di GitHub):
+Secara default lampiran disimpan di dalam container `understud-api`. Kalau
+container di-recreate, lampiran ikut hilang.
 
-```bash
-bash deploy/deploy.sh --update
+Supaya bertahan, tambahkan volume di service `understud-api`:
+
+```yaml
+  understud-api:
+    volumes:
+      - understud_uploads:/app/data
 ```
 
-Perintah itu menarik image terbaru dan me-restart container tanpa
-menyentuh database (data aman di volume).
+lalu daftarkan volume di bagian `volumes:` paling bawah compose:
 
-Kalau mau versi spesifik (lebih aman untuk produksi), ubah di `.env.prod`:
-
-```ini
-IMAGE_TAG=sha-1a2b3c4     # lihat daftar tag di tab Packages GitHub
+```yaml
+volumes:
+  understud_uploads:
 ```
 
-lalu jalankan `bash deploy/deploy.sh --update`.
-
----
-
-## Perintah Sehari-hari
-
-| Aksi | Perintah |
-|---|---|
-| Update ke versi terbaru | `bash deploy/deploy.sh --update` |
-| Lihat log | `bash deploy/deploy.sh --logs` |
-| Hentikan (data tetap aman) | `bash deploy/deploy.sh --down` |
-| Isi data demo | `bash deploy/deploy.sh --seed` |
-| Cek status container | `docker-compose -f docker-compose.prod.yml --env-file .env.prod ps` |
-| Backup database | `docker-compose -f docker-compose.prod.yml --env-file .env.prod exec -T db pg_dump -U postgres understud > backup.sql` |
+> Catatan: container jalan sebagai user `appuser` (UID 10001). Kalau memakai bind
+> mount (folder host, bukan named volume), `chown 10001:10001` foldernya dulu.
 
 ---
 
 ## Kalau Ada Masalah
 
-**Image gagal ditarik (`denied` / `unauthorized`)**
-Paket GHCR harus publik. Buka `https://github.com/users/fzrilsh/packages/container/understud-api/settings`
-dan pastikan visibilitasnya **Public**. Kalau tetap gagal, login dulu:
-`echo $TOKEN | docker login ghcr.io -u fzrilsh --password-stdin`.
+**`db` di healthz bukan `up`**
+Cek `DATABASE_URL`: host pgbouncer, password, dan pastikan ada
+`default_query_exec_mode=simple_protocol`. Cek juga entry pgbouncer sudah
+ditambahkan (Langkah 2).
 
-**Login staf gagal / selalu logout**
-`JWT_SECRET` kemungkinan kosong atau berubah tiap restart. Cek `.env.prod`
-sudah berisi `JWT_SECRET` minimal 32 karakter dan tidak diubah-ubah.
+**Aplikasi gagal start dengan error migrasi**
+`MIGRATE_ON_START` masih `true`. Set `false` di `.env`, karena di balik
+pgbouncer migrasi otomatis memang tidak dijalankan.
 
-**Login jalan tapi cookie tidak tersimpan**
+**Login staf gagal terus / selalu logout**
+`JWT_SECRET` kosong atau berubah tiap recreate. Pastikan terisi dan tetap.
+
+**Cookie tidak tersimpan / login gagal padahal password benar**
 `COOKIE_SECURE=true` tapi diakses lewat HTTP. Akses lewat domain HTTPS.
 
 **Upload lampiran gagal**
-Pastikan `client_max_body_size` di reverse proxy host minimal `25m`
-(nginx default hanya 1 MB). Di dalam container web sudah di-set 25m.
+Kalau ada proxy lain di depan, pastikan `client_max_body_size` minimal `25m`.
+Di dalam container web sudah di-set 25m.
 
-**Rate limit terasa terlalu ketat**
-Semua pengguna di balik satu IP publik (NAT sekolah / Cloudflare) berbagi
-satu bucket. Longgarkan `RATE_LIMIT_IP_MULTIPLIER` (default 20) di `.env.prod`.
+**Halaman domain balas 502**
+Cek ingress cloudflared: `service:` harus menunjuk `http://understud-web:80`
+(nama service), bukan `127.0.0.1:3010`.
 
-**API tidak sehat saat deploy**
-`bash deploy/deploy.sh --logs` lalu lihat pesan error. Penyebab paling umum:
-`JWT_SECRET` kurang dari 32 karakter, atau `GEO_FENCE_ENABLED=true` tanpa
-`SCHOOL_LAT`/`SCHOOL_LNG`.
-
----
-
-## File Terkait
-
-| File | Isi |
-|---|---|
-| `docker-compose.prod.yml` | Compose produksi (tarik dari GHCR, port di-hardening) |
-| `deploy/deploy.sh` | Script setup + update sekali jalan |
-| `deploy/.env.prod.example` | Template konfigurasi produksi |
-| `.github/workflows/publish.yml` | Build & push image ke GHCR otomatis |
+**Image gagal ditarik (`denied`)**
+Paket GHCR harus publik. Cek
+`https://github.com/users/fzrilsh/packages/container/understud-api/settings`.
