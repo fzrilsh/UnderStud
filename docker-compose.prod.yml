@@ -1,0 +1,92 @@
+# ============================================================================
+# UnderStud: compose PRODUKSI (VPS).
+#
+# Bedanya dengan docker-compose.yml (yang dipakai untuk demo/dev):
+#   - api & web TIDAK di-build di server, tapi ditarik dari GHCR (image publik).
+#   - Port db & api TIDAK dipublikasikan ke internet (hanya lewat jaringan docker).
+#   - Hanya `web` yang terbuka ke host, dan itu pun di-bind ke 127.0.0.1,
+#     supaya reverse proxy di host (Cloudflare Tunnel / nginx / Caddy) yang
+#     jadi satu-satunya pintu masuk.
+#   - Semua env produksi diteruskan (JWT_SECRET, COOKIE_SECURE, dll).
+#
+# Pakai:
+#   docker-compose -f docker-compose.prod.yml up -d
+#   (atau lewat deploy/deploy.sh yang mengurus .env + prasyarat)
+# ============================================================================
+
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD wajib diisi}
+      POSTGRES_DB: ${POSTGRES_DB:-understud}
+    # Sengaja TANPA `ports:`: database tidak boleh terjangkau dari internet.
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-understud}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  api:
+    image: ghcr.io/${GHCR_OWNER:-fzrilsh}/understud-api:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    environment:
+      PORT: "8080"
+      DATABASE_URL: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-understud}?sslmode=disable
+      # Wajib: tanpa ini, secret acak dibuat ulang tiap restart dan semua sesi staf mati.
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET wajib diisi (min 32 karakter)}
+      STAFF_TOKEN_TTL: ${STAFF_TOKEN_TTL:-168h}
+      ANON_TOKEN_TTL: ${ANON_TOKEN_TTL:-87600h}
+      # Domain produksi harus masuk daftar ini.
+      CORS_ORIGINS: ${CORS_ORIGINS:-https://understud.fazrilsh.com}
+      COOKIE_SECURE: ${COOKIE_SECURE:-true}
+      # Di belakang proxy: percayai X-Real-IP / X-Forwarded-For untuk rate limit.
+      TRUST_PROXY_HEADERS: ${TRUST_PROXY_HEADERS:-true}
+      TZ: ${TZ:-Asia/Jakarta}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      UPLOAD_DIR: /app/data/uploads
+      MAX_UPLOAD_TOTAL_MB: ${MAX_UPLOAD_TOTAL_MB:-20}
+      DB_MAX_CONNS: ${DB_MAX_CONNS:-10}
+      DB_MIN_CONNS: ${DB_MIN_CONNS:-2}
+      RATE_LIMIT_CHATS_PER_HOUR: ${RATE_LIMIT_CHATS_PER_HOUR:-10}
+      RATE_LIMIT_MESSAGES_PER_HOUR: ${RATE_LIMIT_MESSAGES_PER_HOUR:-30}
+      RATE_LIMIT_SESSIONS_PER_HOUR: ${RATE_LIMIT_SESSIONS_PER_HOUR:-60}
+      RATE_LIMIT_IP_MULTIPLIER: ${RATE_LIMIT_IP_MULTIPLIER:-20}
+      # AI (OpenAI-compatible). Kosong = ringkasan AI nonaktif.
+      AI_BASE_URL: ${AI_BASE_URL:-}
+      AI_API_KEY: ${AI_API_KEY:-}
+      AI_MODEL: ${AI_MODEL:-gpt-4o-mini}
+      AI_DEBOUNCE_SECONDS: ${AI_DEBOUNCE_SECONDS:-5}
+      # Geofence (opsional).
+      GEO_FENCE_ENABLED: ${GEO_FENCE_ENABLED:-false}
+      SCHOOL_LAT: ${SCHOOL_LAT:-}
+      SCHOOL_LNG: ${SCHOOL_LNG:-}
+      SCHOOL_RADIUS_M: ${SCHOOL_RADIUS_M:-200}
+    # Sengaja TANPA `ports:`: API hanya dijangkau lewat container web.
+    volumes:
+      - uploads:/app/data
+    depends_on:
+      db:
+        condition: service_healthy
+
+  web:
+    image: ghcr.io/${GHCR_OWNER:-fzrilsh}/understud-web:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    environment:
+      API_UPSTREAM: http://api:8080
+    ports:
+      # Hanya di localhost. Reverse proxy host (Cloudflare Tunnel / nginx / Caddy)
+      # yang meneruskan dari domain publik ke sini.
+      - "${BIND_ADDR:-127.0.0.1}:${WEB_PORT:-3000}:80"
+    depends_on:
+      api:
+        condition: service_started
+
+volumes:
+  pgdata:
+  uploads:

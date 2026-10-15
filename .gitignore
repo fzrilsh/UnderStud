@@ -8,7 +8,9 @@ pgdata/
 data/
 backend/data/
 
-# Local env overrides
+# Local env overrides — JANGAN pernah commit file berisi secret asli.
 .env
 .env.*
+# Template env tetap ikut (tanpa nilai rahasia).
 !.env.example
+!deploy/.env.prod.example

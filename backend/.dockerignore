@@ -1,0 +1,11 @@
+# Jangan ikutkan ke build context: lampiran runtime, env lokal, artefak.
+data/
+.env
+.env.*
+!.env.example
+bin/
+tmp/
+.git
+.gitignore
+*.log
+.DS_Store

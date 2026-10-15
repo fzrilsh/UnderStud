@@ -1,13 +1,30 @@
 server {
+    # IPv6 ikut didengarkan: healthcheck container memakai `localhost`, yang di
+    # dalam container bisa resolve ke ::1. Tanpa baris ini container tampak
+    # "unhealthy" padahal jalan (dan proxy yang peduli health akan menolaknya).
     listen 80;
+    listen [::]:80;
     server_name _;
 
     root /usr/share/nginx/html;
     index index.html;
 
+    # Lampiran chat boleh sampai 10 MB per file, 20 MB total per pesan.
+    # Default nginx hanya 1 MB, sehingga upload lebih besar ditolak 413 di sini
+    # sebelum sampai ke backend.
+    client_max_body_size 25m;
+
     # SPA fallback
     location / {
         try_files $uri $uri/ /index.html;
+    }
+
+    # Health check backend diteruskan apa adanya (dipakai deploy.sh & uptime monitor).
+    # Tanpa ini, /healthz jatuh ke SPA fallback dan balas HTML 200 (menyesatkan).
+    location = /healthz {
+        proxy_pass ${API_UPSTREAM}/healthz;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
     }
 
     # Proxy API.
@@ -18,8 +35,21 @@ server {
         proxy_pass ${API_UPSTREAM};
         proxy_http_version 1.1;
         proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
+
+        # Teruskan IP asli klien. Kalau ada proxy di depan (Cloudflare / reverse
+        # proxy host), header CF-Connecting-IP / X-Forwarded-For dari proxy itu
+        # yang dipakai, supaya rate limit per-IP tidak menyatu jadi satu bucket.
+        # Kalau tidak ada proxy, jatuh ke $remote_addr.
+        set $real_client_ip $remote_addr;
+        if ($http_cf_connecting_ip) {
+            set $real_client_ip $http_cf_connecting_ip;
+        }
+        proxy_set_header X-Real-IP $real_client_ip;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
+
+        # Cookie sesi tidak boleh di-cache.
+        proxy_set_header Cookie $http_cookie;
+        proxy_buffering off;
     }
 }
