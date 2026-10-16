@@ -352,6 +352,14 @@ export const IconBulletMuted = (p: P) => (
   </svg>
 )
 
+/** Ikon mata (18px, toggle kata sandi login — mockup login/index.html). */
+export const IconEye = (p: P) => (
+  <svg width="18" height="18" viewBox="0 0 18 18" fill="none" {...p}>
+    <path d="M1.5 9S4.2 4 9 4s7.5 5 7.5 5S13.8 14 9 14 1.5 9 1.5 9Z" stroke="currentColor" strokeWidth="1.4" />
+    <circle cx="9" cy="9" r="2.2" stroke="currentColor" strokeWidth="1.4" />
+  </svg>
+)
+
 /** Ikon centang hijau (14px, "Tandai ditangani"). */
 export const IconCheck = (p: P) => (
   <svg width="14" height="14" viewBox="0 0 14 14" fill="none" {...p}>

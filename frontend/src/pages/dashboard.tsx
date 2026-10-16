@@ -2,6 +2,7 @@ import { toast } from 'sonner'
 import { Loader2 } from 'lucide-react'
 
 import Topbar from '@/components/layout/topbar'
+import { IconDotSm } from '@/components/icons'
 import { api } from '@/lib/api'
 import { downloadSummary } from '@/features/students/summary-export'
 import {
@@ -53,14 +54,14 @@ function DashboardBKPage() {
       <Topbar
         title="Dashboard"
         subtitle={
-          <span className="flex flex-wrap items-center gap-x-1 gap-y-0.5">
+          <>
             <span className="whitespace-nowrap">Ringkasan konseling</span>
-            <span className="text-[rgba(21,21,58,.3)]">·</span>
+            <IconDotSm className="shrink-0 text-[rgba(21,21,58,.6)]" />
             <span className="whitespace-nowrap">{fmtDateFullID(new Date().toISOString())}</span>
-          </span>
+          </>
         }
       />
-      <div className="px-5 pb-10 md:px-8">
+      <div className="px-5 pb-10 pt-6 md:px-8">
         {q.isLoading && <p className="text-[14px] text-[rgba(21,21,58,.6)]">Memuat…</p>}
         {q.isError && <p className="text-[14px] text-destructive">Gagal memuat dashboard.</p>}
         {d && (

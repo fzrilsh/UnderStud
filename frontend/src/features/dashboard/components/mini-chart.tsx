@@ -8,6 +8,9 @@ const SERIES = [
   { key: 'queued', name: 'Antrean', color: '#3d3ba6' },
 ] as const
 
+/** Seri gambar: `fill:false` mematikan area fill (mockup chart.js). */
+type SeriesDatum = { name: string; color: string; data: number[]; fill?: boolean }
+
 /**
  * Line chart sederhana (port mockup/js/chart.js) — 3 seri, grid + label sumbu.
  * Menggambar ulang saat ukuran elemen berubah (ResizeObserver).
@@ -32,7 +35,7 @@ export default function MiniChart({ points, showLegend = false }: { points: Char
       ctx.clearRect(0, 0, cssW, cssH)
 
       const labels = points.map((p) => p.label)
-      const series = SERIES.map((s) => ({
+      const series: SeriesDatum[] = SERIES.map((s) => ({
         name: s.name,
         color: s.color,
         data: points.map((p) => Number(p[s.key] ?? 0)),
@@ -52,36 +55,39 @@ export default function MiniChart({ points, showLegend = false }: { points: Char
       const xAt = (i: number) => padL + (labels.length <= 1 ? plotW / 2 : (plotW * i) / (labels.length - 1))
       const yAt = (v: number) => padT + plotH - (v / max) * plotH
 
-      // Grid + label Y
+      // Grid + sumbu Y (mockup: 5 langkah, label rata-kanan di padL-8).
       ctx.font = '11px "Plus Jakarta Sans", sans-serif'
       ctx.fillStyle = 'rgba(21,21,58,.4)'
-      const steps = 4
+      ctx.strokeStyle = 'rgba(21,21,58,.08)'
+      ctx.lineWidth = 1
+      const steps = 5
       for (let i = 0; i <= steps; i++) {
         const v = (max / steps) * i
         const y = yAt(v)
-        ctx.strokeStyle = 'rgba(21,21,58,.08)'
         ctx.beginPath()
         ctx.moveTo(padL, y)
         ctx.lineTo(cssW - padR, y)
         ctx.stroke()
-        ctx.fillText(String(Math.round(v)), 4, y + 4)
+        ctx.textAlign = 'right'
+        ctx.textBaseline = 'middle'
+        ctx.fillText(String(Math.round(v)), padL - 8, y)
       }
 
-      // Label X
-      ctx.fillStyle = 'rgba(21,21,58,.4)'
+      // Sumbu X (mockup: rata-tengah, di bawah plot).
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'top'
+      ctx.fillStyle = 'rgba(21,21,58,.5)'
       labels.forEach((lb, i) => {
-        const x = xAt(i)
-        const w = ctx.measureText(lb).width
-        ctx.fillText(lb, x - w / 2, cssH - 8)
+        ctx.fillText(lb, xAt(i), padT + plotH + 8)
       })
 
-      // Area fill (seri pertama saja, seperti mockup) + garis + titik putih.
+      // Area fill (semua seri yang tidak di-set `fill:false`) + garis + titik putih.
       const hexA = (hex: string, a: number) => {
         const n = parseInt(hex.slice(1), 16)
         return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`
       }
-      series.forEach((s, si) => {
-        if (si === 0) {
+      series.forEach((s) => {
+        if (s.fill !== false) {
           ctx.beginPath()
           s.data.forEach((v, i) => {
             const x = xAt(i)

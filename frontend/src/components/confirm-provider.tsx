@@ -41,7 +41,13 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
     <ConfirmContext.Provider value={confirm}>
       {children}
       {opts && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-[rgba(21,21,58,.45)] p-4">
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-[rgba(21,21,58,.45)] p-4"
+          onClick={(e) => {
+            // Klik di luar dialog = batal (mockup UI.modal).
+            if (e.target === e.currentTarget) close(false)
+          }}
+        >
           <div className="relative w-full max-w-[440px] rounded-2xl bg-white p-6 shadow-[0_24px_60px_rgba(21,21,58,.25)]">
             {opts.closeX && (
               <button

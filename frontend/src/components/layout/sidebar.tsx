@@ -114,7 +114,7 @@ export default function Sidebar({ user, children, onLogout }: SidebarProps) {
         data-collapsed={collapsed ? '1' : '0'}
         className={cn(
           // Sticky setinggi layar (padanan mockup `sticky top-0 h-screen`).
-          'bg-sidebar-gradient sticky top-0 z-[70] flex h-svh w-[240px] shrink-0 flex-col rounded-tr-[20px] border-r border-t border-violet-light px-[14px] pt-6 transition-[width]',
+          'bg-sidebar-gradient sticky top-0 z-[70] flex h-svh w-[240px] shrink-0 flex-col rounded-tr-[20px] border-r border-t border-violet-light px-[14px] pt-6 transition-[width] duration-[250ms] ease-out',
           collapsed && 'w-16 px-2',
           // Mobile: drawer tersembunyi kecuali dibuka.
           drawerOpen

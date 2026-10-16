@@ -24,7 +24,7 @@ export default function DashboardWKPage() {
         title="Dashboard"
         subtitle={`Kelas perwalian · ${user?.kelas ?? ''} · ${fmtDateID(new Date().toISOString())}`}
       />
-      <div className="px-5 pb-10 md:px-8">
+      <div className="px-5 pb-10 pt-6 md:px-8">
         {q.isLoading && <p className="text-[14px] text-[rgba(21,21,58,.6)]">Memuat…</p>}
         {q.isError && <p className="text-[14px] text-destructive">Gagal memuat dashboard.</p>}
         {d && (
