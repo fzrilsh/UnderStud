@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
-import { ArrowLeft, Sparkles } from 'lucide-react'
 
 import Topbar from '@/components/layout/topbar'
+import { IconAiMagic, IconDotSm, IconDownloadLight, IconRefresh } from '@/components/icons'
 import { useConfirm } from '@/components/confirm-provider'
 import DataTab, { DataActionBar, initForm, type DataFormState } from '@/features/students/components/data-tab'
 import ObservationTab from '@/features/students/components/observation-tab'
@@ -15,12 +15,10 @@ import {
   useHandleRedFlag,
   useSaveProfile,
   useStudentDetail,
-  useUpdateObservation,
-  type ObservationView,
 } from '@/features/students/detail-hooks'
 import { downloadSummary } from '@/features/students/summary-export'
 import { useCurrentUser } from '@/features/auth/hooks'
-import { fmtDateID } from '@/lib/format'
+import { fmtDateID, fmtDateTimeID } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import type { SummaryView } from '@/features/dashboard/hooks'
 import { useSeo } from '@/lib/seo'
@@ -48,7 +46,6 @@ export default function StudentDetailPage() {
 
   const saveProfile = useSaveProfile(id ?? '')
   const createObs = useCreateObservation(id ?? '')
-  const updateObs = useUpdateObservation(id ?? '')
   const handleRed = useHandleRedFlag(id ?? '')
   const generate = useGenerateSummary(id ?? '')
   const confirm = useConfirm()
@@ -71,7 +68,7 @@ export default function StudentDetailPage() {
 
   const lastSaved = d.summaries.length ? fmtDateID(d.summaries[0].created_at) : fmtDateID(d.profile.updated_at)
   const hint = d.latest_summary
-    ? `Ringkasan saat ini: versi ${d.latest_summary.version}. Membuat ulang menambah versi baru.`
+    ? `Ringkasan saat ini: versi ${d.latest_summary.version} · ${fmtDateTimeID(d.latest_summary.created_at)}. Membuat ulang menambah versi baru.`
     : 'Belum ada ringkasan AI.'
 
   const saveOnly = async () => {
@@ -98,22 +95,6 @@ export default function StudentDetailPage() {
     }
   }
 
-  const handleEditObs = async (o: ObservationView) => {
-    const ok = await confirm({
-      title: `Ubah observasi ${fmtDateID(o.tanggal)}?`,
-      body: 'Perubahan akan tercatat di riwayat revisi.',
-      confirmText: 'Simpan',
-    })
-    if (!ok) return
-    updateObs.mutate({
-      id: o.id,
-      items: o.items,
-      catatan: o.catatan,
-      tanggal: o.tanggal,
-      tindakan_awal: o.tindakan_awal,
-    })
-  }
-
   const handleDownload = async (summaryId: string) => {
     if (!id) return
     try {
@@ -125,17 +106,33 @@ export default function StudentDetailPage() {
   }
 
   return (
-    <>
+    // Gradient halaman Ringkasan menutupi seluruh halaman termasuk header (mockup
+    // menempelkan `bg-summary-page` di <html>).
+    <div className={cn(tab === 'summary' && 'bg-summary-gradient min-h-svh')}>
       <Topbar
         title={tab === 'summary' ? 'Ringkasan AI' : 'Data siswa & observasi'}
-        subtitle={`${d.student.name} · NISN ${d.student.nisn} · ${d.student.kelas}${tab === 'data' ? ` · Terakhir disimpan ${lastSaved}` : ''}`}
+        subtitle={
+          <>
+            <span className="whitespace-nowrap">{d.student.name}</span>
+            <IconDotSm className="shrink-0 text-[rgba(21,21,58,.6)]" />
+            <span className="whitespace-nowrap">NISN {d.student.nisn}</span>
+            <IconDotSm className="shrink-0 text-[rgba(21,21,58,.6)]" />
+            <span className="whitespace-nowrap">{d.student.kelas}</span>
+            {tab === 'data' && (
+              <>
+                <IconDotSm className="shrink-0 text-[rgba(21,21,58,.6)]" />
+                <span className="whitespace-nowrap">Terakhir disimpan {lastSaved}</span>
+              </>
+            )}
+          </>
+        }
         actions={
           <div className="flex w-full flex-wrap items-center gap-2 md:w-auto">
             <Link
               to="/students"
               className="flex flex-1 items-center justify-center gap-1.5 rounded-[8px] bg-[#ecebf6] px-3.5 py-2.5 text-[14px] font-medium text-violet hover:bg-violet-light md:flex-none"
             >
-              <ArrowLeft className="size-4" /> Kembali ke daftar siswa
+              ← Kembali ke daftar siswa
             </Link>
             {tab === 'data' ? (
               <button
@@ -143,7 +140,7 @@ export default function StudentDetailPage() {
                 onClick={() => setTab('summary')}
                 className="flex flex-1 items-center justify-center gap-1.5 rounded-[8px] bg-[#ecebf6] px-3.5 py-2.5 text-[14px] font-medium text-violet hover:bg-violet-light md:flex-none"
               >
-                <Sparkles className="size-4" /> Lihat ringkasan AI
+                <IconAiMagic /> Lihat ringkasan AI
               </button>
             ) : (
               <>
@@ -153,6 +150,7 @@ export default function StudentDetailPage() {
                   disabled={generate.isPending}
                   className="flex flex-1 items-center justify-center gap-1.5 rounded-[8px] bg-[#ecebf6] px-3.5 py-2.5 text-[14px] font-medium text-violet hover:bg-violet-light disabled:opacity-50 md:flex-none"
                 >
+                  <IconRefresh />
                   {generate.isPending ? 'Membuat…' : 'Buat ulang'}
                 </button>
                 {d.latest_summary && (
@@ -161,7 +159,7 @@ export default function StudentDetailPage() {
                     onClick={() => handleDownload(d.latest_summary!.id)}
                     className="flex flex-1 items-center justify-center gap-1.5 rounded-[8px] bg-violet-dark px-3.5 py-2.5 text-[14px] font-medium text-base hover:bg-[#24245c] md:flex-none"
                   >
-                    Unduh PDF
+                    <IconDownloadLight /> Unduh PDF
                   </button>
                 )}
               </>
@@ -170,7 +168,7 @@ export default function StudentDetailPage() {
         }
       />
 
-      <div className={cn('px-5 pb-10 md:px-8', tab === 'summary' && 'bg-summary-gradient')}>
+      <div className="px-5 pb-10 pt-6 md:px-8">
         {tab === 'data' ? (
           <>
             <DataTab detail={d} form={form} setForm={setForm} canWrite={canWrite} />
@@ -181,7 +179,7 @@ export default function StudentDetailPage() {
               submitting={createObs.isPending}
               onCreate={(payload) => createObs.mutate(payload)}
               onHandle={(oid) => handleRed.mutate(oid)}
-              onEdit={handleEditObs}
+              studentName={d.student.name}
             />
             {canWrite && (
               <DataActionBar
@@ -199,10 +197,12 @@ export default function StudentDetailPage() {
             generating={generate.isPending}
             onGenerate={() => generate.mutate()}
             onDownload={handleDownload}
+            onViewData={() => setTab('data')}
             onViewVersion={(sm: SummaryView) => {
+              const c = sm.content as { headline?: string; narrative?: string }
               void confirm({
                 title: `Versi ${sm.version} · ${fmtDateID(sm.created_at)}`,
-                body: (sm.content as { headline?: string })?.headline ?? '',
+                body: `${c?.headline ?? ''} — ${c?.narrative ?? ''}`,
                 cancelText: 'Tutup',
                 confirmText: 'Unduh',
               }).then((ok) => {
@@ -212,6 +212,6 @@ export default function StudentDetailPage() {
           />
         )}
       </div>
-    </>
+    </div>
   )
 }

@@ -231,3 +231,79 @@
   border: 1px solid rgba(226, 226, 242, 0.9);
   border-radius: 16px;
 }
+
+/* --- Checkbox custom (mockup/css/app.css .chk): kotak violet 16px rounded-4 --- */
+.chk {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.chk:hover {
+  background: #f6f6fb;
+}
+.chk input[type='checkbox'] {
+  appearance: none;
+  -webkit-appearance: none;
+  margin: 1px 0 0;
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+  border: 1.5px solid #3d3ba6;
+  border-radius: 4px;
+  background: #fff;
+  cursor: pointer;
+  position: relative;
+}
+.chk input[type='checkbox']:checked {
+  background: #3d3ba6;
+  border-color: #3d3ba6;
+}
+.chk input[type='checkbox']:checked::after {
+  content: '';
+  position: absolute;
+  left: 4.5px;
+  top: 1.5px;
+  width: 4px;
+  height: 8px;
+  border: solid #fff;
+  border-width: 0 1.8px 1.8px 0;
+  transform: rotate(45deg);
+}
+.chk input[type='checkbox']:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.chk-red input[type='checkbox'] {
+  border-color: #ef4444;
+}
+.chk-red input[type='checkbox']:checked {
+  background: #ef4444;
+  border-color: #ef4444;
+}
+
+/* --- Radio tindakan awal (mockup .obs-radio): kotak membulat 16px --- */
+.obs-radio {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+  border: 1.5px solid #3d3ba6;
+  border-radius: 8px;
+  background: #fff;
+  position: relative;
+}
+.obs-radio[data-checked='1']::after {
+  content: '';
+  position: absolute;
+  inset: 3px;
+  border-radius: 999px;
+  background: #3d3ba6;
+}
+.obs-radio-red {
+  border-color: #ef4444;
+}
+.obs-radio-red[data-checked='1']::after {
+  background: #ef4444;
+}

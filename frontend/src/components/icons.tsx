@@ -338,6 +338,35 @@ export const IconUser = (p: P) => (
   </svg>
 )
 
+/** Bullet daftar (6x14, violet). */
+export const IconBullet = (p: P) => (
+  <svg width="6" height="14" viewBox="0 0 6 14" fill="none" {...p}>
+    <circle cx="3" cy="11" r="3" fill="#3D3BA6" />
+  </svg>
+)
+
+/** Bullet daftar pudar (6x14). */
+export const IconBulletMuted = (p: P) => (
+  <svg width="6" height="14" viewBox="0 0 6 14" fill="none" {...p}>
+    <circle cx="3" cy="11" r="3" fill="#C3C2E3" />
+  </svg>
+)
+
+/** Ikon centang hijau (14px, "Tandai ditangani"). */
+export const IconCheck = (p: P) => (
+  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" {...p}>
+    <path d="m2.5 7.5 3 3 6-7" stroke="#0B7A43" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+)
+
+/** Ikon kalender (16px, field tanggal observasi). */
+export const IconCalendar = (p: P) => (
+  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" {...p}>
+    <rect x="2" y="3" width="12" height="11" rx="2" stroke="currentColor" strokeWidth="1.5" />
+    <path d="M2 6.5h12M5.5 1.5v3M10.5 1.5v3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+  </svg>
+)
+
 /** Ikon arsip (16px, violet) — tombol arsipkan siswa. */
 export const IconArchive = (p: P) => (
   <svg width="16" height="16" viewBox="0 0 16 16" fill="none" {...p}>

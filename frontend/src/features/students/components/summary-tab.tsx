@@ -1,8 +1,18 @@
-import { Sparkles } from 'lucide-react'
-
+import {
+  IconAiMagicHero,
+  IconAiMagicLight,
+  IconBullet,
+  IconBulletMuted,
+  IconDownloadVioletSm,
+  IconFavourite,
+  IconIdea,
+  IconInfoCircle,
+  IconShieldLight,
+  IconStar,
+} from '@/components/icons'
 import type { SummaryView } from '@/features/dashboard/hooks'
 import type { StudentDetail } from '@/features/students/detail-hooks'
-import { fmtDateID, fmtDateTimeID } from '@/lib/format'
+import { fmtDateID, fmtHM } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
 /** Konten ringkasan terstruktur (dibangun backend). */
@@ -26,8 +36,6 @@ function contentOf(sm: SummaryView): Content {
   return (sm.content ?? {}) as unknown as Content
 }
 
-import { IconFavourite, IconIdea, IconInfoCircle, IconStar } from '@/components/icons'
-
 function InsightIcon({ icon, className }: { icon: string; className?: string }) {
   if (icon === 'star') return <IconStar className={className} />
   if (icon === 'favourite') return <IconFavourite className={className} />
@@ -41,12 +49,15 @@ export default function SummaryTab({
   onGenerate,
   onDownload,
   onViewVersion,
+  onViewData,
   generating,
 }: {
   detail: StudentDetail
   onGenerate: () => void
   onDownload: (summaryId: string) => void
   onViewVersion: (sm: SummaryView) => void
+  /** Buka tab Data (tombol "Edit data siswa" / "Lihat observasi"). */
+  onViewData: () => void
   generating: boolean
 }) {
   const sm = detail.latest_summary
@@ -54,18 +65,18 @@ export default function SummaryTab({
 
   if (!sm) {
     return (
-      <div className="rounded-[10px] border border-violet-light bg-base p-6 shadow-[0px_4px_8px_0px_rgba(0,0,0,0.1)]">
-        <h2 className="font-heading text-[24px] font-semibold leading-[1.4] text-violet-dark">Ringkasan AI</h2>
-        <p className="mt-1 text-[12px] text-[rgba(21,21,58,.65)]">
+      <div className="rounded-[16px] border border-[rgba(226,226,242,.9)] bg-white p-5">
+        <h2 className="text-[17px] font-bold leading-tight text-violet-dark">Ringkasan AI</h2>
+        <p className="mt-1 text-[12.5px] text-[rgba(21,21,58,.55)]">
           Belum ada ringkasan untuk siswa ini. Buat ringkasan dari data siswa, observasi, dan nilai E-Rapor.
         </p>
         <button
           type="button"
           onClick={onGenerate}
           disabled={generating}
-          className="mt-4 flex items-center gap-1.5 rounded-[8px] bg-violet px-3.5 py-2.5 text-[14px] font-medium text-base hover:bg-violet-hover disabled:opacity-50"
+          className="mt-4 inline-flex items-center gap-1.5 rounded-[10px] bg-violet px-4 py-2.5 text-[14px] font-semibold text-base hover:bg-violet-hover disabled:opacity-50"
         >
-          <Sparkles className="size-4" /> {generating ? 'Membuat…' : 'Buat ringkasan'}
+          <IconAiMagicLight /> {generating ? 'Membuat…' : 'Buat ringkasan'}
         </button>
       </div>
     )
@@ -86,12 +97,13 @@ export default function SummaryTab({
         <div className="relative">
           <div className="flex items-center gap-3">
             <span className="flex size-10 shrink-0 items-center justify-center rounded-[8px] bg-[rgba(252,252,254,0.1)] text-base">
-              <Sparkles className="size-5" />
+              <IconAiMagicHero />
             </span>
             <div className="min-w-0 flex-1">
               <p className="text-[14px] font-semibold text-base">Ringkasan profil</p>
               <p className="mt-1 text-[12px] text-base opacity-70">
-                Dibuat oleh {sm.author} · {fmtDateID(sm.created_at)} · {sm.sources_used} dari {sm.sources_total} sumber data dipakai
+                Dibuat oleh {sm.author} · {fmtDateID(sm.created_at)} · {fmtHM(sm.created_at)} · {sm.sources_used} dari{' '}
+                {sm.sources_total} sumber data dipakai
               </p>
             </div>
             <span className="shrink-0 rounded-full bg-[rgba(252,252,254,0.1)] px-3 py-1.5 text-[12px] font-medium text-base">
@@ -108,7 +120,10 @@ export default function SummaryTab({
               </div>
             ))}
           </div>
-          <div className="mt-6 flex items-center gap-2.5 rounded-[8px] border border-[rgba(252,252,254,0.16)] bg-[rgba(252,252,254,0.05)] px-3.5 py-3">
+          <div className="mt-6 flex items-start gap-2.5 rounded-[8px] border border-[rgba(252,252,254,0.16)] bg-[rgba(252,252,254,0.05)] px-3.5 py-3">
+            <span className="shrink-0 text-base">
+              <IconShieldLight />
+            </span>
             <p className="text-[12px] font-medium leading-normal text-base opacity-85">
               Ringkasan ini membantu penilaian Anda, bukan diagnosis atau keputusan otomatis. Data yang kosong tidak pernah
               dianggap sebagai fakta.
@@ -127,11 +142,18 @@ export default function SummaryTab({
             <p className="text-[14px] font-semibold text-violet-dark">{red.title}</p>
             <p className="mt-2 text-[12px] text-[#a52d18]">{red.note}</p>
           </div>
+          <button
+            type="button"
+            onClick={onViewData}
+            className="shrink-0 rounded-[8px] border border-[#ef4444] bg-[#fcfcfe] px-3 py-1.5 text-[12px] font-medium text-[#ef4444] hover:bg-[#fef2f2]"
+          >
+            Lihat observasi
+          </button>
         </div>
       )}
 
       {/* Temuan */}
-      <section className="mt-4">
+      <section className="mt-8">
         <div className="mb-4">
           <h2 className="font-heading text-[24px] font-medium text-violet-dark">Temuan</h2>
           <p className="mt-1 text-[12px] text-violet-dark opacity-60">
@@ -156,7 +178,7 @@ export default function SummaryTab({
               <div className="flex min-w-0 flex-1 flex-col gap-[10px]">
                 {(g.items ?? []).map((it, ii) => (
                   <div key={ii} className="flex items-start gap-[10px]">
-                    <span className={cn('mt-[7px] size-1.5 shrink-0 rounded-full', g.muted ? 'bg-[#a1a1aa]' : 'bg-violet')} />
+                    {g.muted ? <IconBulletMuted className="mt-[3px] shrink-0" /> : <IconBullet className="mt-[3px] shrink-0" />}
                     <p className={cn('text-[14px] leading-[1.5] text-violet-dark', g.muted && 'opacity-75')}>{it.text}</p>
                   </div>
                 ))}
@@ -180,11 +202,12 @@ export default function SummaryTab({
       </section>
 
       {/* Data yang dipakai */}
-      <section className="mt-4">
+      <section className="mt-8">
         <div className="mb-4">
           <h2 className="font-heading text-[24px] font-medium text-violet-dark">Data yang dipakai</h2>
           <p className="mt-1 text-[12px] text-violet-dark opacity-60">
-            Data diambil {fmtDateTimeID(sm.created_at)}. Ubah data di halaman siswa, lalu buat ulang ringkasan.
+            Data diambil {fmtDateID(sm.created_at)} · {fmtHM(sm.created_at)}. Ubah data di halaman siswa, lalu buat ulang
+            ringkasan.
           </p>
         </div>
         <div className="rounded-[10px] border border-violet-light bg-base p-6 shadow-[0px_4px_8px_0px_rgba(0,0,0,0.1)]">
@@ -219,12 +242,19 @@ export default function SummaryTab({
             <p className="text-[12px] text-violet-dark opacity-60">
               {usedCount} dari {dataUsed.length} sumber dipakai · Kolom kosong dilewati, tidak pernah ditebak
             </p>
+            <button
+              type="button"
+              onClick={onViewData}
+              className="shrink-0 rounded-[8px] bg-[#ecebf6] px-3 py-1.5 text-[12px] font-medium text-violet hover:bg-violet-light"
+            >
+              Edit data siswa
+            </button>
           </div>
         </div>
       </section>
 
       {/* Riwayat versi */}
-      <section className="mt-4">
+      <section className="mt-8">
         <div className="mb-4">
           <h2 className="font-heading text-[24px] font-medium text-violet-dark">Riwayat versi</h2>
           <p className="mt-1 text-[12px] text-violet-dark opacity-60">BK hanya bisa mengunduh versi terbaru.</p>
@@ -242,7 +272,7 @@ export default function SummaryTab({
                     )}
                   </div>
                   <p className="mt-0.5 text-[12px] text-violet-dark opacity-60">
-                    {fmtDateID(v.created_at)} · oleh {v.author}
+                    {fmtDateID(v.created_at)} · {fmtHM(v.created_at)} · oleh {v.author}
                   </p>
                 </div>
                 <p className="min-w-0 flex-1 text-[12px] text-violet-dark opacity-60">{v.note}</p>
@@ -250,9 +280,9 @@ export default function SummaryTab({
                   <button
                     type="button"
                     onClick={() => onDownload(v.id)}
-                    className="shrink-0 rounded-[8px] bg-[#ecebf6] px-3 py-1.5 text-[12px] font-medium text-violet hover:bg-violet-light"
+                    className="inline-flex shrink-0 items-center gap-1.5 rounded-[8px] bg-[#ecebf6] px-3 py-1.5 text-[12px] font-medium text-violet hover:bg-violet-light"
                   >
-                    Unduh
+                    <IconDownloadVioletSm /> Unduh
                   </button>
                 ) : (
                   <button
