@@ -24,6 +24,11 @@ func OKMeta(w http.ResponseWriter, data any, meta any) {
 	writeJSON(w, http.StatusOK, map[string]any{"data": data, "meta": meta})
 }
 
+// Accepted writes 202 with {"data": ...} — untuk aksi asinkron (mis. queue AI).
+func Accepted(w http.ResponseWriter, data any) {
+	writeJSON(w, http.StatusAccepted, map[string]any{"data": data})
+}
+
 // Error maps any error to the standard shape {"error":{code,message}}.
 // AppErr keeps its status/code; unknown errors become 500 (message generic).
 func Error(w http.ResponseWriter, err error) {

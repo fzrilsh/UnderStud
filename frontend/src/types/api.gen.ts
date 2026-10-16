@@ -744,6 +744,50 @@ export interface paths {
                 200: components["responses"]["OkResponse"];
             };
         };
+        /** Remove from draft (clears pinned/draft, sets status 'dilewati') */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                200: components["responses"]["OkResponse"];
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/reports/{id}/skip": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Skip to next in queue WITHOUT requiring a reply (sets status 'dilewati') */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                200: components["responses"]["OkResponse"];
+            };
+        };
         delete?: never;
         options?: never;
         head?: never;
@@ -841,6 +885,8 @@ export interface paths {
                 query?: {
                     q?: string;
                     include_archived?: boolean;
+                    /** @description Filter daftar: red_flag (red flag belum ditangani), archived (diarsipkan), incomplete (e-rapor < 5 mapel), not_observed (belum diobservasi) */
+                    filter?: "all" | "red_flag" | "archived" | "incomplete" | "not_observed";
                     limit?: number;
                     offset?: number;
                 };
@@ -1322,7 +1368,35 @@ export interface paths {
             };
         };
         put?: never;
-        post?: never;
+        /** Trigger AI summary generation (async; poll /summaries/latest). Wali Kelas scoped. */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Queued */
+                202: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data?: {
+                                /** @enum {string} */
+                                status?: "queued";
+                            };
+                        };
+                    };
+                };
+                503: components["responses"]["ErrorResponse"];
+            };
+        };
         delete?: never;
         options?: never;
         head?: never;
@@ -1611,6 +1685,122 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/dashboard/bk": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Aggregate dashboard for Guru BK (chat stats, red flags, latest summaries, chart, classes) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Dashboard */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data?: components["schemas"]["DashboardBK"];
+                        };
+                    };
+                };
+                403: components["responses"]["ErrorResponse"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dashboard/wk": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Aggregate dashboard for Wali Kelas (scoped to own class) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Dashboard */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data?: components["schemas"]["DashboardWK"];
+                        };
+                    };
+                };
+                403: components["responses"]["ErrorResponse"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/classes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Class list with stats (BK all classes, Wali Kelas own class) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Classes */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data?: components["schemas"]["ClassItem"][];
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1646,6 +1836,10 @@ export interface components {
             status?: "baru" | "dibuka" | "dilewati";
             /** Format: date-time */
             last_message_at?: string;
+            last_message?: components["schemas"]["LastMessage"];
+            has_new_reply?: boolean;
+            /** @description Jumlah balasan BK yang belum dibaca siswa */
+            unread_count?: number;
         };
         ChatView: {
             /** Format: uuid */
@@ -1669,6 +1863,13 @@ export interface components {
             name?: string | null;
             kelas?: string | null;
         };
+        LastMessage: {
+            /** @enum {string} */
+            sender?: "SISWA" | "BK";
+            body?: string;
+            /** Format: date-time */
+            created_at?: string;
+        };
         ReportItem: {
             /** Format: uuid */
             id?: string;
@@ -1683,6 +1884,8 @@ export interface components {
             identity?: components["schemas"]["ReportIdentity"];
             /** Format: date-time */
             last_message_at?: string;
+            last_message?: components["schemas"]["LastMessage"];
+            unread_by_staff?: boolean;
         };
         AttachmentView: {
             /** Format: uuid */
@@ -1715,6 +1918,12 @@ export interface components {
             /** Format: date-time */
             archived_at?: string | null;
             has_red_flag?: boolean;
+            /** @description Nilai e-rapor terisi ≥ 5 mapel */
+            e_rapor_complete?: boolean;
+            /** @description Punya ≥ 1 observasi */
+            observed?: boolean;
+            /** @description Punya ≥ 1 ringkasan AI */
+            has_summary?: boolean;
         };
         CreateStudentInput: {
             /** @description Nomor Induk Siswa Nasional (digit, 4-20) */
@@ -1807,11 +2016,97 @@ export interface components {
             kategori?: string;
             label?: string;
         };
+        ChatStats: {
+            waiting?: number;
+            pinned?: number;
+            drafted?: number;
+            queued?: number;
+            unqueued?: number;
+        };
+        ChartPoint: {
+            label?: string;
+            pinned?: number;
+            drafted?: number;
+            queued?: number;
+        };
+        ClassItem: {
+            kelas?: string;
+            grade?: string;
+            homeroom?: string;
+            students?: number;
+            red_flag?: number;
+            /** @enum {string} */
+            status?: "flagged" | "complete" | "not_filled";
+        };
+        RedTop: {
+            student?: components["schemas"]["StudentItem"];
+            /** Format: date */
+            tanggal?: string;
+        };
+        LatestSummary: {
+            student?: components["schemas"]["StudentItem"];
+            summary?: components["schemas"]["SummaryView"];
+        };
+        DashboardBK: {
+            chats?: components["schemas"]["ChatStats"];
+            red_flags?: number;
+            summaries?: number;
+            latest?: components["schemas"]["LatestSummary"][];
+            red_top?: components["schemas"]["RedTop"];
+            chart?: components["schemas"]["ChartPoint"][];
+            classes?: components["schemas"]["ClassItem"][];
+        };
+        DashboardWK: {
+            students?: number;
+            e_rapor_complete?: number;
+            observed?: number;
+            red_flags?: number;
+            red_top?: components["schemas"]["StudentItem"];
+            chart?: components["schemas"]["ChartPoint"][];
+        };
+        /** @description Konten ringkasan terstruktur (dibangun backend dari data siswa) */
+        SummaryContent: {
+            headline?: string;
+            narrative?: string;
+            metrics?: {
+                label?: string;
+                value?: string;
+            }[];
+            insights?: {
+                icon?: string;
+                title?: string;
+                subtitle?: string;
+                items?: {
+                    text?: string;
+                }[];
+                sources?: string[];
+                muted?: boolean;
+            }[];
+            data_used?: {
+                source?: string;
+                details?: string;
+                updated?: string;
+                /** @enum {string} */
+                status?: "used" | "missing" | "not_sent";
+            }[];
+            red_flag?: {
+                title?: string;
+                note?: string;
+            } | null;
+        };
         SummaryView: {
             /** Format: uuid */
             id?: string;
-            content?: string;
+            /** @description Nomor versi ringkasan per siswa */
+            version?: number;
+            content?: components["schemas"]["SummaryContent"];
+            /** @description Catatan versi, mis. "Menambahkan data terbaru" */
+            note?: string;
+            /** @description Nama pembuat ringkasan */
+            author?: string;
             sources?: unknown;
+            sources_used?: number;
+            sources_total?: number;
             model?: string;
             /** @enum {string} */
             status?: "ready" | "failed";
@@ -1853,6 +2148,8 @@ export interface components {
             student?: components["schemas"]["StudentItem"];
             profile?: components["schemas"]["ProfileView"];
             observations?: components["schemas"]["ObservationView"][];
+            /** @description Semua versi ringkasan AI (terbaru lebih dulu) */
+            summaries?: components["schemas"]["SummaryView"][];
             latest_summary?: components["schemas"]["SummaryView"] | null;
         };
         LoginInput: {

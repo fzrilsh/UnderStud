@@ -47,8 +47,7 @@ func (h *SummaryHandlers) Generate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.enqueue(id, actor.UserID, "manual")
-	w.WriteHeader(http.StatusAccepted)
-	OK(w, map[string]any{"status": "queued"})
+	Accepted(w, map[string]any{"status": "queued"})
 }
 
 // Latest handles GET /api/v1/students/{id}/summaries/latest.
