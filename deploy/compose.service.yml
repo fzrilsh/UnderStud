@@ -1,0 +1,48 @@
+# ============================================================================
+# UnderStud: fragmen service untuk compose infra bersama (~/infra/docker-compose.yml).
+#
+# Salin blok `understud` di bawah ke dalam compose infra milikmu (di dalam key
+# `services:`). Sesuaikan:
+#   - `networks:`  -> nama network internal milikmu
+#   - `env_file:`  -> path .env UnderStud di server
+#   - `ports:`     -> sesuaikan port host kalau 3010 sudah dipakai
+#   - `mem_limit:` -> longgarkan bila perlu
+#
+# Catatan:
+#   - Satu container saja: FE (React) sudah ter-embed di binary Go, jadi container
+#     ini menyajikan UI + API di port yang sama.
+#   - Tidak ada `build:`: image datang dari GHCR.
+#   - Tidak ada service `db`: pakai Postgres + pgbouncer milikmu (lihat
+#     DATABASE_URL di .env.prod.example).
+#   - Tidak ada ingress tunnel di sini: daftarkan hostname di
+#     ~/infra/cloudflared/config.yml (lihat README).
+# ============================================================================
+
+services:
+  understud:
+    image: ghcr.io/fzrilsh/understud:latest
+    restart: unless-stopped
+    networks: [internal]
+    env_file: /home/deploy/services/understud/.env
+    # Lampiran chat persisten lintas recreate (opsional tapi disarankan).
+    volumes:
+      - understud_uploads:/app/data
+    ports:
+      # cloudflared meneruskan ke sini. Ganti 3010 kalau sudah dipakai service lain.
+      - "127.0.0.1:3010:8080"
+    mem_limit: 192m
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  understud_uploads:
+
+# Network `internal` diasumsikan sudah didefinisikan di compose infra milikmu.
+# Kalau belum, tambahkan di bagian `networks:` paling bawah:
+#
+# networks:
+#   internal:
+#     name: infra_internal
