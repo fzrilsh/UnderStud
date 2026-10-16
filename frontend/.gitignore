@@ -22,3 +22,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Verifikasi headless (screenshot/artifact)
+.verify/
