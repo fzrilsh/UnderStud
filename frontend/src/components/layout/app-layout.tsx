@@ -1,6 +1,7 @@
 import { Outlet } from 'react-router-dom'
 
 import Sidebar from '@/components/layout/sidebar'
+import ChatSections from '@/components/layout/chat-sections'
 import { useConfirm } from '@/components/confirm-provider'
 import { useCurrentUser, useLogout } from '@/features/auth/hooks'
 
@@ -20,7 +21,9 @@ export default function AppLayout() {
 
   return (
     <div className="flex min-h-svh bg-base">
-      <Sidebar user={user} onLogout={handleLogout} />
+      <Sidebar user={user} onLogout={handleLogout}>
+        <ChatSections />
+      </Sidebar>
       <main className="min-w-0 flex-1">
         <Outlet />
       </main>
