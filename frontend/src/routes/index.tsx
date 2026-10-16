@@ -5,6 +5,7 @@ import AppLayout from '@/components/layout/app-layout'
 import RoleGuard from '@/components/role-guard'
 import ProtectedRoute from '@/routes/protected-route'
 import LoginPage from '@/pages/login'
+import LaporPage from '@/pages/lapor'
 import DashboardPage from '@/pages/dashboard'
 import StudentsPage from '@/pages/students'
 import StudentDetailPage from '@/pages/student-detail'
@@ -14,7 +15,11 @@ import NotFoundPage from '@/pages/not-found'
 export const router = createBrowserRouter([
   {
     element: <RootLayout />,
-    children: [{ path: '/login', element: <LoginPage /> }],
+    children: [
+      { path: '/login', element: <LoginPage /> },
+      // Chat siswa anonim — publik (cookie anon, bukan sesi staf).
+      { path: '/lapor', element: <LaporPage /> },
+    ],
   },
   {
     element: <ProtectedRoute />,

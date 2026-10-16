@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom'
 import { ArrowRight, Download } from 'lucide-react'
 
 import StatusBadge from '@/components/status-badge'
+import { IconStudentCard } from '@/components/icons'
 import MiniChart from '@/features/dashboard/components/mini-chart'
 import type { ClassItem, DashboardBK, DashboardWK, SummaryView } from '@/features/dashboard/hooks'
 import { fmtDateShortID } from '@/lib/format'
@@ -105,8 +106,8 @@ export function StudentShortcutCard({ redFlags }: { redFlags: number }) {
   return (
     <Panel className="justify-between lg:h-[389px] lg:w-[400px] lg:shrink-0">
       <div className="flex flex-col gap-3">
-        <span className="flex size-11 shrink-0 items-center justify-center rounded-[10px] bg-[#ecebf6] text-[20px]">
-          🎓
+        <span className="flex size-11 shrink-0 items-center justify-center rounded-[10px] bg-[#ecebf6] text-violet-dark">
+          <IconStudentCard />
         </span>
         <p className="font-heading text-[32px] font-bold leading-[1.3] text-violet-dark">Daftar Siswa</p>
         <p className="text-[14px] font-medium leading-[1.5] text-violet-dark opacity-70">

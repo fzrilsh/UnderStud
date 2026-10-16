@@ -26,11 +26,13 @@ function contentOf(sm: SummaryView): Content {
   return (sm.content ?? {}) as unknown as Content
 }
 
-const INSIGHT_ICON: Record<string, string> = {
-  idea: '💡',
-  star: '⭐',
-  favourite: '❤️',
-  infoCircle: 'ℹ️',
+import { IconFavourite, IconIdea, IconInfoCircle, IconStar } from '@/components/icons'
+
+function InsightIcon({ icon, className }: { icon: string; className?: string }) {
+  if (icon === 'star') return <IconStar className={className} />
+  if (icon === 'favourite') return <IconFavourite className={className} />
+  if (icon === 'infoCircle') return <IconInfoCircle className={className} />
+  return <IconIdea className={className} />
 }
 
 /** Tab "Ringkasan AI" — hero, banner red flag, temuan, data dipakai, riwayat versi. */
@@ -144,7 +146,7 @@ export default function SummaryTab({
             >
               <div className="flex w-full shrink-0 items-center gap-3 lg:w-[280px]">
                 <span className={cn('flex size-9 shrink-0 items-center justify-center rounded-[8px] text-[16px]', g.muted ? 'bg-violet-light' : 'bg-[#ecebf6]')}>
-                  {INSIGHT_ICON[g.icon] ?? '💡'}
+                  <InsightIcon icon={g.icon} className="size-5 text-violet-dark" />
                 </span>
                 <div className="min-w-0 flex-1">
                   <p className="text-[16px] font-semibold text-violet-dark">{g.title}</p>

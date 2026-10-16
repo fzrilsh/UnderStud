@@ -151,13 +151,19 @@ async function main() {
   await sleep(800)
 
   // Pasang cookie sesi via API (tanpa lewat UI login).
+  // Cookie anon siswa bisa diberikan via env ANON_COOKIE (mis. "anon_token=...").
   let cookie = null
   if (asArg === 'bk') cookie = await loginCookie('bk@demo.local')
   else if (asArg === 'wk') cookie = await loginCookie('wali@demo.local')
+  else if (process.env.ANON_COOKIE) cookie = process.env.ANON_COOKIE
   if (cookie) {
+    // Cookie bisa "name=value" tunggal (auth_token atau anon_token).
+    const eq = cookie.indexOf('=')
+    const cname = eq > 0 ? cookie.slice(0, eq) : 'auth_token'
+    const cval = eq > 0 ? cookie.slice(eq + 1) : cookie
     const setRes = await send(sock, 'Network.setCookie', {
-      name: 'auth_token',
-      value: cookie.replace('auth_token=', ''),
+      name: cname,
+      value: cval,
       url: origin,
       path: '/',
     })
