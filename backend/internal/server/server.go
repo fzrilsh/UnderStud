@@ -69,6 +69,8 @@ func New(cfg config.Config, logger *slog.Logger, pool *pgxpool.Pool) http.Handle
 	studentHandler := handler.NewStudentHandlers(studentSvc, observasiSvc, summarySvc, importerSvc).
 		WithEnqueue(func(sid, by uuid.UUID, reason string) { aiQueue.Enqueue(sid, by, reason) })
 	summaryHandler := handler.NewSummaryHandlers(summarySvc)
+	dashboardSvc := service.NewDashboard(queries)
+	dashboardHandler := handler.NewDashboardHandlers(dashboardSvc)
 
 	r := chi.NewRouter()
 	r.Use(chimw.RequestID)
@@ -179,6 +181,23 @@ func New(cfg config.Config, logger *slog.Logger, pool *pgxpool.Pool) http.Handle
 		r.Route("/red-flags", func(r chi.Router) {
 			r.Use(middleware.RequireAuth(tm, queries))
 			r.Get("/", studentHandler.RedFlags)
+		})
+
+		r.Route("/dashboard", func(r chi.Router) {
+			r.Use(middleware.RequireAuth(tm, queries))
+			r.Group(func(r chi.Router) {
+				r.Use(middleware.RequireRole(middleware.RoleBK))
+				r.Get("/bk", dashboardHandler.BK)
+			})
+			r.Group(func(r chi.Router) {
+				r.Use(middleware.RequireRole(middleware.RoleWaliKelas))
+				r.Get("/wk", dashboardHandler.WK)
+			})
+		})
+
+		r.Route("/classes", func(r chi.Router) {
+			r.Use(middleware.RequireAuth(tm, queries))
+			r.Get("/", dashboardHandler.Classes)
 		})
 
 		r.Route("/checklist", func(r chi.Router) {

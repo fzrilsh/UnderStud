@@ -920,6 +920,55 @@ paths:
                   data:
                     type: array
                     items: { $ref: "#/components/schemas/ChecklistItem" }
+  /api/v1/dashboard/bk:
+    get:
+      tags: [dashboard]
+      summary: Aggregate dashboard for Guru BK (chat stats, red flags, latest summaries, chart, classes)
+      security:
+        - cookieAuth: []
+      responses:
+        "200":
+          description: Dashboard
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: "#/components/schemas/DashboardBK" }
+        "403": { $ref: "#/components/responses/ErrorResponse" }
+  /api/v1/dashboard/wk:
+    get:
+      tags: [dashboard]
+      summary: Aggregate dashboard for Wali Kelas (scoped to own class)
+      security:
+        - cookieAuth: []
+      responses:
+        "200":
+          description: Dashboard
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: "#/components/schemas/DashboardWK" }
+        "403": { $ref: "#/components/responses/ErrorResponse" }
+  /api/v1/classes:
+    get:
+      tags: [dashboard]
+      summary: Class list with stats (BK all classes, Wali Kelas own class)
+      security:
+        - cookieAuth: []
+      responses:
+        "200":
+          description: Classes
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/ClassItem" }
 components:
   securitySchemes:
     cookieAuth:
@@ -1170,6 +1219,67 @@ components:
         key: { type: string }
         kategori: { type: string }
         label: { type: string }
+    ChatStats:
+      type: object
+      properties:
+        waiting: { type: integer }
+        pinned: { type: integer }
+        drafted: { type: integer }
+        queued: { type: integer }
+        unqueued: { type: integer }
+    ChartPoint:
+      type: object
+      properties:
+        label: { type: string }
+        pinned: { type: integer }
+        drafted: { type: integer }
+        queued: { type: integer }
+    ClassItem:
+      type: object
+      properties:
+        kelas: { type: string }
+        grade: { type: string }
+        homeroom: { type: string }
+        students: { type: integer }
+        red_flag: { type: integer }
+        status: { type: string, enum: [flagged, complete, not_filled] }
+    RedTop:
+      type: object
+      properties:
+        student: { $ref: "#/components/schemas/StudentItem" }
+        tanggal: { type: string, format: date }
+    LatestSummary:
+      type: object
+      properties:
+        student: { $ref: "#/components/schemas/StudentItem" }
+        summary: { $ref: "#/components/schemas/SummaryView" }
+    DashboardBK:
+      type: object
+      properties:
+        chats: { $ref: "#/components/schemas/ChatStats" }
+        red_flags: { type: integer }
+        summaries: { type: integer }
+        latest:
+          type: array
+          items: { $ref: "#/components/schemas/LatestSummary" }
+        red_top: { $ref: "#/components/schemas/RedTop", nullable: true }
+        chart:
+          type: array
+          items: { $ref: "#/components/schemas/ChartPoint" }
+        classes:
+          type: array
+          items: { $ref: "#/components/schemas/ClassItem" }
+    DashboardWK:
+      type: object
+      properties:
+        students: { type: integer }
+        e_rapor_complete: { type: integer }
+        observed: { type: integer }
+        red_flags: { type: integer }
+        red_top: { $ref: "#/components/schemas/StudentItem", nullable: true }
+        chart:
+          type: array
+          items: { $ref: "#/components/schemas/ChartPoint" }
     SummaryView:
       type: object
       properties:
