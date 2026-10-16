@@ -48,8 +48,13 @@ push ke main  ->  GitHub Actions build image  ->  push ke GHCR
 Jalankan di server. Ganti password dengan yang kuat.
 
 ```bash
+# Nama superuser Postgres-mu ada di ~/infra/.env (POSTGRES_USER).
+# Jangan asumsikan "postgres" — banyak setup pakai nama lain.
+docker exec infra-postgres-1 env | grep POSTGRES_USER
+# pakai nilai itu sebagai -U di bawah:
+
 # Masuk ke Postgres
-docker exec -it <nama-container-postgres> psql -U postgres
+docker exec -it infra-postgres-1 psql -U <POSTGRES_USER> -d postgres
 
 CREATE DATABASE understud;
 CREATE USER understud WITH PASSWORD 'PASSWORD_KUAT_DI_SINI';
