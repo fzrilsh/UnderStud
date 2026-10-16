@@ -41,7 +41,7 @@ export default function LoginPage() {
 
       <div className="w-full max-w-[420px] rounded-[16px] border border-[rgba(226,226,242,.9)] bg-white p-8 shadow-[0_24px_60px_rgba(21,21,58,.10)] md:p-9">
         <div className="flex flex-col items-center">
-          <img src="/understud-logo.png" alt="Understud" className="size-10 object-contain" />
+          <img src="/understud-logo.png" alt="UnderStud" className="size-10 object-contain" />
           <h1 className="text-gradient-heading mt-4 font-heading text-[34px] font-semibold leading-tight">
             Selamat datang
           </h1>

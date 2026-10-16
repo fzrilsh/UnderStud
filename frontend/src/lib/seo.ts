@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 
-const SITE = 'Understud'
+const SITE = 'UnderStud'
 const SUFFIX = ` · ${SITE}`
 
 /** Set meta description (buat kalau belum ada). */
@@ -16,7 +16,7 @@ function setMeta(name: string, content: string) {
 
 /**
  * SEO per halaman: set `document.title` + meta description.
- * Judul otomatis diberi sufiks " · Understud".
+ * Judul otomatis diberi sufiks " · UnderStud".
  */
 export function useSeo(title: string, description?: string) {
   useEffect(() => {

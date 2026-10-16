@@ -1,4 +1,4 @@
-# Backend Makefile — Understud
+# Backend Makefile — UnderStud
 DATABASE_URL ?= postgres://postgres:postgres@127.0.0.1:5433/hackathon?sslmode=disable
 GOOSE_DIR    ?= internal/db/migrations
 

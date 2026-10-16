@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="frontend/public/understud-logo.png" alt="Understud" width="120" />
+  <img src="frontend/public/understud-logo.png" alt="UnderStud" width="120" />
 </p>
 
-# Understud
+# UnderStud
 
 ### Platform pendampingan siswa: laporan anonim, deteksi dini, dan ringkasan profil berbantuan AI
 
@@ -405,8 +405,8 @@ project/
 #### 1. Clone repositori
 
 ```bash
-git clone https://github.com/fzrilsh/Understud.git
-cd Understud
+git clone https://github.com/fzrilsh/UnderStud.git
+cd UnderStud
 ```
 
 #### 2. (Opsional) Siapkan konfigurasi

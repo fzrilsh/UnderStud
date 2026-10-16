@@ -131,12 +131,12 @@ export default function Sidebar({ user, children, onLogout }: SidebarProps) {
               onClick={toggle}
               className="flex size-9 shrink-0 items-center justify-center rounded-lg hover:bg-violet-light/60"
             >
-              <img src="/understud-logo.png" alt="Understud" className="size-9 object-contain" />
+              <img src="/understud-logo.png" alt="UnderStud" className="size-9 object-contain" />
             </button>
           ) : (
             <>
-              <img src="/understud-logo.png" alt="Understud" className="size-9 shrink-0 object-contain" />
-              <span className="flex-1 truncate text-[16px] font-semibold text-violet-dark">Understud</span>
+              <img src="/understud-logo.png" alt="UnderStud" className="size-9 shrink-0 object-contain" />
+              <span className="flex-1 truncate text-[16px] font-semibold text-violet-dark">UnderStud</span>
               <button
                 type="button"
                 title="Ciutkan"
