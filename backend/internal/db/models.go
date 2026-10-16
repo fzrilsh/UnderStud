@@ -60,6 +60,9 @@ type Chat struct {
 	CreatedAt          time.Time
 	UpdatedAt          time.Time
 	StudentUnreadCount int32
+	GeoLat             *float64
+	GeoLng             *float64
+	GeoAccuracy        *float64
 }
 
 type ExportRecord struct {

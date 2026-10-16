@@ -148,6 +148,16 @@ func (c *Chat) Create(ctx context.Context, session db.AnonSession, in CreateChat
 		return ChatView{}, err
 	}
 
+	// Audit lokasi (spec §11.4 poin 6): catat hanya bila koordinat valid
+	// (NaN/Inf/rentang salah → NULL, jangan simpan sampah).
+	var geoLat, geoLng, geoAcc *float64
+	if geo.ValidCoord(in.Lat, in.Lng) && (in.Lat != 0 || in.Lng != 0) {
+		geoLat, geoLng = &in.Lat, &in.Lng
+		if !math.IsNaN(in.Accuracy) && !math.IsInf(in.Accuracy, 0) && in.Accuracy > 0 {
+			geoAcc = &in.Accuracy
+		}
+	}
+
 	// F8: chat + pesan pertama + lampiran dalam SATU transaksi. Bila ada langkah
 	// gagal → rollback DB dan hapus file tersimpan (cegah chat kosong / file orphan).
 	var view ChatView
@@ -157,6 +167,9 @@ func (c *Chat) Create(ctx context.Context, session db.AnonSession, in CreateChat
 			IdentityMode:  mode,
 			SnapshotName:  snapName,
 			SnapshotKelas: snapKelas,
+			GeoLat:        geoLat,
+			GeoLng:        geoLng,
+			GeoAccuracy:   geoAcc,
 		})
 		if err != nil {
 			return utils.NewErrInternal("gagal membuat laporan")

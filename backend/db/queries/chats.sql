@@ -21,8 +21,9 @@ SELECT count(*) FROM chats
 WHERE session_id = $1 AND hidden_by_student_at IS NULL;
 
 -- name: CreateChat :one
-INSERT INTO chats (session_id, identity_mode, snapshot_name, snapshot_kelas)
-VALUES ($1, $2, $3, $4)
+INSERT INTO chats (session_id, identity_mode, snapshot_name, snapshot_kelas,
+                   geo_lat, geo_lng, geo_accuracy)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
 RETURNING *;
 
 -- name: CreateMessage :one
