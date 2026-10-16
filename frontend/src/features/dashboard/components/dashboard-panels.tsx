@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom'
 import { ArrowRight, Download } from 'lucide-react'
 
 import StatusBadge from '@/components/status-badge'
-import { IconStudentCard } from '@/components/icons'
+import { IconClock, IconStudentCard, IconUserSm, IconUsersGroup } from '@/components/icons'
 import MiniChart from '@/features/dashboard/components/mini-chart'
 import type { ClassItem, DashboardBK, DashboardWK, SummaryView } from '@/features/dashboard/hooks'
 import { fmtDateShortID } from '@/lib/format'
@@ -45,11 +45,15 @@ export function RedBanner({
             {count} siswa perlu segera ditinjau
           </p>
           <div className="mt-1 flex flex-wrap items-center gap-x-3.5 gap-y-1 text-[14px] text-[rgba(21,21,58,.6)] md:text-[16px]">
-            <span>{name}</span>
-            <span className="text-[rgba(21,21,58,.3)]">·</span>
-            <span>{kelas}</span>
-            <span className="text-[rgba(21,21,58,.3)]">·</span>
-            <span>{tanggal}</span>
+            <span className="flex items-center gap-2">
+              <IconUserSm /> {name}
+            </span>
+            <span className="flex items-center gap-2">
+              <IconUsersGroup /> {kelas}
+            </span>
+            <span className="flex items-center gap-2">
+              <IconClock /> {tanggal}
+            </span>
           </div>
         </div>
       </div>

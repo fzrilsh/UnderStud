@@ -165,6 +165,37 @@ export const IconSend = (p: P) => (
   </svg>
 )
 
+/** Ikon meta: user (16px). */
+export const IconUserSm = (p: P) => (
+  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" {...p}>
+    <path
+      d="M2.66667 14.6667C2.66667 11.7211 5.05448 9.33333 8 9.33333C10.9455 9.33333 13.3333 11.7211 13.3333 14.6667H12C12 12.4575 10.2091 10.6667 8 10.6667C5.79086 10.6667 4 12.4575 4 14.6667H2.66667ZM8 8.66667C5.79 8.66667 4 6.87667 4 4.66667C4 2.45667 5.79 0.666667 8 0.666667C10.21 0.666667 12 2.45667 12 4.66667C12 6.87667 10.21 8.66667 8 8.66667Z"
+      fill="currentColor"
+    />
+  </svg>
+)
+
+/** Ikon meta: grup (16px). */
+export const IconUsersGroup = (p: P) => (
+  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" {...p}>
+    <path
+      d="M10.667 14v-1.333a2.667 2.667 0 0 0-2.667-2.667H4a2.667 2.667 0 0 0-2.667 2.667V14M12.666 14v-1.333a2.667 2.667 0 0 0-2-2.58M6 10a2.667 2.667 0 1 0 0-5.334A2.667 2.667 0 0 0 6 10ZM10.666 4.753a2.667 2.667 0 0 1 0 5.16"
+      stroke="currentColor"
+      strokeWidth="1.4"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </svg>
+)
+
+/** Ikon meta: jam (16px). */
+export const IconClock = (p: P) => (
+  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" {...p}>
+    <circle cx="8" cy="8" r="6.333" stroke="currentColor" strokeWidth="1.5" />
+    <path d="M8 4.333V8l2.333 1.333" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+)
+
 /** Ikon user (avatar sidebar, putih di atas gradient). */
 export const IconUserLight = (p: P) => (
   <svg width="20" height="20" viewBox="0 0 28 28" fill="none" {...p}>

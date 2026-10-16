@@ -14,6 +14,7 @@ import {
 import { useDashboardBK } from '@/features/dashboard/hooks'
 import { useCurrentUser } from '@/features/auth/hooks'
 import DashboardWKPage from '@/pages/dashboard-wk'
+import { fmtDateFullID } from '@/lib/format'
 import { useSeo } from '@/lib/seo'
 
 export default function DashboardPage() {
@@ -55,7 +56,7 @@ function DashboardBKPage() {
           <span className="flex flex-wrap items-center gap-x-1 gap-y-0.5">
             <span className="whitespace-nowrap">Ringkasan konseling</span>
             <span className="text-[rgba(21,21,58,.3)]">·</span>
-            <span className="whitespace-nowrap">{new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+            <span className="whitespace-nowrap">{fmtDateFullID(new Date().toISOString())}</span>
           </span>
         }
       />
@@ -69,11 +70,7 @@ function DashboardBKPage() {
                 count={d.red_flags}
                 name={d.red_top.student.name}
                 kelas={d.red_top.student.kelas}
-                tanggal={new Date(d.red_top.tanggal).toLocaleDateString('id-ID', {
-                  day: 'numeric',
-                  month: 'short',
-                  year: 'numeric',
-                })}
+                tanggal={fmtDateFullID(d.red_top.tanggal)}
               />
             )}
             <div className="flex flex-col gap-4 lg:flex-row">

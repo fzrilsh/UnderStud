@@ -8,6 +8,7 @@ import {
 import { useDashboardWK } from '@/features/dashboard/hooks'
 import { useCurrentUser } from '@/features/auth/hooks'
 import { useSeo } from '@/lib/seo'
+import { fmtDateFullID } from '@/lib/format'
 
 export default function DashboardWKPage() {
   useSeo('Dashboard', 'Statistik kelas perwalian: E-Rapor, observasi, dan red flag.')
@@ -38,11 +39,7 @@ export default function DashboardWKPage() {
                 count={d.red_flags}
                 name={d.red_top.name}
                 kelas={d.red_top.kelas}
-                tanggal={new Date().toLocaleDateString('id-ID', {
-                  day: 'numeric',
-                  month: 'short',
-                  year: 'numeric',
-                })}
+                tanggal={fmtDateFullID(new Date().toISOString())}
               />
             )}
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">

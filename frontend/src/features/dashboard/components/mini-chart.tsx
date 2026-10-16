@@ -75,11 +75,33 @@ export default function MiniChart({ points, showLegend = false }: { points: Char
         ctx.fillText(lb, x - w / 2, cssH - 8)
       })
 
-      // Garis seri
-      series.forEach((s) => {
-        ctx.strokeStyle = s.color
-        ctx.lineWidth = 2
+      // Area fill (seri pertama saja, seperti mockup) + garis + titik putih.
+      const hexA = (hex: string, a: number) => {
+        const n = parseInt(hex.slice(1), 16)
+        return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`
+      }
+      series.forEach((s, si) => {
+        if (si === 0) {
+          ctx.beginPath()
+          s.data.forEach((v, i) => {
+            const x = xAt(i)
+            const y = yAt(v)
+            if (i === 0) ctx.moveTo(x, y)
+            else ctx.lineTo(x, y)
+          })
+          ctx.lineTo(xAt(s.data.length - 1), padT + plotH)
+          ctx.lineTo(xAt(0), padT + plotH)
+          ctx.closePath()
+          const g = ctx.createLinearGradient(0, padT, 0, padT + plotH)
+          g.addColorStop(0, hexA(s.color, 0.18))
+          g.addColorStop(1, hexA(s.color, 0.01))
+          ctx.fillStyle = g
+          ctx.fill()
+        }
+        // Garis
         ctx.beginPath()
+        ctx.lineWidth = 2
+        ctx.strokeStyle = s.color
         s.data.forEach((v, i) => {
           const x = xAt(i)
           const y = yAt(v)
@@ -87,12 +109,15 @@ export default function MiniChart({ points, showLegend = false }: { points: Char
           else ctx.lineTo(x, y)
         })
         ctx.stroke()
-        // Titik
-        ctx.fillStyle = s.color
+        // Titik: isi putih + border warna seri (mockup)
         s.data.forEach((v, i) => {
           ctx.beginPath()
-          ctx.arc(xAt(i), yAt(v), 2.5, 0, Math.PI * 2)
+          ctx.arc(xAt(i), yAt(v), 3, 0, Math.PI * 2)
+          ctx.fillStyle = '#fff'
           ctx.fill()
+          ctx.lineWidth = 2
+          ctx.strokeStyle = s.color
+          ctx.stroke()
         })
       })
     }

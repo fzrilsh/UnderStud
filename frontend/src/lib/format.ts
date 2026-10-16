@@ -1,6 +1,14 @@
 /** Helper format tanggal/waktu bahasa Indonesia (padanan mockup/js/components.js). */
 
 const BULAN = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des']
+const HARI = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu']
+
+/** "Jumat, 16 Okt 2026" */
+export function fmtDateFullID(iso: string): string {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return '-'
+  return `${HARI[d.getDay()]}, ${d.getDate()} ${BULAN[d.getMonth()]} ${d.getFullYear()}`
+}
 
 /** "12 Okt 2026" */
 export function fmtDateID(iso: string): string {
