@@ -17,18 +17,57 @@ ON CONFLICT (student_id) DO NOTHING;
 SELECT count(*) FROM observations WHERE student_id = $1;
 
 -- name: ListStudents :many
-SELECT * FROM students
-WHERE (sqlc.arg(kelas)::text = '' OR kelas = sqlc.arg(kelas))
-  AND (sqlc.arg(include_archived)::bool = true OR archived_at IS NULL)
-  AND (sqlc.arg(search)::text = '' OR lower(name) LIKE '%' || lower(sqlc.arg(search)) || '%' OR nisn LIKE '%' || sqlc.arg(search) || '%')
-ORDER BY name ASC
+-- `filter` (opsional): all | red_flag | archived | incomplete | not_observed.
+-- Status per-siswa (e_rapor_complete/observed/has_red_flag) dihitung via EXISTS
+-- agar UI bisa menampilkan kolom status tanpa request tambahan.
+SELECT
+  st.*,
+  EXISTS (SELECT 1 FROM observations o
+          WHERE o.student_id = st.id AND o.red_flag = true AND o.handled_at IS NULL) AS has_red_flag,
+  EXISTS (SELECT 1 FROM student_profiles p
+          WHERE p.student_id = st.id
+            AND jsonb_array_length(COALESCE(p.nilai_erapor, '[]'::jsonb)) >= 5)      AS e_rapor_complete,
+  EXISTS (SELECT 1 FROM observations o WHERE o.student_id = st.id)                   AS observed,
+  EXISTS (SELECT 1 FROM ai_summaries s
+          WHERE s.student_id = st.id AND s.status = 'ready')                         AS has_summary
+FROM students st
+WHERE (sqlc.arg(kelas)::text = '' OR st.kelas = sqlc.arg(kelas))
+  AND (sqlc.arg(include_archived)::bool = true OR st.archived_at IS NULL)
+  AND (sqlc.arg(search)::text = '' OR lower(st.name) LIKE '%' || lower(sqlc.arg(search)) || '%' OR st.nisn LIKE '%' || sqlc.arg(search) || '%')
+  AND (
+    sqlc.arg(filter)::text = '' OR sqlc.arg(filter)::text = 'all'
+    OR (sqlc.arg(filter)::text = 'red_flag' AND EXISTS (
+        SELECT 1 FROM observations o
+        WHERE o.student_id = st.id AND o.red_flag = true AND o.handled_at IS NULL))
+    OR (sqlc.arg(filter)::text = 'archived' AND st.archived_at IS NOT NULL)
+    OR (sqlc.arg(filter)::text = 'incomplete' AND NOT EXISTS (
+        SELECT 1 FROM student_profiles p
+        WHERE p.student_id = st.id
+          AND jsonb_array_length(COALESCE(p.nilai_erapor, '[]'::jsonb)) >= 5))
+    OR (sqlc.arg(filter)::text = 'not_observed' AND NOT EXISTS (
+        SELECT 1 FROM observations o WHERE o.student_id = st.id))
+  )
+ORDER BY st.name ASC
 LIMIT sqlc.arg(lim) OFFSET sqlc.arg(off);
 
 -- name: CountStudents :one
-SELECT count(*) FROM students
-WHERE (sqlc.arg(kelas)::text = '' OR kelas = sqlc.arg(kelas))
-  AND (sqlc.arg(include_archived)::bool = true OR archived_at IS NULL)
-  AND (sqlc.arg(search)::text = '' OR lower(name) LIKE '%' || lower(sqlc.arg(search)) || '%' OR nisn LIKE '%' || sqlc.arg(search) || '%');
+SELECT count(*) FROM students st
+WHERE (sqlc.arg(kelas)::text = '' OR st.kelas = sqlc.arg(kelas))
+  AND (sqlc.arg(include_archived)::bool = true OR st.archived_at IS NULL)
+  AND (sqlc.arg(search)::text = '' OR lower(st.name) LIKE '%' || lower(sqlc.arg(search)) || '%' OR st.nisn LIKE '%' || sqlc.arg(search) || '%')
+  AND (
+    sqlc.arg(filter)::text = '' OR sqlc.arg(filter)::text = 'all'
+    OR (sqlc.arg(filter)::text = 'red_flag' AND EXISTS (
+        SELECT 1 FROM observations o
+        WHERE o.student_id = st.id AND o.red_flag = true AND o.handled_at IS NULL))
+    OR (sqlc.arg(filter)::text = 'archived' AND st.archived_at IS NOT NULL)
+    OR (sqlc.arg(filter)::text = 'incomplete' AND NOT EXISTS (
+        SELECT 1 FROM student_profiles p
+        WHERE p.student_id = st.id
+          AND jsonb_array_length(COALESCE(p.nilai_erapor, '[]'::jsonb)) >= 5))
+    OR (sqlc.arg(filter)::text = 'not_observed' AND NOT EXISTS (
+        SELECT 1 FROM observations o WHERE o.student_id = st.id))
+  );
 
 -- name: UpdateStudent :one
 UPDATE students

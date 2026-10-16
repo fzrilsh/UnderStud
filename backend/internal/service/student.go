@@ -31,12 +31,15 @@ type Student struct {
 func NewStudent(q *db.Queries) *Student { return &Student{queries: q} }
 
 type StudentItem struct {
-	ID         string  `json:"id"`
-	NISN       string  `json:"nisn"`
-	Name       string  `json:"name"`
-	Kelas      string  `json:"kelas"`
-	ArchivedAt *string `json:"archived_at"` // M11: selalu ada (null bila aktif)
-	HasRedFlag bool    `json:"has_red_flag"`
+	ID             string  `json:"id"`
+	NISN           string  `json:"nisn"`
+	Name           string  `json:"name"`
+	Kelas          string  `json:"kelas"`
+	ArchivedAt     *string `json:"archived_at"` // M11: selalu ada (null bila aktif)
+	HasRedFlag     bool    `json:"has_red_flag"`
+	ERaporComplete bool    `json:"e_rapor_complete"`
+	Observed       bool    `json:"observed"`
+	HasSummary     bool    `json:"has_summary"`
 }
 
 type CreateStudentInput struct {
@@ -110,6 +113,7 @@ type StudentDetail struct {
 	Student      StudentItem       `json:"student"`
 	Profile      ProfileView       `json:"profile"`
 	Observations []ObservationView `json:"observations"`
+	Summaries    []SummaryView     `json:"summaries"` // semua versi (riwayat)
 }
 
 // isBK = akses semua kelas.
@@ -189,43 +193,57 @@ func toStudentItem(st db.Student, hasRedFlag bool) StudentItem {
 	return item
 }
 
-func (s *Student) List(ctx context.Context, actor Actor, q string, includeArchived bool, limit, offset int32) ([]StudentItem, int64, error) {
+// validFilter: filter yang dikenali; kosong/"all" = tanpa filter.
+func validFilter(f string) string {
+	switch f {
+	case "red_flag", "archived", "incomplete", "not_observed":
+		return f
+	default:
+		return ""
+	}
+}
+
+func (s *Student) List(ctx context.Context, actor Actor, q string, includeArchived bool, filter string, limit, offset int32) ([]StudentItem, int64, error) {
 	if err := requireScopeClass(actor); err != nil {
 		return nil, 0, err
 	}
 	kelas := scopeKelas(actor)
+	search := strings.TrimSpace(q)
+	f := validFilter(filter)
 	rows, err := s.queries.ListStudents(ctx, db.ListStudentsParams{
-		Kelas: kelas, IncludeArchived: includeArchived, Search: strings.TrimSpace(q), Lim: limit, Off: offset,
+		Kelas: kelas, IncludeArchived: includeArchived, Search: search, Filter: f, Lim: limit, Off: offset,
 	})
 	if err != nil {
 		return nil, 0, utils.NewErrInternal("gagal memuat daftar siswa")
 	}
 	total, err := s.queries.CountStudents(ctx, db.CountStudentsParams{
-		Kelas: kelas, IncludeArchived: includeArchived, Search: strings.TrimSpace(q),
+		Kelas: kelas, IncludeArchived: includeArchived, Search: search, Filter: f,
 	})
 	if err != nil {
 		return nil, 0, utils.NewErrInternal("gagal memuat daftar siswa")
 	}
-	// NEW-1: ambil himpunan siswa ber-red-flag dalam SATU query (hindari N+1).
-	ids := make([]uuid.UUID, 0, len(rows))
-	for _, st := range rows {
-		ids = append(ids, st.ID)
-	}
-	redSet := map[uuid.UUID]bool{}
-	if len(ids) > 0 {
-		redIDs, err := s.queries.ListRedFlagStudentIDs(ctx, ids)
-		if err != nil {
-			return nil, 0, utils.NewErrInternal("gagal memeriksa red flag")
-		}
-		for _, id := range redIDs {
-			redSet[id] = true
-		}
-	}
 	out := make([]StudentItem, 0, len(rows))
 	for _, st := range rows {
-		out = append(out, toStudentItem(st, redSet[st.ID]))
+		out = append(out, toStudentItemFromListRow(st))
 	}
 	return out, total, nil
+}
+
+// toStudentItemFromListRow: baris ListStudents sudah memuat status (EXISTS).
+func toStudentItemFromListRow(st db.ListStudentsRow) StudentItem {
+	item := StudentItem{
+		ID: st.ID.String(), Name: st.Name, Kelas: st.Kelas,
+		HasRedFlag: st.HasRedFlag, ERaporComplete: st.ERaporComplete,
+		Observed: st.Observed, HasSummary: st.HasSummary,
+	}
+	if st.Nisn != nil {
+		item.NISN = *st.Nisn
+	}
+	if st.ArchivedAt != nil {
+		s := st.ArchivedAt.Format(time.RFC3339)
+		item.ArchivedAt = &s
+	}
+	return item
 }
 
 // hasRedFlag: siswa punya ≥1 observasi red_flag belum ditangani.
@@ -419,10 +437,31 @@ func (s *Student) Detail(ctx context.Context, actor Actor, id uuid.UUID) (Studen
 	for _, o := range obsRows {
 		obs = append(obs, toObservationView(obsFieldsFromRow(o), o.AuthorName))
 	}
+	// Riwayat semua versi ringkasan (untuk halaman detail) — best-effort.
+	summaries := []SummaryView{}
+	if sumRows, err := s.queries.ListSummaries(ctx, db.ListSummariesParams{
+		StudentID: id, Limit: 100, Offset: 0,
+	}); err == nil {
+		for _, sr := range sumRows {
+			summaries = append(summaries, toSummaryView(sr))
+		}
+	}
+	item := toStudentItem(st, red)
+	// Status konsisten dengan daftar (dihitung dari data yang sudah dimuat).
+	item.Observed = len(obsRows) > 0
+	item.HasSummary = len(summaries) > 0
+	item.ERaporComplete = false
+	if len(prof.NilaiErapor) > 0 {
+		var er []EraporRow
+		if json.Unmarshal(prof.NilaiErapor, &er) == nil && len(er) >= 5 {
+			item.ERaporComplete = true
+		}
+	}
 	return StudentDetail{
-		Student:      toStudentItem(st, red),
+		Student:      item,
 		Profile:      toProfileView(prof),
 		Observations: obs,
+		Summaries:    summaries,
 	}, nil
 }
 

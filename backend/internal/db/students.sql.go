@@ -7,6 +7,7 @@ package db
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -43,20 +44,39 @@ func (q *Queries) CountObservationsByStudent(ctx context.Context, studentID uuid
 }
 
 const countStudents = `-- name: CountStudents :one
-SELECT count(*) FROM students
-WHERE ($1::text = '' OR kelas = $1)
-  AND ($2::bool = true OR archived_at IS NULL)
-  AND ($3::text = '' OR lower(name) LIKE '%' || lower($3) || '%' OR nisn LIKE '%' || $3 || '%')
+SELECT count(*) FROM students st
+WHERE ($1::text = '' OR st.kelas = $1)
+  AND ($2::bool = true OR st.archived_at IS NULL)
+  AND ($3::text = '' OR lower(st.name) LIKE '%' || lower($3) || '%' OR st.nisn LIKE '%' || $3 || '%')
+  AND (
+    $4::text = '' OR $4::text = 'all'
+    OR ($4::text = 'red_flag' AND EXISTS (
+        SELECT 1 FROM observations o
+        WHERE o.student_id = st.id AND o.red_flag = true AND o.handled_at IS NULL))
+    OR ($4::text = 'archived' AND st.archived_at IS NOT NULL)
+    OR ($4::text = 'incomplete' AND NOT EXISTS (
+        SELECT 1 FROM student_profiles p
+        WHERE p.student_id = st.id
+          AND jsonb_array_length(COALESCE(p.nilai_erapor, '[]'::jsonb)) >= 5))
+    OR ($4::text = 'not_observed' AND NOT EXISTS (
+        SELECT 1 FROM observations o WHERE o.student_id = st.id))
+  )
 `
 
 type CountStudentsParams struct {
 	Kelas           string
 	IncludeArchived bool
 	Search          string
+	Filter          string
 }
 
 func (q *Queries) CountStudents(ctx context.Context, arg CountStudentsParams) (int64, error) {
-	row := q.db.QueryRow(ctx, countStudents, arg.Kelas, arg.IncludeArchived, arg.Search)
+	row := q.db.QueryRow(ctx, countStudents,
+		arg.Kelas,
+		arg.IncludeArchived,
+		arg.Search,
+		arg.Filter,
+	)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
@@ -190,27 +210,69 @@ func (q *Queries) GetStudentProfileForUpdate(ctx context.Context, studentID uuid
 }
 
 const listStudents = `-- name: ListStudents :many
-SELECT id, nisn, name, kelas, archived_at, created_at, updated_at FROM students
-WHERE ($1::text = '' OR kelas = $1)
-  AND ($2::bool = true OR archived_at IS NULL)
-  AND ($3::text = '' OR lower(name) LIKE '%' || lower($3) || '%' OR nisn LIKE '%' || $3 || '%')
-ORDER BY name ASC
-LIMIT $5 OFFSET $4
+SELECT
+  st.id, st.nisn, st.name, st.kelas, st.archived_at, st.created_at, st.updated_at,
+  EXISTS (SELECT 1 FROM observations o
+          WHERE o.student_id = st.id AND o.red_flag = true AND o.handled_at IS NULL) AS has_red_flag,
+  EXISTS (SELECT 1 FROM student_profiles p
+          WHERE p.student_id = st.id
+            AND jsonb_array_length(COALESCE(p.nilai_erapor, '[]'::jsonb)) >= 5)      AS e_rapor_complete,
+  EXISTS (SELECT 1 FROM observations o WHERE o.student_id = st.id)                   AS observed,
+  EXISTS (SELECT 1 FROM ai_summaries s
+          WHERE s.student_id = st.id AND s.status = 'ready')                         AS has_summary
+FROM students st
+WHERE ($1::text = '' OR st.kelas = $1)
+  AND ($2::bool = true OR st.archived_at IS NULL)
+  AND ($3::text = '' OR lower(st.name) LIKE '%' || lower($3) || '%' OR st.nisn LIKE '%' || $3 || '%')
+  AND (
+    $4::text = '' OR $4::text = 'all'
+    OR ($4::text = 'red_flag' AND EXISTS (
+        SELECT 1 FROM observations o
+        WHERE o.student_id = st.id AND o.red_flag = true AND o.handled_at IS NULL))
+    OR ($4::text = 'archived' AND st.archived_at IS NOT NULL)
+    OR ($4::text = 'incomplete' AND NOT EXISTS (
+        SELECT 1 FROM student_profiles p
+        WHERE p.student_id = st.id
+          AND jsonb_array_length(COALESCE(p.nilai_erapor, '[]'::jsonb)) >= 5))
+    OR ($4::text = 'not_observed' AND NOT EXISTS (
+        SELECT 1 FROM observations o WHERE o.student_id = st.id))
+  )
+ORDER BY st.name ASC
+LIMIT $6 OFFSET $5
 `
 
 type ListStudentsParams struct {
 	Kelas           string
 	IncludeArchived bool
 	Search          string
+	Filter          string
 	Off             int32
 	Lim             int32
 }
 
-func (q *Queries) ListStudents(ctx context.Context, arg ListStudentsParams) ([]Student, error) {
+type ListStudentsRow struct {
+	ID             uuid.UUID
+	Nisn           *string
+	Name           string
+	Kelas          string
+	ArchivedAt     *time.Time
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
+	HasRedFlag     bool
+	ERaporComplete bool
+	Observed       bool
+	HasSummary     bool
+}
+
+// `filter` (opsional): all | red_flag | archived | incomplete | not_observed.
+// Status per-siswa (e_rapor_complete/observed/has_red_flag) dihitung via EXISTS
+// agar UI bisa menampilkan kolom status tanpa request tambahan.
+func (q *Queries) ListStudents(ctx context.Context, arg ListStudentsParams) ([]ListStudentsRow, error) {
 	rows, err := q.db.Query(ctx, listStudents,
 		arg.Kelas,
 		arg.IncludeArchived,
 		arg.Search,
+		arg.Filter,
 		arg.Off,
 		arg.Lim,
 	)
@@ -218,9 +280,9 @@ func (q *Queries) ListStudents(ctx context.Context, arg ListStudentsParams) ([]S
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Student
+	var items []ListStudentsRow
 	for rows.Next() {
-		var i Student
+		var i ListStudentsRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.Nisn,
@@ -229,6 +291,10 @@ func (q *Queries) ListStudents(ctx context.Context, arg ListStudentsParams) ([]S
 			&i.ArchivedAt,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.HasRedFlag,
+			&i.ERaporComplete,
+			&i.Observed,
+			&i.HasSummary,
 		); err != nil {
 			return nil, err
 		}

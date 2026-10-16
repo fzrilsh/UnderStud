@@ -474,6 +474,10 @@ paths:
         - name: include_archived
           in: query
           schema: { type: boolean, default: false }
+        - name: filter
+          in: query
+          schema: { type: string, enum: [all, red_flag, archived, incomplete, not_observed] }
+          description: 'Filter daftar: red_flag (red flag belum ditangani), archived (diarsipkan), incomplete (e-rapor < 5 mapel), not_observed (belum diobservasi)'
         - name: limit
           in: query
           schema: { type: integer, default: 20, maximum: 100 }
@@ -1117,6 +1121,9 @@ components:
         kelas: { type: string }
         archived_at: { type: string, format: date-time, nullable: true }
         has_red_flag: { type: boolean }
+        e_rapor_complete: { type: boolean, description: 'Nilai e-rapor terisi ≥ 5 mapel' }
+        observed: { type: boolean, description: 'Punya ≥ 1 observasi' }
+        has_summary: { type: boolean, description: 'Punya ≥ 1 ringkasan AI' }
     CreateStudentInput:
       type: object
       required: [name, kelas]
@@ -1341,6 +1348,10 @@ components:
         observations:
           type: array
           items: { $ref: "#/components/schemas/ObservationView" }
+        summaries:
+          type: array
+          description: Semua versi ringkasan AI (terbaru lebih dulu)
+          items: { $ref: "#/components/schemas/SummaryView" }
         latest_summary:
           nullable: true
           allOf:

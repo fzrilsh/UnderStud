@@ -62,7 +62,8 @@ func (h *StudentHandlers) List(w http.ResponseWriter, r *http.Request) {
 	}
 	limit, offset := pageParams(r)
 	includeArchived := r.URL.Query().Get("include_archived") == "true"
-	items, total, err := h.student.List(r.Context(), actor, r.URL.Query().Get("q"), includeArchived, limit, offset)
+	filter := r.URL.Query().Get("filter")
+	items, total, err := h.student.List(r.Context(), actor, r.URL.Query().Get("q"), includeArchived, filter, limit, offset)
 	if err != nil {
 		Error(w, err)
 		return
@@ -110,7 +111,7 @@ func (h *StudentHandlers) Detail(w http.ResponseWriter, r *http.Request) {
 	// latest_summary best-effort: error (belum ada / AI off) → null, tidak gagal.
 	payload := map[string]any{
 		"student": detail.Student, "profile": detail.Profile, "observations": detail.Observations,
-		"latest_summary": nil,
+		"summaries": detail.Summaries, "latest_summary": nil,
 	}
 	if sum, err := h.summary.Latest(r.Context(), actor, id); err == nil {
 		payload["latest_summary"] = sum
