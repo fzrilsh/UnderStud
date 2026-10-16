@@ -5,7 +5,7 @@
 # `services:`). Sesuaikan:
 #   - `networks:`  -> nama network internal milikmu
 #   - `env_file:`  -> path .env UnderStud di server
-#   - `ports:`     -> sesuaikan port host kalau 3010 sudah dipakai
+#   - `volumes:`   -> path data lampiran di server (lihat catatan UID di bawah)
 #   - `mem_limit:` -> longgarkan bila perlu
 #
 # Catatan:
@@ -24,21 +24,22 @@ services:
     restart: unless-stopped
     networks: [internal]
     env_file: /home/deploy/services/understud/.env
-    # Lampiran chat persisten lintas recreate (opsional tapi disarankan).
+    # Lampiran chat persisten lintas recreate (bind mount).
+    # PENTING: container jalan sebagai non-root UID 10001 — folder host harus
+    # dimiliki UID itu, kalau tidak lampiran gagal disimpan:
+    #   sudo mkdir -p /home/deploy/understud_uploads
+    #   sudo chown -R 10001:10001 /home/deploy/understud_uploads
     volumes:
-      - understud_uploads:/app/data
-    ports:
-      # cloudflared meneruskan ke sini. Ganti 3010 kalau sudah dipakai service lain.
-      - "127.0.0.1:3010:8080"
+      - /home/deploy/understud_uploads:/app/data
+    # TIDAK ada `ports`: cloudflared (container di network `internal` yang sama)
+    # meneruskan langsung ke http://understud:8080 — sama seperti service lain
+    # di server ini. Tidak ada port yang terekspos ke host.
     mem_limit: 192m
     logging:
       driver: json-file
       options:
         max-size: "10m"
         max-file: "3"
-
-volumes:
-  understud_uploads:
 
 # Network `internal` diasumsikan sudah didefinisikan di compose infra milikmu.
 # Kalau belum, tambahkan di bagian `networks:` paling bawah:

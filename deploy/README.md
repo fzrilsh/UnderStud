@@ -98,9 +98,15 @@ Restart pgbouncer setelah selesai.
 
 ## Langkah 3: Isi Konfigurasi
 
+Di server, file deploy ada di `~/understud-deploy/` (hasil `git clone`/scp folder
+`deploy/` dari repo). `.env` disimpan terpisah di `~/services/understud/`.
+
+> Catatan: user server adalah `deploy`, jadi `~` = `/home/deploy`. Karena itu
+> `env_file` di compose ditulis absolut: `/home/deploy/services/understud/.env`.
+
 ```bash
 mkdir -p ~/services/understud
-cp <repo>/deploy/.env.prod.example ~/services/understud/.env
+cp ~/understud-deploy/.env.prod.example ~/services/understud/.env
 nano ~/services/understud/.env
 chmod 600 ~/services/understud/.env
 ```
@@ -129,7 +135,7 @@ Catatan penting:
 ## Langkah 4: Tambah Service ke `~/infra/docker-compose.yml`
 
 Buka `~/infra/docker-compose.yml` dan tempel service `understud` dari
-`deploy/compose.service.yml` ke dalam key `services:`.
+`~/understud-deploy/compose.service.yml` ke dalam key `services:`.
 
 Sesuaikan dua hal:
 
@@ -139,8 +145,21 @@ Sesuaikan dua hal:
     env_file: /home/deploy/services/understud/.env   # <- path .env kamu
 ```
 
-Port `3010` hanya didengarkan di `127.0.0.1` (tidak terbuka ke internet);
-cloudflared yang meneruskan ke situ. Ganti kalau 3010 sudah dipakai service lain.
+**Siapkan folder data lampiran** (bind mount). Container jalan sebagai non-root
+**UID 10001**, jadi folder host harus dimiliki UID itu — kalau tidak, lampiran
+chat gagal disimpan (`permission denied`):
+
+```bash
+sudo mkdir -p /home/deploy/understud_uploads
+sudo chown -R 10001:10001 /home/deploy/understud_uploads
+```
+
+> `mkdir` biasa (tanpa sudo) membuat folder milik user `deploy` (biasanya UID 1000),
+> sehingga container UID 10001 **tidak bisa menulis**. `chown` di atas wajib.
+
+> **Tidak ada `ports`.** cloudflared (container di network `internal` yang sama)
+> meneruskan langsung ke `http://understud:8080` lewat nama service — sama
+> seperti service lain di server ini. Tidak ada port yang terekspos ke host.
 
 ---
 
@@ -152,7 +171,7 @@ sesi yang stabil.
 ```bash
 cd ~/infra
 DIRECT_DATABASE_URL='postgres://understud:PASSWORD@postgres:5432/understud?sslmode=disable' \
-  bash <repo>/deploy/migrate.sh
+  bash ~/understud-deploy/migrate.sh
 ```
 
 Script itu menjalankan container sekali pakai di network yang sama, menjalankan
@@ -178,10 +197,10 @@ docker compose logs --tail=30 understud
 
 Di log harus muncul `api listening` dan `migrasi otomatis dimatikan (MIGRATE_ON_START=false)`.
 
-Tes dari server:
+Tes dari server (lewat network docker, tanpa port host):
 
 ```bash
-curl -s http://127.0.0.1:3010/healthz
+docker run --rm --network internal curlimages/curl:latest -s http://understud:8080/healthz
 # harus: {"data":{"db":"up","status":"ok"}}
 ```
 
@@ -201,7 +220,7 @@ Buka `~/infra/cloudflared/config.yml` dengan `sudo nano`, lalu tambahkan ingress
 ```
 
 > Karena cloudflared jalan sebagai container di network yang sama, pakai
-> **nama service** (`understud:8080`), bukan `127.0.0.1:3010`.
+> **nama service** (`understud:8080`) — bukan `localhost`/port host.
 
 Lalu daftarkan DNS route:
 
@@ -254,8 +273,19 @@ docker compose exec understud /app/cli seed-demo
 ```
 
 Seed mengisi 8 kelas SMA (IPA/IPS) × 8 siswa + observasi, 8 wali kelas, 2 guru BK,
-dan 12 chat anonim. Akun demo: `bk@demo.local` / `wali@demo.local` (password
-`password123`).
+dan 12 chat anonim.
+
+Akun demo (password semua: `password123`):
+
+| Email | Peran |
+|---|---|
+| `bk@demo.local` | Guru BK |
+| `bk2@demo.local` | Guru BK (kedua) |
+| `wali@demo.local` | Wali Kelas — X IPA 1 |
+| `wali.ipa2@demo.local` | Wali Kelas — X IPA 2 |
+| `wali.ips1@demo.local` | Wali Kelas — X IPS 1 |
+| `wali.xi.ipa1@demo.local` | Wali Kelas — XI IPA 1 |
+| `wali.xi.ips1@demo.local` | Wali Kelas — XI IPS 1 |
 
 ---
 

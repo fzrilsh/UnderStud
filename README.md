@@ -452,7 +452,14 @@ docker-compose exec api /app/cli seed-demo
 | Email | Password | Peran |
 |---|---|---|
 | `bk@demo.local` | `password123` | Guru BK |
-| `wali@demo.local` | `password123` | Wali Kelas (X TJKT 1) |
+| `bk2@demo.local` | `password123` | Guru BK (kedua) |
+| `wali@demo.local` | `password123` | Wali Kelas — X IPA 1 |
+| `wali.ipa2@demo.local` | `password123` | Wali Kelas — X IPA 2 |
+| `wali.ips1@demo.local` | `password123` | Wali Kelas — X IPS 1 |
+| `wali.xi.ipa1@demo.local` | `password123` | Wali Kelas — XI IPA 1 |
+| `wali.xi.ips1@demo.local` | `password123` | Wali Kelas — XI IPS 1 |
+
+Siswa: `/lapor` (tanpa akun). Data demo berisi 8 kelas SMA (IPA & IPS), 64 siswa, observasi, dan 12 chat anonim.
 
 #### 6. Hentikan stack
 
