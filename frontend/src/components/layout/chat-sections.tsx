@@ -5,7 +5,11 @@ import { useCurrentUser } from '@/features/auth/hooks'
 import { fmtHM } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
-/** Section chat BK di sidebar (Disematkan/Draft/Antrean) — hanya di halaman /reports. */
+/**
+ * Section chat BK di sidebar (Disematkan/Draft) — hanya di halaman /reports.
+ * Antrean TIDAK tampil di sidebar (mockup): chat antrean dibuka berurutan
+ * lewat tombol "Selesai & lanjut".
+ */
 export default function ChatSections() {
   const location = useLocation()
   const user = useCurrentUser()
@@ -18,7 +22,6 @@ export default function ChatSections() {
   const items = data?.items ?? []
   const pinned = items.filter((c) => c.pinned && !c.drafted && c.status !== 'dilewati')
   const drafts = items.filter((c) => c.drafted)
-  const queue = items.filter((c) => (c.status === 'baru' || c.status === 'dibuka') && !c.pinned && !c.drafted)
   const activeId = params.get('chat')
 
   const open = (id: string) => {
@@ -31,7 +34,6 @@ export default function ChatSections() {
     <>
       <Section title="Disematkan" items={pinned} activeId={activeId} onOpen={open} empty="Tidak ada chat disematkan." />
       <Section title="Draft" items={drafts} activeId={activeId} onOpen={open} empty="Tidak ada draft." />
-      <Section title="Antrean" items={queue} activeId={activeId} onOpen={open} empty="Antrean kosong." />
     </>
   )
 }
@@ -51,7 +53,7 @@ function Section({
 }) {
   return (
     <div className="mt-3">
-      <p className="mb-1.5 text-[12px] font-semibold text-[rgba(21,21,58,.45)]">{title}</p>
+      <p className="nav-section mb-1.5">{title}</p>
       {items.length === 0 ? (
         <p className="px-2 py-1.5 text-[12px] text-[rgba(21,21,58,.45)]">{empty}</p>
       ) : (
@@ -67,9 +69,9 @@ function Section({
                 c.id === activeId ? 'bg-[rgba(195,194,227,.6)]' : 'hover:bg-[#F6F6FB]',
               )}
             >
-              <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+              <span className="flex min-w-0 flex-1 flex-col gap-1">
                 <span className="truncate text-[14px] font-semibold leading-[1.5] text-[rgba(21,21,58,.8)]">{label}</span>
-                <span className="truncate text-[12px] leading-[1.5] text-[rgba(21,21,58,.6)]">{c.last_message?.body ?? ''}</span>
+                <span className="truncate text-[14px] font-normal leading-[1.5] text-[rgba(21,21,58,.8)]">{c.last_message?.body ?? ''}</span>
               </span>
               <span className="shrink-0 pt-0.5 text-[12px] text-[rgba(21,21,58,.8)]">
                 {fmtHM(c.last_message?.created_at ?? c.last_message_at)}

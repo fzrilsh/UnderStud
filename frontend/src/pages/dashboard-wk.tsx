@@ -8,7 +8,7 @@ import {
 import { useDashboardWK } from '@/features/dashboard/hooks'
 import { useCurrentUser } from '@/features/auth/hooks'
 import { useSeo } from '@/lib/seo'
-import { fmtDateFullID } from '@/lib/format'
+import { fmtDateID } from '@/lib/format'
 
 export default function DashboardWKPage() {
   useSeo('Dashboard', 'Statistik kelas perwalian: E-Rapor, observasi, dan red flag.')
@@ -20,14 +20,9 @@ export default function DashboardWKPage() {
   return (
     <>
       <Topbar
+        variant="plain"
         title="Dashboard"
-        subtitle={
-          <span className="flex flex-wrap items-center gap-x-1 gap-y-0.5">
-            <span className="whitespace-nowrap">Kelas perwalian</span>
-            <span className="text-[rgba(21,21,58,.3)]">·</span>
-            <span className="whitespace-nowrap">{user?.kelas}</span>
-          </span>
-        }
+        subtitle={`Kelas perwalian · ${user?.kelas ?? ''} · ${fmtDateID(new Date().toISOString())}`}
       />
       <div className="px-5 pb-10 md:px-8">
         {q.isLoading && <p className="text-[14px] text-[rgba(21,21,58,.6)]">Memuat…</p>}
@@ -39,7 +34,7 @@ export default function DashboardWKPage() {
                 count={d.red_flags}
                 name={d.red_top.name}
                 kelas={d.red_top.kelas}
-                tanggal={fmtDateFullID(new Date().toISOString())}
+                tanggal={fmtDateID(new Date().toISOString())}
               />
             )}
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">

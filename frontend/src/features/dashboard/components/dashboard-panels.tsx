@@ -1,8 +1,16 @@
 import { Link } from 'react-router-dom'
-import { ArrowRight, Download } from 'lucide-react'
 
 import StatusBadge from '@/components/status-badge'
-import { IconClock, IconStudentCard, IconUserSm, IconUsersGroup } from '@/components/icons'
+import {
+  IconClock,
+  IconStudentCard,
+  IconTaskAddDark,
+  IconUpload,
+  IconUser,
+  IconUserSm,
+  IconUsersGroup,
+  IconDownloadVioletSm,
+} from '@/components/icons'
 import MiniChart from '@/features/dashboard/components/mini-chart'
 import type { ClassItem, DashboardBK, DashboardWK, SummaryView } from '@/features/dashboard/hooks'
 import { fmtDateShortID } from '@/lib/format'
@@ -119,9 +127,9 @@ export function StudentShortcutCard({ redFlags }: { redFlags: number }) {
         </p>
       </div>
       <div className="mt-6 flex items-center justify-between gap-3">
-        <StatusBadge tone="red">{redFlags} Red flag</StatusBadge>
+        <StatusBadge tone="redDark">{redFlags} Red flag</StatusBadge>
         <Link to="/students" className="whitespace-pre text-[14px] font-medium leading-[1.5] text-violet hover:underline">
-          Buka Daftar Siswa →
+          Buka Daftar Siswa  →
         </Link>
       </div>
     </Panel>
@@ -203,7 +211,7 @@ export function LatestSummariesCard({
         </p>
       </div>
       {latest.length === 0 ? (
-        <p className="py-8 text-center text-[13px] text-[rgba(21,21,58,.45)]">Belum ada ringkasan.</p>
+        <p className="px-4 py-12 text-center text-[14px] text-[rgba(21,21,58,.45)]">Belum ada ringkasan.</p>
       ) : (
         <div className="flex flex-col gap-4">
           {latest.map((x) => (
@@ -249,9 +257,41 @@ function LatestRow({
             onClick={() => onDownload(student.id)}
             className="flex items-center gap-1.5 rounded-[8px] bg-[#ecebf6] py-1.5 pl-2.5 pr-3 text-[12px] font-medium text-violet hover:bg-violet-light"
           >
-            <Download className="size-3.5" /> Unduh
+            <IconDownloadVioletSm /> Unduh
           </button>
         </div>
+      </div>
+    </div>
+  )
+}
+
+/** Kartu WK — padanan `UI.card` mockup (radius 16, p-5, putih, tanpa shadow). */
+export function WKCard({ className, children }: { className?: string; children: React.ReactNode }) {
+  return (
+    <div
+      className={cn(
+        'flex flex-col rounded-[16px] border border-[rgba(226,226,242,.9)] bg-white p-5',
+        className,
+      )}
+    >
+      {children}
+    </div>
+  )
+}
+
+/** Judul kartu `UI.card` (17px bold, body font). */
+function WKCardTitle({ children }: { children: React.ReactNode }) {
+  return <h2 className="text-[17px] font-bold leading-tight text-violet-dark">{children}</h2>
+}
+
+/** Metrik WK — bar 34px, nilai 26px, label 12.5px (padanan `metric()` mockup). */
+function WKBarMetric({ value, label, color }: { value: number; label: string; color: string }) {
+  return (
+    <div className="flex items-start gap-2.5">
+      <span className="h-[34px] w-[3px] shrink-0 rounded-sm" style={{ background: color }} />
+      <div>
+        <p className="text-[26px] font-bold leading-none text-violet-dark">{value}</p>
+        <p className="mt-1 text-[12.5px] text-[rgba(21,21,58,.6)]">{label}</p>
       </div>
     </div>
   )
@@ -260,22 +300,22 @@ function LatestRow({
 /** Kartu statistik + chart (WK). */
 export function WKStatCard({ d }: { d: DashboardWK }) {
   return (
-    <Panel className="gap-5 lg:col-span-2">
+    <WKCard className="gap-5 lg:col-span-2">
       <div className="flex items-center justify-between gap-3">
-        <h2 className="font-heading text-[24px] font-semibold leading-[1.4] text-violet-dark">Statistik</h2>
-        <a href="#wk-students" className="rounded-[8px] bg-violet px-3.5 py-2 text-[13px] font-medium text-base hover:bg-violet-hover">
+        <WKCardTitle>Statistik</WKCardTitle>
+        <a href="#wk-students" className="rounded-[10px] bg-violet px-3 py-1.5 text-[13px] font-semibold text-base hover:bg-violet-hover">
           Lanjutkan observasi
         </a>
       </div>
-      <div className="flex flex-wrap gap-8">
-        <BarMetric value={d.e_rapor_complete} label="E-Rapor" color="#B42318" />
-        <BarMetric value={d.observed} label="Diobservasi" color="#0B7A43" />
-        <BarMetric value={d.students - d.e_rapor_complete} label="Belum diisi" color="#3D3BA6" />
+      <div className="mb-5 flex flex-wrap gap-8">
+        <WKBarMetric value={d.e_rapor_complete} label="E-Rapor" color="#B42318" />
+        <WKBarMetric value={d.observed} label="Diobservasi" color="#0B7A43" />
+        <WKBarMetric value={d.students - d.e_rapor_complete} label="Belum diisi" color="#3D3BA6" />
       </div>
       <div className="h-[230px]">
         <MiniChart points={d.chart} />
       </div>
-    </Panel>
+    </WKCard>
   )
 }
 
@@ -287,43 +327,40 @@ export function WKQuickActions({
   onImport: () => void
   onAddStudent: () => void
 }) {
+  const ghost =
+    'flex w-full items-center justify-start gap-2 rounded-[10px] border border-violet-light bg-white px-4 py-2.5 text-[14px] font-semibold text-violet-dark hover:bg-[#F6F6FB]'
   return (
-    <Panel className="gap-3">
-      <h2 className="font-heading text-[24px] font-semibold leading-[1.4] text-violet-dark">Aksi cepat</h2>
-      <div className="flex flex-col gap-2.5">
-        <button
-          type="button"
-          onClick={onImport}
-          className="flex w-full items-center gap-2 rounded-[8px] border border-violet-light bg-white px-3 py-2.5 text-[14px] font-medium text-violet-dark hover:bg-[#F6F6FB]"
-        >
-          Impor E-Rapor
+    <WKCard className="gap-3">
+      <WKCardTitle>Aksi cepat</WKCardTitle>
+      <div className="mt-1 flex flex-col gap-2.5">
+        <button type="button" onClick={onImport} className={ghost}>
+          <IconUpload /> Impor E-Rapor
         </button>
-        <button
-          type="button"
-          onClick={onAddStudent}
-          className="flex w-full items-center gap-2 rounded-[8px] border border-violet-light bg-white px-3 py-2.5 text-[14px] font-medium text-violet-dark hover:bg-[#F6F6FB]"
-        >
-          Tambah siswa
+        <button type="button" onClick={onAddStudent} className={ghost}>
+          <IconUser /> Tambah siswa
         </button>
         <a
           href="#wk-students"
           className="flex w-full items-center gap-1.5 rounded-[8px] bg-violet-dark px-3 py-2.5 text-[14px] font-medium text-base hover:bg-[#24245c]"
         >
+          <span className="shrink-0">
+            <IconTaskAddDark />
+          </span>{' '}
           Tambah observasi
         </a>
       </div>
-    </Panel>
+    </WKCard>
   )
 }
 
 /** Kartu jumlah red flag (WK). */
 export function WKRedFlagCard({ count }: { count: number }) {
   return (
-    <Panel className="gap-2">
-      <h2 className="font-heading text-[24px] font-semibold leading-[1.4] text-violet-dark">{count} Red Flag</h2>
-      <a href="#wk-students" className="inline-flex items-center gap-1 text-[13px] font-semibold text-violet hover:underline">
-        Lihat observasi <ArrowRight className="size-3.5" />
+    <WKCard className="gap-2">
+      <WKCardTitle>{count} Red Flag</WKCardTitle>
+      <a href="#wk-students" className="text-[13px] font-semibold text-violet hover:underline">
+        Lihat observasi →
       </a>
-    </Panel>
+    </WKCard>
   )
 }

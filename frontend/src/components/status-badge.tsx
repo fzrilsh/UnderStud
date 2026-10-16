@@ -1,10 +1,12 @@
 import { cn } from '@/lib/utils'
 
-type Tone = 'green' | 'red' | 'orange' | 'violet' | 'gray'
+type Tone = 'green' | 'red' | 'redDark' | 'orange' | 'violet' | 'gray'
 
 const TONE: Record<Tone, { bg: string; dot: string; text: string }> = {
   green: { bg: 'bg-[#dcfce7]', dot: 'bg-[#16a34a]', text: 'text-[#15153a]' },
   red: { bg: 'bg-[#fee2e2]', dot: 'bg-[#dc2626]', text: 'text-[#ef4444]' },
+  /** Sama seperti `red` tapi teks gelap (dipakai badge jumlah red flag di dashboard). */
+  redDark: { bg: 'bg-[#fee2e2]', dot: 'bg-[#dc2626]', text: 'text-[#15153a]' },
   orange: { bg: 'bg-[#fef9c3]', dot: 'bg-[#ea580c]', text: 'text-[#ea580c]' },
   violet: { bg: 'bg-[#ecebf6]', dot: 'bg-[#3d3ba6]', text: 'text-[#3d3ba6]' },
   gray: { bg: 'bg-[#f1f1f5]', dot: 'bg-[#a1a1aa]', text: 'text-[rgba(21,21,58,.6)]' },

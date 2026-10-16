@@ -160,7 +160,7 @@
     rgba(233, 235, 248, 1) 45%,
     rgba(228, 230, 246, 1) 52%,
     rgba(228, 229, 246, 1) 68%,
-    rgba(255, 255, 255, 1) 100%
+    rgba(219, 220, 242, 1) 88%
   );
 }
 .bg-summary-gradient {
@@ -183,4 +183,51 @@
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
+}
+
+/* --- Scrollbar tipis untuk sidebar & daftar pesan (mockup/css/tokens.css) --- */
+.scroll-thin {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(21, 21, 58, 0.18) transparent;
+}
+.scroll-thin::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.scroll-thin::-webkit-scrollbar-thumb {
+  background: rgba(21, 21, 58, 0.18);
+  border-radius: 999px;
+}
+.scroll-thin::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* --- Primitif dari mockup/css/app.css --- */
+.nav-section {
+  padding: 0 10px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: rgba(21, 21, 58, 0.45);
+}
+.input {
+  width: 100%;
+  border: 1px solid #e2e2f2;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 14px;
+  color: #15153a;
+  background: #fff;
+  outline: none;
+  font-family: inherit;
+}
+.input:focus {
+  border-color: #3d3ba6;
+  box-shadow: 0 0 0 3px rgba(61, 59, 166, 0.12);
+}
+.card {
+  background: #fff;
+  border: 1px solid rgba(226, 226, 242, 0.9);
+  border-radius: 16px;
 }

@@ -11,6 +11,8 @@ interface ConfirmOptions {
   cancelText?: string
   /** Tombol konfirmasi merah (aksi berbahaya). */
   danger?: boolean
+  /** Tampilkan tombol × di kanan atas (mockup: hanya dialog tertentu). */
+  closeX?: boolean
 }
 
 type ConfirmFn = (opts: ConfirmOptions) => Promise<boolean>
@@ -40,28 +42,30 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
       {children}
       {opts && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-[rgba(21,21,58,.45)] p-4">
-          <div className="relative w-full max-w-[440px] rounded-2xl bg-white p-6 shadow-xl">
-            <button
-              type="button"
-              onClick={() => close(false)}
-              className="absolute right-4 top-4 flex size-7 items-center justify-center rounded-md text-violet-dark hover:bg-violet-light/60"
-              title="Tutup"
-            >
-              <IconClose />
-            </button>
-            <h3 className="font-heading text-[20px] font-semibold text-violet-dark">{opts.title}</h3>
-            {opts.body && <p className="mt-2 text-[14px] text-[rgba(21,21,58,.6)]">{opts.body}</p>}
-            <div className="mt-6 flex justify-end gap-3">
+          <div className="relative w-full max-w-[440px] rounded-2xl bg-white p-6 shadow-[0_24px_60px_rgba(21,21,58,.25)]">
+            {opts.closeX && (
+              <button
+                type="button"
+                onClick={() => close(false)}
+                className="absolute right-4 top-4 flex size-7 items-center justify-center rounded-md text-violet-dark hover:bg-violet-light/60"
+                title="Tutup"
+              >
+                <IconClose />
+              </button>
+            )}
+            <h3 className="text-[18px] font-bold text-violet-dark">{opts.title}</h3>
+            {opts.body && <p className="mt-2 text-[14px] text-[rgba(21,21,58,.7)]">{opts.body}</p>}
+            <div className="mt-6 flex justify-end gap-2">
               <Button
                 variant="outline"
                 onClick={() => close(false)}
-                className="border-violet-light text-violet-dark"
+                className="border-violet-light bg-white text-violet-dark hover:bg-[#F6F6FB]"
               >
                 {opts.cancelText ?? 'Batal'}
               </Button>
               <Button
                 onClick={() => close(true)}
-                className={cn(opts.danger ? 'bg-[#B42318] hover:bg-[#8f1c13]' : 'bg-violet-dark hover:bg-violet-hover')}
+                className={cn(opts.danger ? 'bg-[#B42318] hover:bg-[#8f1c13]' : 'bg-violet hover:bg-violet-hover')}
               >
                 {opts.confirmText ?? 'Konfirmasi'}
               </Button>
