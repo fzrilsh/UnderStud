@@ -1,9 +1,0 @@
-services:
-  web:
-    build: .
-    ports:
-      # Host port configurable: `WEB_PORT=3100 docker-compose up -d`
-      # (default 3000; override kalau 3000 sudah dipakai proses lain di mesinmu)
-      - "${WEB_PORT:-3000}:80"
-    extra_hosts:
-      - "host.docker.internal:host-gateway"

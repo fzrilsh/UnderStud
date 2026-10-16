@@ -2,13 +2,19 @@
 DATABASE_URL ?= postgres://postgres:postgres@127.0.0.1:5433/hackathon?sslmode=disable
 GOOSE_DIR    ?= internal/db/migrations
 
-.PHONY: dev run sqlc migrate-up migrate-down migrate-new migrate-status smoke compose-up compose-down compose-logs tidy help create-staff deactivate-staff check-location seed-demo
+.PHONY: dev run sqlc migrate-up migrate-down migrate-new migrate-status smoke compose-up compose-down compose-logs tidy help create-staff deactivate-staff check-location seed-demo build-web
 
 dev: ## Run with hot reload (requires air: go install github.com/air-verse/air@latest)
 	air
 
 run: ## Run the API server
 	go run ./cmd/api
+
+build-web: ## Build FE (Vite) lalu salin ke internal/web/dist untuk di-embed
+	rm -rf internal/web/dist
+	mkdir -p internal/web/dist
+	cd ../frontend && pnpm install --frozen-lockfile && pnpm build
+	cp -R ../frontend/dist/. internal/web/dist/
 
 sqlc: ## Generate type-safe db code from db/queries/*.sql
 	sqlc generate

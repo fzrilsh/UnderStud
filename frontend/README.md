@@ -5,35 +5,35 @@ Auth via httpOnly cookie (dikirim backend) — tidak ada token di JS.
 
 ## Untuk Juri/Panitia (quickstart)
 
-> **Cara termudah:** dari root `project/`, jalankan `docker-compose up -d` — itu menyalakan
-> db + api + web sekaligus (lihat `project/README.md`). Bagian ini untuk menjalankan
-> frontend saja.
+> **Cara termudah:** dari root `project/`, jalankan `docker-compose up -d` — FE sudah
+> **ter-embed** di image backend, jadi cukup satu container. Buka **http://localhost:8080**.
 
-Prasyarat: **Docker**, dan **backend sudah jalan** (`backend/`, `docker-compose up -d` — API di `localhost:8080`).
+FE **tidak** punya container sendiri: hasil build Vite di-embed ke binary Go
+(`backend/internal/web/dist`, lihat `make build-web` di `backend/`). Bagian ini untuk
+menjalankan FE saja saat development.
+
+Prasyarat: **Node 20+ & pnpm**, dan **backend sudah jalan** (API di `localhost:8080`).
 
 ```bash
-docker-compose up -d
+pnpm install
+pnpm dev     # dev server + HMR di http://localhost:5173 (proxy /api → :8080)
 ```
 
-Buka http://localhost:3000 → Register → login otomatis → Dashboard.
-
-> Port 3000 bentrok dengan proses lain? Jalankan dengan port lain:
-> `WEB_PORT=3100 docker-compose up -d` → buka http://localhost:3100.
-
-Tanpa Docker (butuh Node 20+ & pnpm): `pnpm install && pnpm build && pnpm preview` — atau untuk dev: `pnpm dev` (proxy /api ke localhost:8080, buka http://localhost:5173).
+Buka http://localhost:5173 → login dengan akun staf (`bk@demo.local` / `password123`).
 
 ## Dev Guide
 
 ### Struktur
 
 ```text
-src/routes/                 router config + ProtectedRoute
-src/components/layout/      RootLayout (public), AppLayout (protected: sidebar+navbar)
+src/routes/                 router config + ProtectedRoute + RoleGuard
+src/components/layout/      RootLayout (public), AppLayout (protected: sidebar+topbar), Sidebar, Topbar
 src/components/ui/          shadcn components
-src/pages/                  login, register, dashboard, not-found
-src/features/auth/          hooks (use-me/login/register/logout) + zod schemas
+src/pages/                  login, lapor, dashboard, dashboard-wk, students, student-detail, reports, not-found
+src/features/               auth, dashboard, students, reports, lapor (hooks + komponen per-fitur)
 src/stores/                 zustand (auth state only)
 src/lib/api.ts              axios instance + 401 interceptor
+src/lib/format.ts           format tanggal/waktu bahasa Indonesia
 src/types/api.gen.ts        generated dari backend/api/openapi.yaml (committed)
 ```
 

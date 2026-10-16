@@ -1,26 +1,27 @@
 # Understud — Monorepo
 
-Monorepo berisi dua service: **backend** (Go) dan **frontend** (React).
-Docker terpisah per service, plus compose root untuk menjalankan semuanya sekaligus.
-
-> Skeleton ini berisi vertical slice auth yang sudah jalan end-to-end
-> (register → login → `/me` → logout → protected dashboard) sebagai fondasi & contoh pola.
+Monorepo berisi **backend** (Go) dan **frontend** (React). Frontend di-build Vite lalu
+**di-embed ke binary Go** (`//go:embed`) — jadi satu image saja yang menyajikan UI + API.
 
 ## Arsitektur
 
 ```
 project/
-├── backend/     Go 1.26 + chi + pgx/sqlc + goose + Postgres 17
+├── backend/     Go 1.26 + chi + pgx/sqlc + goose + Postgres 17 (+ FE ter-embed)
 ├── frontend/    React 19 + TS + Vite + TanStack Query + zustand + shadcn/Tailwind v4
-└── docker-compose.yml   ← root: db + api + web sekaligus
+└── docker-compose.yml   ← root: db + api (FE ter-embed) sekaligus
 ```
 
-**Alur request** (semua same-origin via proxy — cookie auth jalan tanpa isu CORS):
+**Alur request** (semua same-origin — cookie auth jalan tanpa isu CORS):
 - **Dev**: browser → Vite (`:5173`) → proxy `/api` → backend (`:8080`) → Postgres.
-- **Docker**: browser → nginx (`:3000`) → proxy `/api` → `api:8080` (service name) → Postgres.
+- **Docker**: browser → `api:8080` (serve aset FE + `/api/*`) → Postgres.
 
 **Kontrak API**: `backend/api/openapi.yaml` (source of truth). FE generate types via
 `pnpm gen:api` (di `frontend/`).
+
+**Embed FE**: `make build-web` (di `backend/`) mem-build FE lalu menyalin `dist/` ke
+`backend/internal/web/dist/` untuk di-embed. Dockerfile melakukannya otomatis
+(build context = folder `project/`).
 
 ## Untuk Juri/Panitia (quickstart)
 
@@ -30,9 +31,9 @@ Prasyarat: **Docker saja**.
 docker-compose up -d
 ```
 
-Buka http://localhost:3000.
+Buka http://localhost:8080.
 
-> Port 3000 bentrok? `WEB_PORT=3100 docker-compose up -d` → buka http://localhost:3100.
+> Port 8080 bentrok? `API_PORT=8081 docker-compose up -d` → buka http://localhost:8081.
 
 **Isi data demo** (sekali saja — DB baru belum punya akun):
 

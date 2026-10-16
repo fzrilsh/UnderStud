@@ -20,6 +20,7 @@ import (
 	"backend/internal/service"
 	"backend/internal/storage"
 	"backend/internal/tokens"
+	"backend/internal/web"
 )
 
 // New builds the chi router with middleware chain and all routes mounted.
@@ -211,6 +212,10 @@ func New(cfg config.Config, logger *slog.Logger, pool *pgxpool.Pool) http.Handle
 			})
 		})
 	})
+
+	// FE (embedded) — didaftarkan PALING AKHIR: hanya menangkap path yang tidak
+	// cocok route mana pun di atas (/api/*, /healthz tetap JSON).
+	r.NotFound(web.Handler().ServeHTTP)
 
 	return r
 }

@@ -1,9 +1,26 @@
-# ---- build stage ----
+# ============================================================================
+# Build context = folder `project/` (BUKAN `backend/`), karena butuh `frontend/`
+# juga untuk membangun & meng-embed FE ke binary Go. Di compose:
+#   build: { context: ., dockerfile: backend/Dockerfile }
+# ============================================================================
+
+# ---- stage 1: build frontend ----
+FROM node:22-alpine AS webbuild
+RUN corepack enable
+WORKDIR /web
+COPY frontend/package.json frontend/pnpm-lock.yaml ./
+RUN pnpm install --frozen-lockfile
+COPY frontend/ ./
+RUN pnpm build
+
+# ---- stage 2: build backend (dengan FE ter-embed) ----
 FROM golang:1.26-alpine AS build
 WORKDIR /app
-COPY go.mod go.sum ./
+COPY backend/go.mod backend/go.sum ./
 RUN go mod download
-COPY . .
+COPY backend/ ./
+# Salin hasil build FE ke lokasi embed SEBELUM go build.
+COPY --from=webbuild /web/dist ./internal/web/dist
 RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /bin/api ./cmd/api \
  && CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /bin/cli ./cmd/cli
 

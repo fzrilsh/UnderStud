@@ -1,8 +1,9 @@
-# Root compose — menjalankan seluruh stack (db + api + web) sekaligus.
-# Untuk juri: `docker-compose up -d` lalu buka http://localhost:3000.
+# Root compose — menjalankan seluruh stack (db + api, FE ter-embed di api).
+# Untuk juri: `docker-compose up -d` lalu buka http://localhost:8080.
 #
-# Catatan: backend/ dan frontend/ juga punya docker-compose.yml masing-masing
-# (dipakai kalau mau jalanin salah satu service sendiri saat development).
+# FE (React/Vite) di-build & di-embed ke binary Go (lihat backend/Dockerfile),
+# jadi TIDAK ada container `web`/nginx terpisah — satu image `api` menyajikan
+# UI + API pada port yang sama.
 services:
   db:
     image: postgres:17-alpine
@@ -25,7 +26,10 @@ services:
       retries: 3
 
   api:
-    build: ./backend
+    # Context = folder ini (bukan ./backend): Dockerfile butuh frontend/ juga.
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
     environment:
       DATABASE_URL: postgres://postgres:postgres@db:5432/hackathon?sslmode=disable
       PORT: "8080"
@@ -34,7 +38,7 @@ services:
       # TTL token (spec §5): staf 1 minggu, siswa anonim 10 tahun.
       STAFF_TOKEN_TTL: 168h
       ANON_TOKEN_TTL: 87600h
-      CORS_ORIGINS: http://localhost:3000,http://localhost:3100,http://localhost:5173
+      CORS_ORIGINS: http://localhost:8080,http://localhost:5173
       TZ: Asia/Jakarta
       # Lampiran chat (spec §8) — persisten via volume `uploads`.
       UPLOAD_DIR: /app/data/uploads
@@ -62,18 +66,6 @@ services:
     depends_on:
       db:
         condition: service_healthy
-
-  web:
-    build: ./frontend
-    environment:
-      # Satu network compose: proxy ke service `api` langsung (bukan host.docker.internal).
-      API_UPSTREAM: http://api:8080
-    ports:
-      # Override bila 3000 sudah dipakai: `WEB_PORT=3100 docker-compose up -d`
-      - "${WEB_PORT:-3000}:80"
-    depends_on:
-      api:
-        condition: service_started
 
 volumes:
   pgdata:
