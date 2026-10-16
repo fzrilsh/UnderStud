@@ -16,29 +16,29 @@
   <img alt="License" src="https://img.shields.io/badge/License-MIT-181717" />
 </p>
 
-**Submission for Joints X Inspire 2026 — Hackathon (Tema: Education)**
+**Submission for Joints X Inspire 2026, bidang Hackathon (Tema: Education)**
 
-**By Tim Understud**
-
----
-
-## 📋 Daftar Isi
-
-- [👥 Tim Developer](#-tim-developer)
-- [🎯 Tentang Proyek](#-tentang-proyek)
-- [✨ Fitur Unggulan](#-fitur-unggulan)
-- [📸 Demo & Screenshot](#-demo--screenshot)
-- [🛠️ Teknologi](#️-teknologi)
-- [🏗️ Arsitektur Sistem](#️-arsitektur-sistem)
-- [⚙️ Instalasi & Setup](#️-instalasi--setup)
-- [🚀 Penggunaan](#-penggunaan)
-- [📚 API Documentation](#-api-documentation)
-- [🧪 Pengujian](#-pengujian)
-- [📄 Lisensi](#-lisensi)
+**By Tim Menuju ADA 100**
 
 ---
 
-## 👥 Tim Developer
+## Daftar Isi
+
+- [Tim Developer](#tim-developer)
+- [Tentang Proyek](#tentang-proyek)
+- [Fitur Unggulan](#fitur-unggulan)
+- [Demo](#demo)
+- [Teknologi](#teknologi)
+- [Arsitektur Sistem](#arsitektur-sistem)
+- [Instalasi & Setup](#instalasi--setup)
+- [Penggunaan](#penggunaan)
+- [API Documentation](#api-documentation)
+- [Pengujian](#pengujian)
+- [Lisensi](#lisensi)
+
+---
+
+## Tim Developer
 
 | Nama | Peran | Tanggung Jawab |
 |---|---|---|
@@ -49,32 +49,32 @@
 
 ---
 
-## 🎯 Tentang Proyek
+## Tentang Proyek
 
 ### Latar Belakang
 
-Wali Kelas dan Guru BK membutuhkan cara cepat untuk menemukan serta memahami siswa yang memerlukan pendampingan. Namun waktu mereka tersita administrasi, sementara sinyal risiko siswa tersebar di banyak tempat dan sering tidak terdeteksi. Siswa yang paling butuh bantuan justru paling enggan melapor — takut identitasnya diketahui, atau malas membuat akun baru.
+Wali Kelas dan Guru BK membutuhkan cara cepat untuk menemukan serta memahami siswa yang memerlukan pendampingan. Namun waktu mereka tersita administrasi, sementara sinyal risiko siswa tersebar di banyak tempat dan sering tidak terdeteksi. Siswa yang paling butuh bantuan justru paling enggan melapor, karena takut identitasnya diketahui atau malas membuat akun baru.
 
 Kami mengangkat **tiga subtema** dari bidang Education:
 
-1. **Siswa berisiko putus sekolah** — kehilangan motivasi karena faktor ekonomi, ikut membantu keluarga bekerja, pernikahan dini, atau lingkungan yang tidak mendukung.
-2. **Siswa kelas akhir yang bingung arah** — kesulitan menentukan jurusan, memilih jalur pendidikan, dan merencanakan karier sesuai minat serta kemampuan.
-3. **Guru yang kehabisan waktu** — guru honorer, guru kelas gabungan, dan dosen yang waktunya habis untuk administrasi sehingga waktu mendampingi siswa berkurang.
+1. **Siswa berisiko putus sekolah** - kehilangan motivasi karena faktor ekonomi, ikut membantu keluarga bekerja, pernikahan dini, atau lingkungan yang tidak mendukung.
+2. **Siswa kelas akhir yang bingung arah** - kesulitan menentukan jurusan, memilih jalur pendidikan, dan merencanakan karier sesuai minat serta kemampuan.
+3. **Guru yang kehabisan waktu** - guru honorer, guru kelas gabungan, dan dosen yang waktunya habis untuk administrasi sehingga waktu mendampingi siswa berkurang.
 
 ### Solusi yang Ditawarkan
 
-- **Kanal laporan anonim tanpa akun.** Siswa bisa bercerita dengan aman lewat `/lapor` — tanpa daftar, tanpa akun, identitas opsional.
+- **Kanal laporan anonim tanpa akun.** Siswa bisa bercerita dengan aman lewat `/lapor`, tanpa daftar, tanpa akun, identitas opsional.
 - **Triase laporan untuk Guru BK.** Antrean laporan dengan pin, draft, dan lewati, sehingga kasus mendesak bisa diprioritaskan lebih dulu.
-- **Ringkasan profil berbantuan AI.** Data akademik dan observasi dirangkum untuk mempercepat persiapan pendampingan — bukan diagnosis, bukan keputusan otomatis.
+- **Ringkasan profil berbantuan AI.** Data akademik dan observasi dirangkum untuk mempercepat persiapan pendampingan, bukan diagnosis dan bukan keputusan otomatis.
 
-Intinya: satu alur kerja guru untuk **laporan anonim → deteksi dini → ringkasan profil siswa**, tanpa mewajibkan siswa membuat akun.
+Intinya: satu alur kerja guru untuk **laporan anonim, deteksi dini, dan ringkasan profil siswa**, tanpa mewajibkan siswa membuat akun.
 
 ### Tujuan Proyek
 
-- 🎯 Membuka kanal laporan siswa tanpa hambatan akun.
-- 📊 Memudahkan Guru BK meninjau, menyimpan, dan menindaklanjuti laporan.
-- 💡 Menggabungkan data akademik dan observasi ke dalam ringkasan profil siswa.
-- 🌐 Menandai indikator risiko untuk **ditinjau manusia**, bukan menetapkan diagnosis.
+- Membuka kanal laporan siswa tanpa hambatan akun.
+- Memudahkan Guru BK meninjau, menyimpan, dan menindaklanjuti laporan.
+- Menggabungkan data akademik dan observasi ke dalam ringkasan profil siswa.
+- Menandai indikator risiko untuk **ditinjau manusia**, bukan menetapkan diagnosis.
 
 ### Batasan Produk
 
@@ -84,7 +84,7 @@ Sistem juga tidak menjanjikan anonimitas absolut terhadap metadata jaringan. UI 
 
 ---
 
-## ✨ Fitur Unggulan
+## Fitur Unggulan
 
 ### Fitur Utama
 
@@ -95,33 +95,25 @@ Sistem juga tidak menjanjikan anonimitas absolut terhadap metadata jaringan. UI 
 
 ### Fitur Pendukung
 
-- **Login & Kontrol Akses** — dua peran (Guru BK, Wali Kelas) dengan pembatasan data sesuai cakupan.
-- **Checklist Deteksi Dini** — tujuh kategori indikator observasi dengan penanda **red flag** untuk eskalasi segera ke BK.
-- **Riwayat Versi Ringkasan** — setiap ringkasan tercatat pembuat, waktu, dan versinya.
-- **Impor Leger E-Rapor** — unggah Excel/CSV, pratinjau, lalu commit — tanpa input manual satu per satu.
-- **Ekspor Ringkasan (PDF/TXT)** — unduh ringkasan untuk rapat pendampingan, dengan pencatatan jejak ekspor.
-- **Lampiran Gambar** — siswa dapat menyertakan gambar pada laporan dengan validasi format & ukuran.
-- **Audit Lokasi (opsional)** — pencatatan koordinat saat laporan dikirim, mendukung geofence bila diaktifkan sekolah.
+- **Login & Kontrol Akses**: dua peran (Guru BK, Wali Kelas) dengan pembatasan data sesuai cakupan.
+- **Checklist Deteksi Dini**: tujuh kategori indikator observasi dengan penanda **red flag** untuk eskalasi segera ke BK.
+- **Riwayat Versi Ringkasan**: setiap ringkasan tercatat pembuat, waktu, dan versinya.
+- **Impor Leger E-Rapor**: unggah Excel/CSV, pratinjau, lalu commit, tanpa input manual satu per satu.
+- **Ekspor Ringkasan (PDF/TXT)**: unduh ringkasan untuk rapat pendampingan, dengan pencatatan jejak ekspor.
+- **Lampiran Gambar**: siswa dapat menyertakan gambar pada laporan dengan validasi format & ukuran.
+- **Audit Lokasi (opsional)**: pencatatan koordinat saat laporan dikirim, mendukung geofence bila diaktifkan sekolah.
 
 ---
 
-## 📸 Demo & Screenshot
+## Demo
 
-### Live Demo
+**Live Demo:** https://understud.fazrilsh.com
 
-> 🔗 **URL demo menyusul.** (Isi tautan deploy di sini setelah tersedia.)
-
-### Screenshot Aplikasi
-
-> 📷 **Screenshot menyusul** — akan ditambahkan ke `docs/screenshots/`.
-
-### Video Demo
-
-> 📹 **Tautan video project menyusul.**
+**Video Demo:** menyusul.
 
 ---
 
-## 🛠️ Teknologi
+## Teknologi
 
 ### Tech Stack
 
@@ -150,7 +142,7 @@ Backend
 DevOps & Tools
   kontainer     : Docker multi-stage (satu image: FE ter-embed di binary Go)
   orchestrasi   : docker-compose
-  kontrak api   : OpenAPI 3 (hand-maintained) → gen types via openapi-typescript
+  kontrak api   : OpenAPI 3 (hand-maintained) -> gen types via openapi-typescript
 ```
 
 ### Alasan Pemilihan Teknologi
@@ -158,12 +150,12 @@ DevOps & Tools
 | Teknologi | Alasan Pemilihan |
 |---|---|
 | **Go + chi** | Binary tunggal, startup cepat, mudah di-deploy. `net/http`-compatible dengan middleware idiomatik. |
-| **pgx + sqlc** | SQL-first dan type-safe — query ditulis manual, kode Go di-generate. Cocok untuk agregasi dashboard yang kompleks. |
+| **pgx + sqlc** | SQL-first dan type-safe. Query ditulis manual, kode Go di-generate. Cocok untuk agregasi dashboard yang kompleks. |
 | **goose embedded** | Migrasi ikut ter-embed di binary dan auto-run saat startup, jadi `docker-compose up -d` selalu cukup untuk jalan. |
 | **JWT httpOnly cookie** | Token tidak bisa dibaca JavaScript sehingga lebih tahan XSS; same-origin via proxy menghindari isu CORS. |
 | **React + TanStack Query** | Server-state ditangani query cache, bukan disalin ke store. zustand hanya untuk auth/UI state. |
 | **Tailwind v4 + shadcn** | Design token dipusatkan di CSS (`@theme`), komponen konsisten, iterasi cepat saat hackathon. |
-| **Vite + embed** | Build FE lalu di-embed ke binary Go (`//go:embed`) — satu image menyajikan UI + API di port yang sama. |
+| **Vite + embed** | Build FE lalu di-embed ke binary Go (`//go:embed`), satu image menyajikan UI + API di port yang sama. |
 
 ### Dependencies Utama
 
@@ -193,11 +185,11 @@ github.com/xuri/excelize/v2      impor leger E-Rapor
 golang.org/x/crypto              hashing password (bcrypt)
 ```
 
-Catatan: **semua konfigurasi punya nilai default** — tidak ada env yang wajib. `docker-compose up -d` sudah cukup untuk menjalankan seluruh stack.
+Catatan: **semua konfigurasi punya nilai default**, tidak ada env yang wajib. `docker-compose up -d` sudah cukup untuk menjalankan seluruh stack.
 
 ---
 
-## 🏗️ Arsitektur Sistem
+## Arsitektur Sistem
 
 ### System Architecture
 
@@ -209,7 +201,7 @@ flowchart TB
     end
 
     subgraph host["Host (satu container)"]
-        API["API — Go + chi<br/>sajikan aset FE (embed) + /api/v1<br/>:8080"]
+        API["API - Go + chi<br/>sajikan aset FE (embed) + /api/v1<br/>:8080"]
         DB[("PostgreSQL 17")]
     end
 
@@ -235,7 +227,7 @@ flowchart TB
 
 Skema lengkap ada di `backend/internal/db/migrations/` (goose). Ringkasannya:
 
-**Identitas & akses** — staf (guru) dan sesi anonim siswa:
+**Identitas & akses** - staf (guru) dan sesi anonim siswa:
 
 ```mermaid
 erDiagram
@@ -259,7 +251,7 @@ erDiagram
     }
 ```
 
-**Siswa, profil & observasi** — data akademik dan catatan perilaku:
+**Siswa, profil & observasi** - data akademik dan catatan perilaku:
 
 ```mermaid
 erDiagram
@@ -295,7 +287,7 @@ erDiagram
     }
 ```
 
-**Chat anonim & lampiran** — laporan siswa dan triase BK:
+**Chat anonim & lampiran** - laporan siswa dan triase BK:
 
 ```mermaid
 erDiagram
@@ -330,7 +322,7 @@ erDiagram
     }
 ```
 
-**Ringkasan AI & ekspor** — hasil ringkasan berversi dan jejak ekspor:
+**Ringkasan AI & ekspor** - hasil ringkasan berversi dan jejak ekspor:
 
 ```mermaid
 erDiagram
@@ -362,7 +354,7 @@ erDiagram
 | Keputusan | Penerapan | Alasan |
 |---|---|---|
 | **Snapshot identitas di chat** | `chats.snapshot_name` / `snapshot_kelas` disalin saat dibuat. | Laporan tetap konsisten walau profil siswa berubah kemudian. |
-| **Pin & draft eksklusif** | `CONSTRAINT chats_pin_draft_exclusive`. | Laporan tidak bisa dipin dan didraft bersamaan — antrean tetap deterministik. |
+| **Pin & draft eksklusif** | `CONSTRAINT chats_pin_draft_exclusive`. | Laporan tidak bisa dipin dan didraft bersamaan, antrean tetap deterministik. |
 | **Ringkasan berversi** | Kolom `version` + `note` di `ai_summaries`. | Guru bisa melihat riwayat dan membandingkan versi ringkasan. |
 | **Jejak revisi observasi** | Tabel `observation_revisions` menyimpan snapshot JSONB. | Perubahan catatan guru tetap bisa diaudit. |
 | **Tidak ada tabel kelas** | Kelas diturunkan dari `students` + `users` (role wali kelas). | Menghindari tabel master yang belum perlu untuk MVP. |
@@ -388,7 +380,7 @@ project/
 │   │   ├── web/                 # FE ter-embed (//go:embed dist)
 │   │   └── ...
 │   ├── scripts/smoke.sh         # smoke test API
-│   └── Dockerfile               # multi-stage: build FE → embed → image
+│   └── Dockerfile               # multi-stage: build FE -> embed -> image
 └── frontend/
     ├── src/
     │   ├── pages/               # halaman (login, dashboard, students, ...)
@@ -401,23 +393,23 @@ project/
 
 ---
 
-## ⚙️ Instalasi & Setup
+## Instalasi & Setup
 
 ### Prerequisites
 
-- **Docker** (termasuk `docker-compose`) — satu-satunya prasyarat untuk menjalankan seluruh stack.
-- **Opsional — pengembangan:** Go 1.26, Node.js 22 + pnpm, `sqlc`, `goose`.
+- **Docker** (termasuk `docker-compose`), satu-satunya prasyarat untuk menjalankan seluruh stack.
+- **Opsional untuk pengembangan:** Go 1.26, Node.js 22 + pnpm, `sqlc`, `goose`.
 
 ### Langkah Instalasi
 
-#### 1️⃣ Clone repositori
+#### 1. Clone repositori
 
 ```bash
 git clone https://github.com/fzrilsh/Understud.git
 cd Understud
 ```
 
-#### 2️⃣ (Opsional) Siapkan konfigurasi
+#### 2. (Opsional) Siapkan konfigurasi
 
 Semua config punya default, jadi langkah ini **opsional**. Salin template lalu isi bila perlu:
 
@@ -433,9 +425,9 @@ AI_API_KEY=
 AI_MODEL=gpt-4o-mini
 ```
 
-> **Catatan:** kosongkan `AI_API_KEY` untuk menonaktifkan ringkasan AI — backend tetap jalan normal, endpoint ringkasan akan membalas `AI_NOT_CONFIGURED`. Cocok untuk demo tanpa dependensi eksternal.
+> **Catatan:** kosongkan `AI_API_KEY` untuk menonaktifkan ringkasan AI. Backend tetap jalan normal, endpoint ringkasan akan membalas `AI_NOT_CONFIGURED`. Cocok untuk demo tanpa dependensi eksternal.
 
-#### 3️⃣ Jalankan seluruh stack
+#### 3. Jalankan seluruh stack
 
 ```bash
 docker-compose up -d
@@ -445,7 +437,7 @@ Buka **http://localhost:8080**.
 
 > Port 8080 bentrok? `API_PORT=8081 docker-compose up -d` lalu buka http://localhost:8081.
 
-#### 4️⃣ Isi data demo (sekali saja)
+#### 4. Isi data demo (sekali saja)
 
 Database baru masih kosong dan belum punya akun:
 
@@ -453,14 +445,14 @@ Database baru masih kosong dan belum punya akun:
 docker-compose exec api /app/cli seed-demo
 ```
 
-#### 5️⃣ Login dengan akun demo
+#### 5. Login dengan akun demo
 
 | Email | Password | Peran |
 |---|---|---|
 | `bk@demo.local` | `password123` | Guru BK |
 | `wali@demo.local` | `password123` | Wali Kelas (X TJKT 1) |
 
-#### 6️⃣ Hentikan stack
+#### 6. Hentikan stack
 
 ```bash
 docker-compose down     # data Postgres + lampiran tetap tersimpan di volume
@@ -468,7 +460,7 @@ docker-compose down     # data Postgres + lampiran tetap tersimpan di volume
 
 ---
 
-## 🚀 Penggunaan
+## Penggunaan
 
 ### Menjalankan Aplikasi
 
@@ -482,10 +474,10 @@ docker-compose down               # matikan semua
 ### Pengembangan (hot reload)
 
 ```bash
-# Backend — butuh Postgres (paling gampang: `docker-compose up -d db` dulu)
+# Backend - butuh Postgres (paling gampang: `docker-compose up -d db` dulu)
 cd backend && make dev            # air hot reload, API di :8080
 
-# Frontend — proxy /api → :8080
+# Frontend - proxy /api -> :8080
 cd frontend && pnpm dev           # Vite di :5173
 ```
 
@@ -502,16 +494,16 @@ make build-web        # build FE lalu salin ke internal/web/dist untuk di-embed
 
 **Untuk Siswa (tanpa akun)**
 
-1. Buka `/lapor` — tidak perlu login.
+1. Buka `/lapor`, tidak perlu login.
 2. Baca penjelasan privasi dan batas anonimitas.
-3. Tulis laporan (1–2.000 karakter), lampirkan gambar bila perlu.
+3. Tulis laporan (1-2.000 karakter), lampirkan gambar bila perlu.
 4. Pilih mode identitas: **anonim** (default) atau isi nama & kelas secara opsional.
-5. Kirim laporan — masuk ke antrean Guru BK.
+5. Kirim laporan, masuk ke antrean Guru BK.
 6. Buka kembali `/lapor` untuk melihat balasan dan mengirim pesan lanjutan.
 
 **Untuk Guru BK**
 
-1. Login dengan akun staf → masuk ke Dashboard.
+1. Login dengan akun staf, masuk ke Dashboard.
 2. Lihat banner **red flag** dan statistik chat bulan ini.
 3. Buka `/reports` untuk meninjau antrean laporan.
 4. **Pin** laporan penting, **Draft** untuk disimpan, atau **Lewati** untuk melewatinya.
@@ -520,15 +512,15 @@ make build-web        # build FE lalu salin ke internal/web/dist untuk di-embed
 
 **Untuk Wali Kelas**
 
-1. Login → Dashboard menampilkan statistik kelas sendiri.
+1. Login, Dashboard menampilkan statistik kelas sendiri.
 2. Buka `/students` untuk melihat siswa di kelas yang diampu.
-3. Buka detail siswa → tab **Observasi** untuk mencatat indikator perilaku.
+3. Buka detail siswa, tab **Observasi** untuk mencatat indikator perilaku.
 4. Tandai **red flag** bila perlu eskalasi segera ke BK.
-5. Tab **Ringkasan** untuk melihat/membuat ringkasan profil berbantuan AI.
+5. Tab **Ringkasan** untuk melihat atau membuat ringkasan profil berbantuan AI.
 
 ---
 
-## 📚 API Documentation
+## API Documentation
 
 ### Base URL
 
@@ -545,7 +537,7 @@ Authentication
   POST    /auth/logout
   GET     /auth/me
 
-Laporan Siswa (anonim — tanpa login)
+Laporan Siswa (anonim, tanpa login)
   GET     /lapor
   GET     /lapor/profile
   PUT     /lapor/profile
@@ -625,7 +617,7 @@ Semua error memakai bentuk yang konsisten:
 
 ### Dokumentasi Lengkap
 
-Kontrak API lengkap (semua schema & contoh) ada di [`backend/api/openapi.yaml`](backend/api/openapi.yaml) — file ini **hand-maintained** dan jadi source of truth. Frontend men-generate tipe TypeScript darinya:
+Kontrak API lengkap (semua schema & contoh) ada di [`backend/api/openapi.yaml`](backend/api/openapi.yaml), file ini **hand-maintained** dan jadi source of truth. Frontend men-generate tipe TypeScript darinya:
 
 ```bash
 cd frontend && pnpm gen:api
@@ -633,9 +625,9 @@ cd frontend && pnpm gen:api
 
 ---
 
-## 🧪 Pengujian
+## Pengujian
 
-Proyek ini **tidak memakai test suite otomatis atau CI/CD** — verifikasi dilakukan lewat smoke test dan pengecekan manual, sesuai konteks hackathon.
+Proyek ini **tidak memakai test suite otomatis atau CI/CD**. Verifikasi dilakukan lewat smoke test dan pengecekan manual, sesuai konteks hackathon.
 
 ### Smoke Test API
 
@@ -644,7 +636,7 @@ Proyek ini **tidak memakai test suite otomatis atau CI/CD** — verifikasi dilak
 cd backend && make smoke
 ```
 
-Smoke test memverifikasi vertical slice auth end-to-end (6 langkah): health check, login BK, `me`, login Wali Kelas, login gagal → 401, logout → 401.
+Smoke test memverifikasi vertical slice auth end-to-end (6 langkah): health check, login BK, `me`, login Wali Kelas, login gagal -> 401, logout -> 401.
 
 ### Verifikasi Frontend (headless)
 
@@ -653,7 +645,7 @@ cd frontend
 node scripts/verify.mjs / --name=home --as=bk    # screenshot + cek error konsol
 ```
 
-Script ini login via cookie, membuka halaman, mengambil screenshot, dan mengumpulkan error konsol — dipakai untuk memverifikasi integrasi tiap halaman.
+Script ini login via cookie, membuka halaman, mengambil screenshot, dan mengumpulkan error konsol, dipakai untuk memverifikasi integrasi tiap halaman.
 
 ### Pengecekan Kualitas Kode
 
@@ -664,12 +656,12 @@ cd frontend && pnpm lint                      # frontend (oxlint)
 
 ---
 
-## 📄 Lisensi
+## Lisensi
 
 Dirilis di bawah **MIT License**. Lihat [`LICENSE`](LICENSE) untuk detail.
 
 ---
 
 <p align="center">
-  Dibuat dengan ❤️ oleh <strong>Tim Understud</strong> untuk <strong>Joints X Inspire 2026</strong>
+  Dibuat oleh <strong>Tim Menuju ADA 100</strong> untuk <strong>Joints X Inspire 2026</strong>
 </p>
