@@ -205,6 +205,41 @@ func BuildContent(in ContentInput, headline, narrative string) SummaryContent {
 		}
 	}
 
+	// Fallback deterministik bila AI tidak mengisi headline/narrative
+	// (mis. model mengabaikan skema) — struktur tetap bermakna.
+	if !nonEmpty(headline) {
+		switch {
+		case hasRed && top != nil:
+			headline = fmt.Sprintf("Menonjol di %s. Catatan terbaru menunjukkan hal yang perlu ditindaklanjuti.", strings.ToLower(top.Mapel))
+		case top != nil:
+			headline = fmt.Sprintf("Kekuatan di %s dengan beberapa area yang perlu dukungan.", strings.ToLower(top.Mapel))
+		default:
+			headline = "Data masih terbatas untuk menyimpulkan perkembangan."
+		}
+	}
+	if !nonEmpty(narrative) {
+		var b strings.Builder
+		if top != nil {
+			fmt.Fprintf(&b, "Nilai tertinggi di %s (%s)", top.Mapel, trimNum(top.Nilai))
+			if len(scores) > 1 {
+				fmt.Fprintf(&b, " dan %s (%s)", scores[1].Mapel, trimNum(scores[1].Nilai))
+			}
+			if low != nil && low.Nilai < top.Nilai {
+				fmt.Fprintf(&b, ". Nilai %s (%s) paling rendah dan perlu perhatian", low.Mapel, trimNum(low.Nilai))
+			}
+			b.WriteString(". ")
+		}
+		if in.ObsCount > 0 {
+			fmt.Fprintf(&b, "Tercatat %d observasi", in.ObsCount)
+			if hasRed {
+				b.WriteString(", termasuk red flag yang sudah diteruskan ke BK")
+			}
+			b.WriteString(". ")
+		}
+		b.WriteString("Gunakan ringkasan ini untuk menyiapkan sesi konseling.")
+		narrative = strings.TrimSpace(b.String())
+	}
+
 	return SummaryContent{
 		Headline:  headline,
 		Narrative: narrative,

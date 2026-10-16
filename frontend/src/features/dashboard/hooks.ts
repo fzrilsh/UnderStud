@@ -24,11 +24,13 @@ export type ClassItem = {
 
 export type StudentItem = components['schemas']['StudentItem']
 export type SummaryView = components['schemas']['SummaryView'] & {
+  id: string
   version: number
   author: string
   note: string
   sources_used: number
   sources_total: number
+  created_at: string
 }
 
 export type DashboardBK = {

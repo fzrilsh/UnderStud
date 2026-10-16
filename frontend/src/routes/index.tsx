@@ -6,6 +6,7 @@ import ProtectedRoute from '@/routes/protected-route'
 import LoginPage from '@/pages/login'
 import DashboardPage from '@/pages/dashboard'
 import StudentsPage from '@/pages/students'
+import StudentDetailPage from '@/pages/student-detail'
 import NotFoundPage from '@/pages/not-found'
 
 export const router = createBrowserRouter([
@@ -21,6 +22,7 @@ export const router = createBrowserRouter([
         children: [
           { path: '/', element: <DashboardPage /> },
           { path: '/students', element: <StudentsPage /> },
+          { path: '/students/:id', element: <StudentDetailPage /> },
         ],
       },
     ],
