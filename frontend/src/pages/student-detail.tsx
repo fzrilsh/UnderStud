@@ -15,7 +15,9 @@ import {
   useHandleRedFlag,
   useSaveProfile,
   useStudentDetail,
+  useUpdateStudent,
 } from '@/features/students/detail-hooks'
+import { ImportModal } from '@/features/students/components/student-modals'
 import { downloadSummary } from '@/features/students/summary-export'
 import { useCurrentUser } from '@/features/auth/hooks'
 import { fmtDateID, fmtDateTimeID } from '@/lib/format'
@@ -45,10 +47,12 @@ export default function StudentDetailPage() {
   }, [detail.data, form])
 
   const saveProfile = useSaveProfile(id ?? '')
+  const updateStudent = useUpdateStudent(id ?? '')
   const createObs = useCreateObservation(id ?? '')
   const handleRed = useHandleRedFlag(id ?? '')
   const generate = useGenerateSummary(id ?? '')
   const confirm = useConfirm()
+  const [importOpen, setImportOpen] = useState(false)
 
   const d = detail.data
 
@@ -72,6 +76,10 @@ export default function StudentDetailPage() {
     : 'Belum ada ringkasan AI.'
 
   const saveOnly = async () => {
+    // Data siswa (nama/kelas/nisn) disimpan via PATCH; profil via PUT.
+    if (form.nama !== d.student.name || form.kelas !== d.student.kelas || form.nisn !== d.student.nisn) {
+      await updateStudent.mutateAsync({ name: form.nama.trim(), kelas: form.kelas.trim(), nisn: form.nisn.trim() })
+    }
     await saveProfile.mutateAsync({
       nilai_erapor: form.nilai_erapor,
       sakit: form.sakit,
@@ -98,7 +106,7 @@ export default function StudentDetailPage() {
   const handleDownload = async (summaryId: string) => {
     if (!id) return
     try {
-      await downloadSummary(id, summaryId, 'pdf')
+      await downloadSummary(id, summaryId, 'pdf', { nisn: d.student.nisn, name: d.student.name })
       toast.success('Ringkasan diunduh.')
     } catch {
       toast.error('Gagal mengunduh ringkasan.')
@@ -171,7 +179,7 @@ export default function StudentDetailPage() {
       <div className="px-5 pb-10 pt-6 md:px-8">
         {tab === 'data' ? (
           <>
-            <DataTab detail={d} form={form} setForm={setForm} canWrite={canWrite} />
+            <DataTab detail={d} form={form} setForm={setForm} canWrite={canWrite} onImport={() => setImportOpen(true)} />
             <ObservationTab
               observations={d.observations}
               checklist={checklist.data ?? []}
@@ -212,6 +220,8 @@ export default function StudentDetailPage() {
           />
         )}
       </div>
+
+      {importOpen && <ImportModal kelas={d.student.kelas} onClose={() => setImportOpen(false)} />}
     </div>
   )
 }

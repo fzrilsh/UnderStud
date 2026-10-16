@@ -91,6 +91,30 @@ export interface ProfilePayload {
 }
 
 /** PUT /students/{id}/profile — simpan profil (WK saja). */
+/** PATCH /students/{id} — ubah data dasar siswa (nama/kelas/nisn). WK saja. */
+export interface UpdateStudentPayload {
+  name: string
+  kelas: string
+  nisn: string
+}
+
+export function useUpdateStudent(id: string): UseMutationResult<void, Error, UpdateStudentPayload> {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (payload: UpdateStudentPayload) => {
+      await api.patch(`/students/${id}`, payload)
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['student', id] })
+      void qc.invalidateQueries({ queryKey: ['students'] })
+      void qc.invalidateQueries({ queryKey: ['students-count'] })
+      void qc.invalidateQueries({ queryKey: ['dashboard'] })
+      void qc.invalidateQueries({ queryKey: ['classes'] })
+    },
+    onError: (err) => toast.error(getApiErrorMessage(err, 'Gagal menyimpan data siswa')),
+  })
+}
+
 export function useSaveProfile(id: string): UseMutationResult<void, Error, ProfilePayload> {
   const qc = useQueryClient()
   return useMutation({

@@ -74,7 +74,7 @@ const countStaffQueue = `-- name: CountStaffQueue :one
 SELECT count(*) FROM chats
 WHERE hidden_by_staff_at IS NULL
   AND hidden_by_student_at IS NULL
-  AND status IN ('baru', 'dibuka')
+  AND (status IN ('baru', 'dibuka') OR pinned_at IS NOT NULL)
 `
 
 func (q *Queries) CountStaffQueue(ctx context.Context) (int64, error) {
@@ -718,7 +718,7 @@ const listStaffQueue = `-- name: ListStaffQueue :many
 SELECT id, session_id, status, identity_mode, snapshot_name, snapshot_kelas, pinned_at, drafted_at, hidden_by_student_at, hidden_by_staff_at, last_message_at, created_at, updated_at, student_unread_count, geo_lat, geo_lng, geo_accuracy FROM chats
 WHERE hidden_by_staff_at IS NULL
   AND hidden_by_student_at IS NULL
-  AND status IN ('baru', 'dibuka')
+  AND (status IN ('baru', 'dibuka') OR pinned_at IS NOT NULL)
 ORDER BY (pinned_at IS NOT NULL) DESC, (drafted_at IS NOT NULL) DESC,
          pinned_at DESC NULLS LAST, drafted_at DESC NULLS LAST,
          last_message_at DESC
@@ -730,9 +730,9 @@ type ListStaffQueueParams struct {
 	Offset int32
 }
 
-// Sidebar BK = PIN ∪ DRAFT ∪ ANTREAN (spec §7.2). Chat 'dilewati' TIDAK masuk
-// section mana pun → keluar dari sidebar. Pin/Draft selalu berstatus baru/dibuka,
-// jadi filter status cukup untuk ketiganya.
+// Sidebar BK = PIN ∪ DRAFT ∪ ANTREAN (spec §7.2). Chat 'dilewati' keluar dari
+// antrean, TAPI tetap tampil bila masih disematkan (pin = tindak lanjut yang
+// belum selesai) — keputusan produk: Selesai & lanjut tidak melepas sematan.
 func (q *Queries) ListStaffQueue(ctx context.Context, arg ListStaffQueueParams) ([]Chat, error) {
 	rows, err := q.db.Query(ctx, listStaffQueue, arg.Limit, arg.Offset)
 	if err != nil {
@@ -842,12 +842,13 @@ func (q *Queries) ResetStudentUnread(ctx context.Context, id uuid.UUID) error {
 }
 
 const setChatSkipped = `-- name: SetChatSkipped :one
-UPDATE chats SET pinned_at = NULL, drafted_at = NULL, status = 'dilewati', updated_at = now()
+UPDATE chats SET drafted_at = NULL, status = 'dilewati', updated_at = now()
 WHERE id = $1 RETURNING id, session_id, status, identity_mode, snapshot_name, snapshot_kelas, pinned_at, drafted_at, hidden_by_student_at, hidden_by_staff_at, last_message_at, created_at, updated_at, student_unread_count, geo_lat, geo_lng, geo_accuracy
 `
 
-// Next (dari section mana pun): keluar sidebar total. Audit H1: WAJIB lepas
-// pinned_at juga (Next dari Pin), selain drafted_at + status='dilewati'.
+// Next/Skip: keluar dari antrean (status 'dilewati') + lepas draft. PIN
+// SENGAJA dipertahankan: chat yang disematkan tetap muncul di section
+// "Disematkan" walau sudah ditinjau (keputusan produk — pin = tindak lanjut).
 func (q *Queries) SetChatSkipped(ctx context.Context, id uuid.UUID) (Chat, error) {
 	row := q.db.QueryRow(ctx, setChatSkipped, id)
 	var i Chat

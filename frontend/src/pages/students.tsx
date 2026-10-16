@@ -1,22 +1,14 @@
-import { useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
 
 import Topbar from '@/components/layout/topbar'
 import { IconClock, IconDotSm, IconTeaching, IconUsersGroup } from '@/components/icons'
-import { useConfirm } from '@/components/confirm-provider'
 import { ClassNav } from '@/features/students/components/class-nav'
-import { ArchiveToggle, FilterChips, RedFlagToggle, StudentSearch } from '@/features/students/components/filter-chips'
-import { StudentTableBK, StudentTableWK } from '@/features/students/components/student-table'
-import {
-  useArchiveStudent,
-  useGenerateStudentSummary,
-  useRestoreStudent,
-  useStudentCount,
-  useStudents,
-  type StudentFilter,
-} from '@/features/students/hooks'
-// useArchiveStudent dipakai di varian WK.
+import { ArchiveToggle, RedFlagToggle, StudentSearch } from '@/features/students/components/filter-chips'
+import { StudentTableBK } from '@/features/students/components/student-table'
+import { WKStudentsPanel } from '@/features/students/components/wk-students-panel'
+import { Pagination } from '@/features/students/components/pagination'
+import { useStudentCount, useStudents, type StudentFilter } from '@/features/students/hooks'
 import { useCurrentUser } from '@/features/auth/hooks'
 import { useClasses } from '@/features/dashboard/hooks'
 import { api } from '@/lib/api'
@@ -73,8 +65,9 @@ function StudentsBK() {
 
   const handleDownload = async (studentId: string) => {
     try {
+      const st = items.find((s) => s.id === studentId)
       const res = await api.get<{ data: { id: string } }>(`/students/${studentId}/summaries/latest`)
-      await downloadSummary(studentId, res.data.data.id, 'pdf')
+      await downloadSummary(studentId, res.data.data.id, 'pdf', { nisn: st?.nisn, name: st?.name })
       toast.success('Ringkasan diunduh.')
     } catch {
       toast.error('Belum ada ringkasan untuk diunduh.')
@@ -168,59 +161,7 @@ function ClassDetailHead({ kelas, total, homeroom }: { kelas: string; total: num
 
 // ---------------------------------------------------------------- WK variant
 function StudentsWK({ kelas }: { kelas: string }) {
-  const confirm = useConfirm()
-  const [q, setQ] = useState('')
-  const [filter, setFilter] = useState<StudentFilter>('all')
-  const [offset, setOffset] = useState(0)
-  const [generatingId, setGeneratingId] = useState<string>()
-
-  const students = useStudents({ kelas, q, filter, limit: PAGE_SIZE, offset })
   const total = useStudentCount('all', kelas)
-  const incomplete = useStudentCount('incomplete', kelas)
-  const notObserved = useStudentCount('not_observed', kelas)
-  const redCount = useStudentCount('red_flag', kelas)
-  const archived = useStudentCount('archived', kelas)
-
-  const archive = useArchiveStudent()
-  const restore = useRestoreStudent()
-  const generate = useGenerateStudentSummary()
-
-  const items = students.data?.items ?? []
-  const count = students.data?.total ?? 0
-  const pages = Math.max(1, Math.ceil(count / PAGE_SIZE))
-  const page = Math.floor(offset / PAGE_SIZE) + 1
-
-  const handleArchive = async (id: string) => {
-    const st = items.find((s) => s.id === id)
-    const ok = await confirm({
-      title: 'Arsipkan siswa?',
-      body: `${st?.name ?? 'Siswa'} akan diarsipkan. Data tetap tersimpan dan bisa dipulihkan.`,
-      confirmText: 'Arsipkan',
-      danger: true,
-    })
-    if (ok) archive.mutate(id)
-  }
-
-  const handleRestore = async (id: string) => {
-    const st = items.find((s) => s.id === id)
-    const ok = await confirm({
-      title: 'Buka arsip siswa?',
-      body: `${st?.name ?? 'Siswa'} akan dikembalikan ke daftar aktif.`,
-      confirmText: 'Buka arsip',
-    })
-    if (ok) restore.mutate(id)
-  }
-
-  const handleGenerate = (id: string) => {
-    setGeneratingId(id)
-    generate.mutate(id, { onSettled: () => setGeneratingId(undefined) })
-  }
-
-  const toggleFilter = (f: StudentFilter) => {
-    setFilter((cur) => (cur === f ? 'all' : f))
-    setOffset(0)
-  }
-
   return (
     <>
       <Topbar
@@ -236,111 +177,8 @@ function StudentsWK({ kelas }: { kelas: string }) {
         }
       />
       <div className="px-5 pb-10 pt-6 md:px-8">
-        <div className="rounded-[10px] border border-violet-light bg-base p-6 shadow-[0px_4px_8px_0px_rgba(0,0,0,0.1)]">
-          <div>
-            <h2 className="font-heading text-[24px] font-semibold leading-[1.4] text-violet-dark">Siswa · {kelas}</h2>
-            <p className="text-[12px] text-[rgba(21,21,58,.65)]">
-              Impor dari E-Rapor (.xlsx / .csv) atau tambah siswa manual · Impor terakhir{' '}
-              {fmtDateID(new Date().toISOString())}
-            </p>
-          </div>
-
-          {/* Search + chips dalam satu baris (mockup wkToolbar). */}
-          <div className="my-3 flex flex-wrap items-center gap-2">
-            <StudentSearch
-              variant="wk"
-              value={q}
-              onChange={(v) => {
-                setQ(v)
-                setOffset(0)
-              }}
-            />
-            <FilterChips
-              active={filter}
-              onToggle={toggleFilter}
-              chips={[
-                { key: 'all', label: 'Semua', count: total.data ?? 0 },
-                { key: 'incomplete', label: 'E-Rapor belum lengkap', count: incomplete.data ?? 0 },
-                { key: 'not_observed', label: 'Belum diobservasi', count: notObserved.data ?? 0 },
-                { key: 'red_flag', label: 'Red flag', count: redCount.data ?? 0, red: true },
-                { key: 'archived', label: 'Diarsipkan', count: archived.data ?? 0 },
-              ]}
-            />
-          </div>
-
-          <div className="mt-4">
-            {students.isLoading && <p className="text-[13px] text-[rgba(21,21,58,.6)]">Memuat…</p>}
-            {students.isError && <p className="text-[13px] text-destructive">Gagal memuat daftar siswa.</p>}
-            {students.data && (
-              <StudentTableWK
-                items={items}
-                onGenerate={handleGenerate}
-                onArchive={handleArchive}
-                onRestore={handleRestore}
-                generatingId={generatingId}
-              />
-            )}
-          </div>
-
-          <Pagination
-            page={page}
-            pages={pages}
-            shown={items.length}
-            total={count}
-            note="Red flag ditandai manual lewat checklist observasi, bukan oleh AI. BK bisa melihat siswa yang ditandai."
-            onPrev={() => setOffset(Math.max(0, offset - PAGE_SIZE))}
-            onNext={() => setOffset(offset + PAGE_SIZE)}
-          />
-        </div>
+        <WKStudentsPanel kelas={kelas} />
       </div>
     </>
-  )
-}
-
-function Pagination({
-  page,
-  pages,
-  shown,
-  total,
-  onPrev,
-  onNext,
-  note,
-}: {
-  page: number
-  pages: number
-  shown: number
-  total: number
-  onPrev: () => void
-  onNext: () => void
-  /** Catatan opsional di kiri (mockup WK: " · Red flag ditandai manual…"). */
-  note?: string
-}) {
-  return (
-    <div className="flex flex-wrap items-center justify-between gap-3">
-      <p className="text-[12px] leading-[normal] text-violet-dark opacity-60">
-        Menampilkan {shown} dari {total} siswa{note ? ` · ${note}` : ''}
-      </p>
-      <div className="flex items-center gap-2">
-        <button
-          type="button"
-          onClick={onPrev}
-          disabled={page <= 1}
-          className="rounded-[8px] bg-[#ecebf6] px-3 py-2 text-[12px] font-medium text-violet hover:bg-violet-light disabled:opacity-40"
-        >
-          Sebelumnya
-        </button>
-        <span className="px-3 py-2 text-[12px] font-medium text-violet-dark opacity-70">
-          {page} / {pages}
-        </span>
-        <button
-          type="button"
-          onClick={onNext}
-          disabled={page >= pages}
-          className="rounded-[8px] bg-[#ecebf6] px-3 py-2 text-[12px] font-medium text-violet hover:bg-violet-light disabled:opacity-40"
-        >
-          Berikutnya
-        </button>
-      </div>
-    </div>
   )
 }

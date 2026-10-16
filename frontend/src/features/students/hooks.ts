@@ -105,6 +105,29 @@ export function useRestoreStudent(): UseMutationResult<void, Error, string> {
   })
 }
 
+/** POST /students — tambah siswa manual (WK). */
+export interface CreateStudentInput {
+  name: string
+  nisn: string
+  kelas: string
+}
+
+export function useCreateStudent(): UseMutationResult<void, Error, CreateStudentInput> {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (input) => {
+      await api.post('/students', input)
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['students'] })
+      void qc.invalidateQueries({ queryKey: ['students-count'] })
+      void qc.invalidateQueries({ queryKey: ['dashboard'] })
+      void qc.invalidateQueries({ queryKey: ['classes'] })
+    },
+    onError: (err) => toast.error(getApiErrorMessage(err, 'Gagal menambah siswa')),
+  })
+}
+
 /** POST /students/{id}/summaries — trigger generate AI (asinkron). */
 export function useGenerateStudentSummary(): UseMutationResult<void, Error, string> {
   return useMutation({

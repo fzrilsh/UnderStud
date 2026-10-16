@@ -323,6 +323,22 @@ export const IconSearchSm = (p: P) => (
   </svg>
 )
 
+/** Ikon unggah besar (22px, drop zone impor). */
+export const IconUploadBig = (p: P) => (
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" {...p}>
+    <path d="M12 15.5V4m0 0L8 8m4-4 4 4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M3.5 15.5v3A2.5 2.5 0 0 0 6 21h12a2.5 2.5 0 0 0 2.5-2.5v-3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+  </svg>
+)
+
+/** Ikon file dokumen (18px, chip file impor). */
+export const IconFileDoc = (p: P) => (
+  <svg width="18" height="18" viewBox="0 0 20 20" fill="none" {...p}>
+    <path d="M11.5 1.75H5.5A2.25 2.25 0 0 0 3.25 4v12A2.25 2.25 0 0 0 5.5 18.25h9A2.25 2.25 0 0 0 16.75 16V7l-5.25-5.25Z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" />
+    <path d="M11.5 1.75V7h5.25" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" />
+  </svg>
+)
+
 /** Ikon unggah (16px, "Impor E-Rapor"). */
 export const IconUpload = (p: P) => (
   <svg width="16" height="16" viewBox="0 0 16 16" fill="none" {...p}>

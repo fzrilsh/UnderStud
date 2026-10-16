@@ -20,7 +20,9 @@ export default function ChatSections() {
   if (user?.role !== 'BK' || !location.pathname.startsWith('/reports')) return null
 
   const items = data?.items ?? []
-  const pinned = items.filter((c) => c.pinned && !c.drafted && c.status !== 'dilewati')
+  // Disematkan: tetap tampil walau statusnya 'dilewati' (Selesai & lanjut tidak
+  // melepas sematan — keputusan produk).
+  const pinned = items.filter((c) => c.pinned && !c.drafted)
   const drafts = items.filter((c) => c.drafted)
   const activeId = params.get('chat')
 

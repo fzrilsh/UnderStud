@@ -41,8 +41,9 @@ function DashboardBKPage() {
   const handleDownload = async (studentId: string) => {
     // Ambil ringkasan terbaru siswa lalu ekspor PDF.
     try {
+      const st = d?.latest.find((x) => x.student.id === studentId)?.student
       const res = await api.get<{ data: { id: string } }>(`/students/${studentId}/summaries/latest`)
-      await downloadSummary(studentId, res.data.data.id, 'pdf')
+      await downloadSummary(studentId, res.data.data.id, 'pdf', { nisn: st?.nisn, name: st?.name })
       toast.success('Ringkasan diunduh.')
     } catch {
       toast.error('Belum ada ringkasan untuk diunduh.')

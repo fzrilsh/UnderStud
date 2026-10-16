@@ -220,7 +220,7 @@ func (r *Report) Draft(ctx context.Context, chatID uuid.UUID) error {
 }
 
 // Undraft = keluarkan dari draft (tombol "Keluarkan dari draft"). Status jadi
-// 'dilewati' agar keluar dari sidebar — sama seperti efek SetChatSkipped.
+// 'dilewati' agar keluar dari section Draft; pin tetap dipertahankan bila ada.
 func (r *Report) Undraft(ctx context.Context, chatID uuid.UUID) error {
 	if _, err := r.get(ctx, chatID); err != nil {
 		return err
@@ -232,7 +232,8 @@ func (r *Report) Undraft(ctx context.Context, chatID uuid.UUID) error {
 }
 
 // Skip = lewati chat ke antrean berikutnya TANPA wajib balas (tombol
-// "Berikutnya" saat belum dibalas). Status 'dilewati', lepas pin + draft.
+// "Berikutnya" saat belum dibalas). Status 'dilewati' + lepas draft;
+// sematan dipertahankan (lihat SetChatSkipped).
 func (r *Report) Skip(ctx context.Context, chatID uuid.UUID) error {
 	if _, err := r.get(ctx, chatID); err != nil {
 		return err
@@ -243,8 +244,9 @@ func (r *Report) Skip(ctx context.Context, chatID uuid.UUID) error {
 	return nil
 }
 
-// Next = keluar dari antrean total: lepas pin + draft + status 'dilewati'
-// (fix audit A1 + H1). Syarat: BK sudah membalas ≥1× (keputusan #40/#53).
+// Next = "Selesai & lanjut": keluar dari antrean (status 'dilewati') + lepas
+// draft, tapi **pin dipertahankan** agar chat yang disematkan tetap ada di
+// section "Disematkan". Syarat: BK sudah membalas ≥1× (keputusan #40/#53).
 func (r *Report) Next(ctx context.Context, chatID uuid.UUID) error {
 	if _, err := r.get(ctx, chatID); err != nil {
 		return err

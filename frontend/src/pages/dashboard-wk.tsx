@@ -1,3 +1,6 @@
+import { useState } from 'react'
+import { toast } from 'sonner'
+
 import Topbar from '@/components/layout/topbar'
 import {
   RedBanner,
@@ -5,6 +8,9 @@ import {
   WKRedFlagCard,
   WKStatCard,
 } from '@/features/dashboard/components/dashboard-panels'
+import { AddStudentModal, ImportModal } from '@/features/students/components/student-modals'
+import { WKStudentsPanel } from '@/features/students/components/wk-students-panel'
+import { useCreateStudent } from '@/features/students/hooks'
 import { useDashboardWK } from '@/features/dashboard/hooks'
 import { useCurrentUser } from '@/features/auth/hooks'
 import { useSeo } from '@/lib/seo'
@@ -17,12 +23,23 @@ export default function DashboardWKPage() {
   const q = useDashboardWK()
   const d = q.data
 
+  const kelas = user?.kelas ?? ''
+  const [addOpen, setAddOpen] = useState(false)
+  const [importOpen, setImportOpen] = useState(false)
+  const createStudent = useCreateStudent()
+
+  // "Tambah observasi"/"Lanjutkan observasi"/"Lihat observasi" menggulir ke
+  // tabel siswa di bawah (mockup: `location.hash = 'wk-students'`).
+  const scrollToStudents = () => {
+    document.getElementById('wk-students')?.scrollIntoView({ behavior: 'smooth' })
+  }
+
   return (
     <>
       <Topbar
         variant="plain"
         title="Dashboard"
-        subtitle={`Kelas perwalian · ${user?.kelas ?? ''} · ${fmtDateID(new Date().toISOString())}`}
+        subtitle={`Kelas perwalian · ${kelas} · ${fmtDateID(new Date().toISOString())}`}
       />
       <div className="px-5 pb-10 pt-6 md:px-8">
         {q.isLoading && <p className="text-[14px] text-[rgba(21,21,58,.6)]">Memuat…</p>}
@@ -38,23 +55,41 @@ export default function DashboardWKPage() {
               />
             )}
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-              <WKStatCard d={d} />
+              <WKStatCard d={d} onContinue={scrollToStudents} />
               <div className="flex flex-col gap-6">
                 <WKQuickActions
-                  onImport={() => {
-                    // Impor leger diimplementasikan di halaman Daftar siswa (T4).
-                    window.location.href = '/students?import=1'
-                  }}
-                  onAddStudent={() => {
-                    window.location.href = '/students?add=1'
-                  }}
+                  onImport={() => setImportOpen(true)}
+                  onAddStudent={() => setAddOpen(true)}
+                  onAddObservation={scrollToStudents}
                 />
-                <WKRedFlagCard count={d.red_flags} />
+                <WKRedFlagCard count={d.red_flags} onViewObservations={scrollToStudents} />
               </div>
+            </div>
+
+            {/* Tabel "Siswa · {kelas}" (mockup: kartu penuh di bawah grid). */}
+            <div id="wk-students" className="scroll-mt-6">
+              <WKStudentsPanel kelas={kelas} />
             </div>
           </div>
         )}
       </div>
+
+      {addOpen && (
+        <AddStudentModal
+          kelas={kelas}
+          pending={createStudent.isPending}
+          onSubmit={(payload) =>
+            createStudent.mutate(payload, {
+              onSuccess: () => {
+                toast.success('Siswa ditambahkan.')
+                setAddOpen(false)
+              },
+            })
+          }
+          onClose={() => setAddOpen(false)}
+        />
+      )}
+      {importOpen && <ImportModal kelas={kelas} onClose={() => setImportOpen(false)} />}
     </>
   )
 }

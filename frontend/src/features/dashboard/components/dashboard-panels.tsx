@@ -298,14 +298,18 @@ function WKBarMetric({ value, label, color }: { value: number; label: string; co
 }
 
 /** Kartu statistik + chart (WK). */
-export function WKStatCard({ d }: { d: DashboardWK }) {
+export function WKStatCard({ d, onContinue }: { d: DashboardWK; onContinue: () => void }) {
   return (
     <WKCard className="gap-5 lg:col-span-2">
       <div className="flex items-center justify-between gap-3">
         <WKCardTitle>Statistik</WKCardTitle>
-        <a href="#wk-students" className="rounded-[10px] bg-violet px-3 py-1.5 text-[13px] font-semibold text-base hover:bg-violet-hover">
+        <button
+          type="button"
+          onClick={onContinue}
+          className="rounded-[10px] bg-violet px-3 py-1.5 text-[13px] font-semibold text-base hover:bg-violet-hover"
+        >
           Lanjutkan observasi
-        </a>
+        </button>
       </div>
       <div className="mb-5 flex flex-wrap gap-8">
         <WKBarMetric value={d.e_rapor_complete} label="E-Rapor" color="#B42318" />
@@ -323,9 +327,12 @@ export function WKStatCard({ d }: { d: DashboardWK }) {
 export function WKQuickActions({
   onImport,
   onAddStudent,
+  onAddObservation,
 }: {
   onImport: () => void
   onAddStudent: () => void
+  /** Menggulir ke tabel siswa (mockup: scroll ke `#wk-students`). */
+  onAddObservation: () => void
 }) {
   const ghost =
     'flex w-full items-center justify-start gap-2 rounded-[10px] border border-violet-light bg-white px-4 py-2.5 text-[14px] font-semibold text-violet-dark hover:bg-[#F6F6FB]'
@@ -339,28 +346,33 @@ export function WKQuickActions({
         <button type="button" onClick={onAddStudent} className={ghost}>
           <IconUser /> Tambah siswa
         </button>
-        <a
-          href="#wk-students"
+        <button
+          type="button"
+          onClick={onAddObservation}
           className="flex w-full items-center gap-1.5 rounded-[8px] bg-violet-dark px-3 py-2.5 text-[14px] font-medium text-base hover:bg-[#24245c]"
         >
           <span className="shrink-0">
             <IconTaskAddDark />
           </span>{' '}
           Tambah observasi
-        </a>
+        </button>
       </div>
     </WKCard>
   )
 }
 
 /** Kartu jumlah red flag (WK). */
-export function WKRedFlagCard({ count }: { count: number }) {
+export function WKRedFlagCard({ count, onViewObservations }: { count: number; onViewObservations: () => void }) {
   return (
     <WKCard className="gap-2">
       <WKCardTitle>{count} Red Flag</WKCardTitle>
-      <a href="#wk-students" className="text-[13px] font-semibold text-violet hover:underline">
+      <button
+        type="button"
+        onClick={onViewObservations}
+        className="text-left text-[13px] font-semibold text-violet hover:underline"
+      >
         Lihat observasi →
-      </a>
+      </button>
     </WKCard>
   )
 }

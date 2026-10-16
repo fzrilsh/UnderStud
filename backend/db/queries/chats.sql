@@ -70,9 +70,10 @@ UPDATE chats SET drafted_at = now(), pinned_at = NULL, updated_at = now() WHERE 
 UPDATE chats SET drafted_at = NULL, updated_at = now() WHERE id = $1 RETURNING *;
 
 -- name: SetChatSkipped :one
--- Next (dari section mana pun): keluar sidebar total. Audit H1: WAJIB lepas
--- pinned_at juga (Next dari Pin), selain drafted_at + status='dilewati'.
-UPDATE chats SET pinned_at = NULL, drafted_at = NULL, status = 'dilewati', updated_at = now()
+-- Next/Skip: keluar dari antrean (status 'dilewati') + lepas draft. PIN
+-- SENGAJA dipertahankan: chat yang disematkan tetap muncul di section
+-- "Disematkan" walau sudah ditinjau (keputusan produk — pin = tindak lanjut).
+UPDATE chats SET drafted_at = NULL, status = 'dilewati', updated_at = now()
 WHERE id = $1 RETURNING *;
 
 -- name: MarkChatOpened :one
@@ -98,13 +99,13 @@ UPDATE chats SET student_unread_count = student_unread_count + 1, updated_at = n
 UPDATE chats SET student_unread_count = 0, updated_at = now() WHERE id = $1;
 
 -- name: ListStaffQueue :many
--- Sidebar BK = PIN ∪ DRAFT ∪ ANTREAN (spec §7.2). Chat 'dilewati' TIDAK masuk
--- section mana pun → keluar dari sidebar. Pin/Draft selalu berstatus baru/dibuka,
--- jadi filter status cukup untuk ketiganya.
+-- Sidebar BK = PIN ∪ DRAFT ∪ ANTREAN (spec §7.2). Chat 'dilewati' keluar dari
+-- antrean, TAPI tetap tampil bila masih disematkan (pin = tindak lanjut yang
+-- belum selesai) — keputusan produk: Selesai & lanjut tidak melepas sematan.
 SELECT * FROM chats
 WHERE hidden_by_staff_at IS NULL
   AND hidden_by_student_at IS NULL
-  AND status IN ('baru', 'dibuka')
+  AND (status IN ('baru', 'dibuka') OR pinned_at IS NOT NULL)
 ORDER BY (pinned_at IS NOT NULL) DESC, (drafted_at IS NOT NULL) DESC,
          pinned_at DESC NULLS LAST, drafted_at DESC NULLS LAST,
          last_message_at DESC
@@ -114,7 +115,7 @@ LIMIT $1 OFFSET $2;
 SELECT count(*) FROM chats
 WHERE hidden_by_staff_at IS NULL
   AND hidden_by_student_at IS NULL
-  AND status IN ('baru', 'dibuka');
+  AND (status IN ('baru', 'dibuka') OR pinned_at IS NOT NULL);
 
 -- name: ListStaffHistory :many
 SELECT * FROM chats

@@ -586,7 +586,8 @@ function Bubble({ m }: { m: { sender: string; body: string; created_at: string; 
               {m.attachments.map((a) =>
                 a.mime?.startsWith('image/') ? (
                   <div key={a.id} className="size-[150px] overflow-hidden rounded-[12px] border border-violet-light">
-                    <img src={`/api/v1/attachments/${a.id}`} alt={a.name} className="size-full object-cover" />
+                    {/* Siswa anonim: lewat /lapor/attachments (cookie anon), bukan /attachments (staf). */}
+                    <img src={`/api/v1/lapor/attachments/${a.id}`} alt={a.name} className="size-full object-cover" />
                   </div>
                 ) : (
                   <div key={a.id} className="flex w-[120px] flex-col overflow-hidden rounded-[12px]">

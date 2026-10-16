@@ -1,7 +1,6 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 
 import { IconAiMagicLight, IconUpload } from '@/components/icons'
-import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { fmtDateID } from '@/lib/format'
 import { cn } from '@/lib/utils'
@@ -91,18 +90,32 @@ function NoteField({
   )
 }
 
+/** Field read-only (tampilan BK / siswa tanpa akses tulis). */
+function ReadOnlyField({ value }: { value: string }) {
+  return (
+    <div className="min-h-[42px] whitespace-pre-wrap rounded-[10px] border border-[#E2E2F2] bg-[#FAFAFE] px-3 py-2.5 text-[14px] text-[rgba(21,21,58,.75)]">
+      {value || '—'}
+    </div>
+  )
+}
+
 /** Tab "Data siswa & observasi": kartu Data siswa + Nilai E-Rapor + Catatan guru. */
 export default function DataTab({
   detail,
   form,
   setForm,
   canWrite,
+  onImport,
 }: {
   detail: StudentDetail
   form: DataFormState
   setForm: (f: DataFormState) => void
   canWrite: boolean
+  /** Buka modal impor E-Rapor (tombol "Impor ulang"). */
+  onImport: () => void
 }) {
+  const [addSubjectOpen, setAddSubjectOpen] = useState(false)
+
   const age = useMemo(() => {
     if (!form.tanggal_lahir) return null
     const diff = Date.now() - new Date(form.tanggal_lahir).getTime()
@@ -126,25 +139,55 @@ export default function DataTab({
         </p>
       </div>
 
-      {/* Data siswa */}
+      {/* Data siswa — semua field editable untuk Wali Kelas (mockup: input teks). */}
       <div className={card}>
         <h3 className={cardTitle}>Data siswa</h3>
         <p className={cardSub}>Nama dan kelas wajib diisi.</p>
         <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <div>
             <Label className="mb-1.5 text-[13px] font-semibold">Nama</Label>
-            <Input value={form.nama} readOnly className="input bg-[#FAFAFE]" />
+            {canWrite ? (
+              <input
+                value={form.nama}
+                maxLength={80}
+                onChange={(e) => patch({ nama: e.target.value })}
+                className="input"
+                placeholder="Nama lengkap siswa"
+              />
+            ) : (
+              <ReadOnlyField value={form.nama} />
+            )}
           </div>
           <div>
             <Label className="mb-1.5 text-[13px] font-semibold">Kelas & jurusan</Label>
-            <Input value={form.kelas} readOnly className="input bg-[#FAFAFE]" />
+            {canWrite ? (
+              <input
+                value={form.kelas}
+                maxLength={40}
+                onChange={(e) => patch({ kelas: e.target.value })}
+                className="input"
+                placeholder="Contoh: X TJKT 1"
+              />
+            ) : (
+              <ReadOnlyField value={form.kelas} />
+            )}
           </div>
           <div>
             <div className="mb-1.5 flex items-baseline justify-between">
               <Label className="text-[13px] font-semibold">NISN</Label>
               <span className="text-[11px] text-[rgba(21,21,58,.4)]">Opsional</span>
             </div>
-            <Input value={form.nisn} readOnly className="input bg-[#FAFAFE]" />
+            {canWrite ? (
+              <input
+                value={form.nisn}
+                maxLength={30}
+                onChange={(e) => patch({ nisn: e.target.value })}
+                className="input"
+                placeholder="Contoh: 2060691511"
+              />
+            ) : (
+              <ReadOnlyField value={form.nisn} />
+            )}
           </div>
           <div>
             <div className="mb-1.5 flex items-baseline justify-between">
@@ -152,16 +195,14 @@ export default function DataTab({
               <span className="text-[11px] text-[rgba(21,21,58,.4)]">Opsional</span>
             </div>
             {canWrite ? (
-              <Input
+              <input
                 type="date"
                 value={form.tanggal_lahir}
                 onChange={(e) => patch({ tanggal_lahir: e.target.value })}
                 className="input"
               />
             ) : (
-              <div className="rounded-[10px] border border-[#E2E2F2] bg-[#FAFAFE] px-3 py-2.5 text-[14px] text-[rgba(21,21,58,.75)]">
-                {form.tanggal_lahir ? fmtDateID(form.tanggal_lahir) : '—'}
-              </div>
+              <ReadOnlyField value={form.tanggal_lahir ? fmtDateID(form.tanggal_lahir) : '—'} />
             )}
             {age !== null && <p className="mt-1 text-[11.5px] text-[rgba(21,21,58,.45)]">Age {age} · auto-calculated</p>}
           </div>
@@ -180,6 +221,7 @@ export default function DataTab({
           {canWrite && (
             <button
               type="button"
+              onClick={onImport}
               className="inline-flex shrink-0 items-center gap-1.5 rounded-[8px] bg-[#ecebf6] px-3 py-1.5 text-[13px] font-medium text-violet hover:bg-violet-light"
             >
               <IconUpload /> Impor ulang
@@ -238,6 +280,7 @@ export default function DataTab({
           {canWrite ? (
             <button
               type="button"
+              onClick={() => setAddSubjectOpen(true)}
               className="inline-flex items-center gap-1 rounded-[8px] bg-[#ecebf6] px-3 py-1.5 text-[13px] font-medium text-violet hover:bg-violet-light"
             >
               + Tambah mapel
@@ -296,6 +339,75 @@ export default function DataTab({
         <p className="mt-3 text-[11.5px] text-[rgba(21,21,58,.5)]">
           Hanya Anda dan BK yang bisa melihat ini · Tidak pernah dikirim ke AI
         </p>
+      </div>
+
+      {addSubjectOpen && (
+        <AddSubjectModal
+          onClose={() => setAddSubjectOpen(false)}
+          onSubmit={(mapel) => {
+            patch({
+              nilai_erapor: [...form.nilai_erapor, { mapel, nilai: 0, periode: 'Semester 1 · 2026/2027' }],
+            })
+            setAddSubjectOpen(false)
+          }}
+        />
+      )}
+    </div>
+  )
+}
+
+/** Modal "Tambah mapel" (mockup: prompt nama mapel; di sini dialog bergaya). */
+function AddSubjectModal({ onSubmit, onClose }: { onSubmit: (mapel: string) => void; onClose: () => void }) {
+  const [mapel, setMapel] = useState('')
+  return (
+    <div
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-[rgba(21,21,58,.45)] p-4"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose()
+      }}
+    >
+      <div className="w-full max-w-[440px] rounded-2xl bg-white p-6 shadow-[0_24px_60px_rgba(21,21,58,.25)]">
+        <h3 className="text-[18px] font-bold text-violet-dark">Tambah mapel</h3>
+        <p className="mt-1.5 text-[13px] text-[rgba(21,21,58,.7)]">
+          Mapel baru ditambahkan dengan nilai 0. Ubah nilainya setelah disimpan.
+        </p>
+        <form
+          onSubmit={(e) => {
+            e.preventDefault()
+            const v = mapel.trim()
+            if (!v) return
+            onSubmit(v)
+          }}
+          className="mt-4 flex flex-col gap-4"
+        >
+          <div>
+            <label className="mb-1.5 block text-[13px] font-semibold text-violet-dark">Nama mapel</label>
+            <input
+              autoFocus
+              value={mapel}
+              maxLength={80}
+              onChange={(e) => setMapel(e.target.value)}
+              className="input"
+              placeholder="Contoh: Matematika (Lanjutan)"
+            />
+          </div>
+          <div className="flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-[10px] border border-violet-light bg-white px-4 py-2.5 text-[14px] font-medium text-violet-dark hover:bg-[#F6F6FB]"
+            >
+              Batal
+            </button>
+            <button
+              type="submit"
+              disabled={!mapel.trim()}
+              className="rounded-[10px] bg-violet px-4 py-2.5 text-[14px] font-semibold text-base hover:bg-violet-hover disabled:opacity-50"
+            >
+              Tambah
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   )
