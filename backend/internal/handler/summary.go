@@ -12,10 +12,43 @@ import (
 
 type SummaryHandlers struct {
 	summary *service.Summary
+	enqueue func(uuid.UUID, uuid.UUID, string)
 }
 
 func NewSummaryHandlers(s *service.Summary) *SummaryHandlers {
 	return &SummaryHandlers{summary: s}
+}
+
+// WithEnqueue menyuntikkan hook queue AI (dipanggil server setelah queue dibuat).
+func (h *SummaryHandlers) WithEnqueue(fn func(uuid.UUID, uuid.UUID, string)) *SummaryHandlers {
+	h.enqueue = fn
+	return h
+}
+
+// Generate handles POST /api/v1/students/{id}/summaries — trigger manual.
+// Generate berjalan asinkron lewat queue AI; balas 202 lalu FE poll /latest.
+func (h *SummaryHandlers) Generate(w http.ResponseWriter, r *http.Request) {
+	actor, err := actorFrom(r)
+	if err != nil {
+		Error(w, err)
+		return
+	}
+	id, err := studentIDParam(r)
+	if err != nil {
+		Error(w, err)
+		return
+	}
+	if err := h.summary.CanGenerate(r.Context(), actor, id); err != nil {
+		Error(w, err)
+		return
+	}
+	if h.enqueue == nil {
+		Error(w, utils.NewErrAINotConfigured("Ringkasan AI belum dikonfigurasi."))
+		return
+	}
+	h.enqueue(id, actor.UserID, "manual")
+	w.WriteHeader(http.StatusAccepted)
+	OK(w, map[string]any{"status": "queued"})
 }
 
 // Latest handles GET /api/v1/students/{id}/summaries/latest.

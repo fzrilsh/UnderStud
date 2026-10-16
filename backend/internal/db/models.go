@@ -22,6 +22,8 @@ type AiSummary struct {
 	Status        string
 	Error         *string
 	CreatedAt     time.Time
+	Version       int32
+	Note          string
 }
 
 type AnonSession struct {

@@ -304,7 +304,7 @@ func (q *Queries) ListHomerooms(ctx context.Context) ([]ListHomeroomsRow, error)
 }
 
 const listLatestSummaries = `-- name: ListLatestSummaries :many
-SELECT s.id, s.student_id, s.generated_by, s.trigger_reason, s.content, s.sources, s.model, s.status, s.error, s.created_at, st.name AS student_name, st.kelas AS student_kelas, st.archived_at AS student_archived_at,
+SELECT s.id, s.student_id, s.generated_by, s.trigger_reason, s.content, s.sources, s.model, s.status, s.error, s.created_at, s.version, s.note, st.name AS student_name, st.kelas AS student_kelas, st.archived_at AS student_archived_at,
   EXISTS (SELECT 1 FROM observations o
           WHERE o.student_id = st.id AND o.red_flag = true AND o.handled_at IS NULL) AS student_has_red_flag
 FROM ai_summaries s
@@ -325,6 +325,8 @@ type ListLatestSummariesRow struct {
 	Status            string
 	Error             *string
 	CreatedAt         time.Time
+	Version           int32
+	Note              string
 	StudentName       string
 	StudentKelas      string
 	StudentArchivedAt *time.Time
@@ -352,6 +354,8 @@ func (q *Queries) ListLatestSummaries(ctx context.Context, limit int32) ([]ListL
 			&i.Status,
 			&i.Error,
 			&i.CreatedAt,
+			&i.Version,
+			&i.Note,
 			&i.StudentName,
 			&i.StudentKelas,
 			&i.StudentArchivedAt,

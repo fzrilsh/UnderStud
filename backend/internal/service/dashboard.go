@@ -171,10 +171,10 @@ func (d *Dashboard) BK(ctx context.Context, actor Actor) (DashboardBK, error) {
 					ID: r.StudentID.String(), Name: r.StudentName, Kelas: r.StudentKelas,
 					HasRedFlag: r.StudentHasRedFlag,
 				},
-				Summary: toSummaryView(db.AiSummary{
-					ID: r.ID, StudentID: r.StudentID, GeneratedBy: r.GeneratedBy,
-					TriggerReason: r.TriggerReason, Content: r.Content, Sources: r.Sources,
+				Summary: toSummaryView(summaryFields{
+					ID: r.ID, Content: r.Content, Sources: r.Sources,
 					Model: r.Model, Status: r.Status, Error: r.Error, CreatedAt: r.CreatedAt,
+					Version: r.Version, Note: r.Note,
 				}),
 			})
 		}

@@ -68,7 +68,8 @@ func New(cfg config.Config, logger *slog.Logger, pool *pgxpool.Pool) http.Handle
 	importerSvc := service.NewImporter(queries, pool, aiQueue)
 	studentHandler := handler.NewStudentHandlers(studentSvc, observasiSvc, summarySvc, importerSvc).
 		WithEnqueue(func(sid, by uuid.UUID, reason string) { aiQueue.Enqueue(sid, by, reason) })
-	summaryHandler := handler.NewSummaryHandlers(summarySvc)
+	summaryHandler := handler.NewSummaryHandlers(summarySvc).
+		WithEnqueue(func(sid, by uuid.UUID, reason string) { aiQueue.Enqueue(sid, by, reason) })
 	dashboardSvc := service.NewDashboard(queries)
 	dashboardHandler := handler.NewDashboardHandlers(dashboardSvc)
 
@@ -164,6 +165,7 @@ func New(cfg config.Config, logger *slog.Logger, pool *pgxpool.Pool) http.Handle
 				r.Post("/{id}/archive", studentHandler.Archive)
 				r.Post("/{id}/restore", studentHandler.Restore)
 				r.Post("/{id}/observations", studentHandler.CreateObservation)
+				r.Post("/{id}/summaries", summaryHandler.Generate)
 			})
 		})
 

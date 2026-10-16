@@ -3,6 +3,7 @@ package service
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -79,6 +80,48 @@ func sanitizePDFText(s string) string {
 	return b.String()
 }
 
+// summaryToPlainText: ubah content (objek JSON) jadi teks untuk PDF/TXT.
+// Bila content bukan JSON (data lama), kembalikan apa adanya.
+func summaryToPlainText(content string) string {
+	var c struct {
+		Headline  string `json:"headline"`
+		Narrative string `json:"narrative"`
+		Insights  []struct {
+			Title string `json:"title"`
+			Items []struct {
+				Text string `json:"text"`
+			} `json:"items"`
+		} `json:"insights"`
+	}
+	if err := json.Unmarshal([]byte(content), &c); err != nil {
+		return content
+	}
+	var b strings.Builder
+	if strings.TrimSpace(c.Headline) != "" {
+		b.WriteString(c.Headline)
+		b.WriteString("\n\n")
+	}
+	if strings.TrimSpace(c.Narrative) != "" {
+		b.WriteString(c.Narrative)
+		b.WriteString("\n\n")
+	}
+	for _, ins := range c.Insights {
+		if strings.TrimSpace(ins.Title) == "" || len(ins.Items) == 0 {
+			continue
+		}
+		fmt.Fprintf(&b, "%s\n", ins.Title)
+		for _, it := range ins.Items {
+			fmt.Fprintf(&b, "  - %s\n", it.Text)
+		}
+		b.WriteString("\n")
+	}
+	out := strings.TrimSpace(b.String())
+	if out == "" {
+		return content
+	}
+	return out
+}
+
 // Export: generate PDF/TXT dari ringkasan + catat audit. Scoped ke kelas Wali Kelas.
 func (s *Summary) Export(ctx context.Context, actor Actor, studentID, summaryID uuid.UUID, format string) (ExportFile, error) {
 	if err := s.ensureScope(ctx, actor, studentID); err != nil {
@@ -100,17 +143,18 @@ func (s *Summary) Export(ctx context.Context, actor Actor, studentID, summaryID 
 		return ExportFile{}, utils.NewErrNotFound("Siswa tidak ditemukan.")
 	}
 
+	body := summaryToPlainText(sum.Content)
 	base := fmt.Sprintf("ringkasan-%s-%s", slugify(st.Name), sum.CreatedAt.In(jakartaLoc()).Format("20060102"))
 	var out ExportFile
 	switch format {
 	case "pdf":
-		data, err := renderPDF(st.Name, st.Kelas, sum.Content, sum.CreatedAt)
+		data, err := renderPDF(st.Name, st.Kelas, body, sum.CreatedAt)
 		if err != nil {
 			return ExportFile{}, utils.NewErrInternal("gagal membuat PDF")
 		}
 		out = ExportFile{Data: data, ContentType: "application/pdf", Filename: base + ".pdf"}
 	case "txt":
-		out = ExportFile{Data: renderTXT(st.Name, st.Kelas, sum.Content, sum.CreatedAt), ContentType: "text/plain; charset=utf-8", Filename: base + ".txt"}
+		out = ExportFile{Data: renderTXT(st.Name, st.Kelas, body, sum.CreatedAt), ContentType: "text/plain; charset=utf-8", Filename: base + ".txt"}
 	}
 
 	if _, err := s.queries.CreateExportRecord(ctx, db.CreateExportRecordParams{

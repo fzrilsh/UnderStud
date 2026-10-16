@@ -50,12 +50,17 @@ Tugasmu meringkas data yang diberikan — BUKAN mendiagnosis.
 
 Aturan wajib:
 1. Ringkas HANYA berdasarkan data yang diberikan. Jangan mengarang.
-2. Jika suatu data tidak tersedia, tulis "tidak tersedia" — jangan disimpulkan.
-3. Sertakan sumber untuk setiap klaim (mis. "berdasarkan nilai e-rapor").
-4. JANGAN memberi diagnosis medis/psikologis, skor risiko, atau prediksi
+2. Jika suatu data tidak tersedia, jangan disimpulkan.
+3. JANGAN memberi diagnosis medis/psikologis, skor risiko, atau prediksi
    (kelulusan, perilaku, dll).
-5. Gunakan bahasa Indonesia yang jelas dan tidak menghakimi.
-6. Susun dalam 4 bagian: Kemampuan, Minat, Kekuatan, Kebutuhan.`
+4. Gunakan bahasa Indonesia yang jelas dan tidak menghakimi.
+
+Balas HANYA dengan satu objek JSON valid (tanpa markdown/penjelasan di luar JSON)
+dengan skema PERSIS berikut — HANYA dua field:
+{
+  "headline": "satu kalimat inti tentang siswa",
+  "narrative": "paragraf naratif 2-4 kalimat yang merangkum temuan utama"
+}`
 }
 
 func orNA(s string) string {
@@ -89,16 +94,30 @@ Buat ringkasan profil siswa sesuai aturan.`,
 		len(in.Observasi), obs)
 }
 
+// UserPrompt minta model membalas JSON; dikirim sebagai pesan user.
+func BuildUserPromptJSON(in SummarizeInput) string {
+	return BuildUserPrompt(in) + `
+
+PENTING: balas HANYA objek JSON valid (mulai dengan "{" dan diakhiri "}"),
+tanpa penjelasan, tanpa blok markdown, tanpa teks di luar JSON.`
+}
+
 type chatMessage struct {
 	Role    string `json:"role"`
 	Content string `json:"content"`
 }
 
 type chatRequest struct {
-	Model       string        `json:"model"`
-	Messages    []chatMessage `json:"messages"`
-	Temperature float64       `json:"temperature"`
-	MaxTokens   int           `json:"max_tokens"`
+	Model          string        `json:"model"`
+	Messages       []chatMessage `json:"messages"`
+	Temperature    float64       `json:"temperature"`
+	MaxTokens      int           `json:"max_tokens"`
+	ResponseFormat *respFormat   `json:"response_format,omitempty"`
+}
+
+// respFormat: minta provider OpenAI-compatible membalas JSON valid.
+type respFormat struct {
+	Type string `json:"type"` // "json_object"
 }
 
 type chatResponse struct {
@@ -110,13 +129,138 @@ type chatResponse struct {
 	} `json:"error"`
 }
 
-// Summarize memanggil {AI_BASE_URL}/chat/completions (OpenAI-compatible).
-func (c *Client) Summarize(ctx context.Context, in SummarizeInput) (string, error) {
+// Narrative: hasil ringkas dari AI (headline + narrative).
+type Narrative struct {
+	Headline  string `json:"headline"`
+	Narrative string `json:"narrative"`
+}
+
+// Summarize memanggil {AI_BASE_URL}/chat/completions (OpenAI-compatible) dan
+// mengembalikan headline+narrative. Bila model membalas non-JSON, coba sekali
+// lagi dengan penegasan lebih keras; bila tetap gagal, pakai teks mentah
+// sebagai narrative (headline kosong).
+func (c *Client) Summarize(ctx context.Context, in SummarizeInput) (Narrative, error) {
+	raw, err := c.complete(ctx, BuildUserPrompt(in))
+	if err != nil {
+		return Narrative{}, err
+	}
+	if n, ok := parseNarrative(raw); ok {
+		return n, nil
+	}
+	raw2, err2 := c.complete(ctx, BuildUserPromptJSON(in))
+	if err2 != nil {
+		// Pakai hasil pertama apa adanya sebagai narrative.
+		return Narrative{Narrative: strings.TrimSpace(raw)}, nil
+	}
+	if n, ok := parseNarrative(raw2); ok {
+		return n, nil
+	}
+	return Narrative{Narrative: strings.TrimSpace(raw2)}, nil
+}
+
+// parseNarrative: ekstrak headline+narrative dari balasan model. Model sering
+// TIDAK mengikuti skema (mis. membalas {"ringkasan_profil": {...}} atau
+// markdown). Strategi berlapis:
+//  1. JSON persis {headline, narrative}.
+//  2. JSON apa pun: cari key "headline"/"narrative"/"kesimpulan" secara rekursif.
+//  3. Teks bebas: pakai seluruh teks sebagai narrative (headline kosong).
+func parseNarrative(s string) (Narrative, bool) {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return Narrative{}, false
+	}
+	// 1. JSON persis.
+	var direct Narrative
+	if json.Unmarshal([]byte(s), &direct) == nil {
+		if strings.TrimSpace(direct.Narrative) != "" || strings.TrimSpace(direct.Headline) != "" {
+			return direct, true
+		}
+	}
+	// 2. JSON apa pun → cari key relevan secara rekursif.
+	if i := strings.Index(s, "{"); i >= 0 {
+		if j := strings.LastIndex(s, "}"); j > i {
+			var anyJSON any
+			if json.Unmarshal([]byte(s[i:j+1]), &anyJSON) == nil {
+				n := Narrative{
+					Headline:  findStringKey(anyJSON, "headline", "judul"),
+					Narrative: findStringKey(anyJSON, "narrative", "kesimpulan", "ringkasan", "analisis"),
+				}
+				if strings.TrimSpace(n.Narrative) != "" || strings.TrimSpace(n.Headline) != "" {
+					return n, true
+				}
+			}
+		}
+	}
+	// 3. Teks bebas → narrative (bersihkan markdown agar rapi).
+	return Narrative{Narrative: stripMarkdown(s)}, true
+}
+
+// stripMarkdown: bersihkan penanda markdown umum (heading, bold, tabel, list)
+// supaya narrative terbaca sebagai teks biasa di UI. Baris tabel dibuang karena
+// angka sudah tersedia di metrics/data_used.
+func stripMarkdown(s string) string {
+	var lines []string
+	for _, ln := range strings.Split(s, "\n") {
+		t := strings.TrimSpace(ln)
+		if strings.Contains(t, "|") { // baris tabel markdown → buang
+			continue
+		}
+		t = strings.TrimLeft(t, "#") // heading
+		t = strings.TrimSpace(t)
+		t = strings.ReplaceAll(t, "**", "")
+		t = strings.ReplaceAll(t, "__", "")
+		t = strings.TrimPrefix(t, "- ") // bullet
+		t = strings.TrimPrefix(t, "* ")
+		lines = append(lines, t)
+	}
+	out := strings.Join(lines, "\n")
+	for strings.Contains(out, "\n\n\n") {
+		out = strings.ReplaceAll(out, "\n\n\n", "\n\n")
+	}
+	return strings.TrimSpace(out)
+}
+
+// findStringKey: cari nilai string pertama untuk salah satu key (rekursif).
+func findStringKey(v any, keys ...string) string {
+	keySet := map[string]bool{}
+	for _, k := range keys {
+		keySet[k] = true
+	}
+	var walk func(any) string
+	walk = func(x any) string {
+		switch t := x.(type) {
+		case map[string]any:
+			for k, val := range t {
+				if keySet[k] {
+					if s, ok := val.(string); ok && strings.TrimSpace(s) != "" {
+						return s
+					}
+				}
+			}
+			for _, val := range t {
+				if r := walk(val); r != "" {
+					return r
+				}
+			}
+		case []any:
+			for _, val := range t {
+				if r := walk(val); r != "" {
+					return r
+				}
+			}
+		}
+		return ""
+	}
+	return walk(v)
+}
+
+func (c *Client) complete(ctx context.Context, userPrompt string) (string, error) {
 	body, _ := json.Marshal(chatRequest{
-		Model:       c.model,
-		Messages:    []chatMessage{{Role: "system", Content: SystemPrompt()}, {Role: "user", Content: BuildUserPrompt(in)}},
-		Temperature: 0.3,
-		MaxTokens:   800,
+		Model:          c.model,
+		Messages:       []chatMessage{{Role: "system", Content: SystemPrompt()}, {Role: "user", Content: userPrompt}},
+		Temperature:    0.3,
+		MaxTokens:      2000,
+		ResponseFormat: &respFormat{Type: "json_object"},
 	})
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+"/chat/completions", bytes.NewReader(body))
 	if err != nil {
@@ -136,7 +280,9 @@ func (c *Client) Summarize(ctx context.Context, in SummarizeInput) (string, erro
 		return "", fmt.Errorf("ai http %d: %s", resp.StatusCode, string(raw))
 	}
 	var out chatResponse
-	if err := json.Unmarshal(raw, &out); err != nil {
+	// Toleran: sebagian proxy mengirim JSON + konten tambahan setelahnya
+	// (mis. chunk usage). Decoder berhenti setelah nilai JSON pertama.
+	if err := json.NewDecoder(bytes.NewReader(raw)).Decode(&out); err != nil {
 		return "", err
 	}
 	if out.Error != nil {

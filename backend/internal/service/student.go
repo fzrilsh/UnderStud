@@ -443,7 +443,7 @@ func (s *Student) Detail(ctx context.Context, actor Actor, id uuid.UUID) (Studen
 		StudentID: id, Limit: 100, Offset: 0,
 	}); err == nil {
 		for _, sr := range sumRows {
-			summaries = append(summaries, toSummaryView(sr))
+			summaries = append(summaries, toSummaryView(summaryFieldsFromList(sr)))
 		}
 	}
 	item := toStudentItem(st, red)

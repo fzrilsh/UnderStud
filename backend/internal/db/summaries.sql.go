@@ -7,6 +7,7 @@ package db
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -23,9 +24,9 @@ func (q *Queries) CountSummaries(ctx context.Context, studentID uuid.UUID) (int6
 }
 
 const createSummary = `-- name: CreateSummary :one
-INSERT INTO ai_summaries (student_id, generated_by, trigger_reason, content, sources, model, status, error)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-RETURNING id, student_id, generated_by, trigger_reason, content, sources, model, status, error, created_at
+INSERT INTO ai_summaries (student_id, generated_by, trigger_reason, content, sources, model, status, error, version, note)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+RETURNING id, student_id, generated_by, trigger_reason, content, sources, model, status, error, created_at, version, note
 `
 
 type CreateSummaryParams struct {
@@ -37,6 +38,8 @@ type CreateSummaryParams struct {
 	Model         *string
 	Status        string
 	Error         *string
+	Version       int32
+	Note          string
 }
 
 func (q *Queries) CreateSummary(ctx context.Context, arg CreateSummaryParams) (AiSummary, error) {
@@ -49,6 +52,8 @@ func (q *Queries) CreateSummary(ctx context.Context, arg CreateSummaryParams) (A
 		arg.Model,
 		arg.Status,
 		arg.Error,
+		arg.Version,
+		arg.Note,
 	)
 	var i AiSummary
 	err := row.Scan(
@@ -62,20 +67,40 @@ func (q *Queries) CreateSummary(ctx context.Context, arg CreateSummaryParams) (A
 		&i.Status,
 		&i.Error,
 		&i.CreatedAt,
+		&i.Version,
+		&i.Note,
 	)
 	return i, err
 }
 
 const getLatestSummary = `-- name: GetLatestSummary :one
-SELECT id, student_id, generated_by, trigger_reason, content, sources, model, status, error, created_at FROM ai_summaries
-WHERE student_id = $1
-ORDER BY created_at DESC
+SELECT s.id, s.student_id, s.generated_by, s.trigger_reason, s.content, s.sources, s.model, s.status, s.error, s.created_at, s.version, s.note, u.name AS author_name
+FROM ai_summaries s
+JOIN users u ON u.id = s.generated_by
+WHERE s.student_id = $1
+ORDER BY s.created_at DESC
 LIMIT 1
 `
 
-func (q *Queries) GetLatestSummary(ctx context.Context, studentID uuid.UUID) (AiSummary, error) {
+type GetLatestSummaryRow struct {
+	ID            uuid.UUID
+	StudentID     uuid.UUID
+	GeneratedBy   uuid.UUID
+	TriggerReason string
+	Content       string
+	Sources       []byte
+	Model         *string
+	Status        string
+	Error         *string
+	CreatedAt     time.Time
+	Version       int32
+	Note          string
+	AuthorName    string
+}
+
+func (q *Queries) GetLatestSummary(ctx context.Context, studentID uuid.UUID) (GetLatestSummaryRow, error) {
 	row := q.db.QueryRow(ctx, getLatestSummary, studentID)
-	var i AiSummary
+	var i GetLatestSummaryRow
 	err := row.Scan(
 		&i.ID,
 		&i.StudentID,
@@ -87,17 +112,39 @@ func (q *Queries) GetLatestSummary(ctx context.Context, studentID uuid.UUID) (Ai
 		&i.Status,
 		&i.Error,
 		&i.CreatedAt,
+		&i.Version,
+		&i.Note,
+		&i.AuthorName,
 	)
 	return i, err
 }
 
 const getSummaryByID = `-- name: GetSummaryByID :one
-SELECT id, student_id, generated_by, trigger_reason, content, sources, model, status, error, created_at FROM ai_summaries WHERE id = $1
+SELECT s.id, s.student_id, s.generated_by, s.trigger_reason, s.content, s.sources, s.model, s.status, s.error, s.created_at, s.version, s.note, u.name AS author_name
+FROM ai_summaries s
+JOIN users u ON u.id = s.generated_by
+WHERE s.id = $1
 `
 
-func (q *Queries) GetSummaryByID(ctx context.Context, id uuid.UUID) (AiSummary, error) {
+type GetSummaryByIDRow struct {
+	ID            uuid.UUID
+	StudentID     uuid.UUID
+	GeneratedBy   uuid.UUID
+	TriggerReason string
+	Content       string
+	Sources       []byte
+	Model         *string
+	Status        string
+	Error         *string
+	CreatedAt     time.Time
+	Version       int32
+	Note          string
+	AuthorName    string
+}
+
+func (q *Queries) GetSummaryByID(ctx context.Context, id uuid.UUID) (GetSummaryByIDRow, error) {
 	row := q.db.QueryRow(ctx, getSummaryByID, id)
-	var i AiSummary
+	var i GetSummaryByIDRow
 	err := row.Scan(
 		&i.ID,
 		&i.StudentID,
@@ -109,13 +156,19 @@ func (q *Queries) GetSummaryByID(ctx context.Context, id uuid.UUID) (AiSummary, 
 		&i.Status,
 		&i.Error,
 		&i.CreatedAt,
+		&i.Version,
+		&i.Note,
+		&i.AuthorName,
 	)
 	return i, err
 }
 
 const listSummaries = `-- name: ListSummaries :many
-SELECT id, student_id, generated_by, trigger_reason, content, sources, model, status, error, created_at FROM ai_summaries WHERE student_id = $1
-ORDER BY created_at DESC
+SELECT s.id, s.student_id, s.generated_by, s.trigger_reason, s.content, s.sources, s.model, s.status, s.error, s.created_at, s.version, s.note, u.name AS author_name
+FROM ai_summaries s
+JOIN users u ON u.id = s.generated_by
+WHERE s.student_id = $1
+ORDER BY s.created_at DESC
 LIMIT $2 OFFSET $3
 `
 
@@ -125,15 +178,31 @@ type ListSummariesParams struct {
 	Offset    int32
 }
 
-func (q *Queries) ListSummaries(ctx context.Context, arg ListSummariesParams) ([]AiSummary, error) {
+type ListSummariesRow struct {
+	ID            uuid.UUID
+	StudentID     uuid.UUID
+	GeneratedBy   uuid.UUID
+	TriggerReason string
+	Content       string
+	Sources       []byte
+	Model         *string
+	Status        string
+	Error         *string
+	CreatedAt     time.Time
+	Version       int32
+	Note          string
+	AuthorName    string
+}
+
+func (q *Queries) ListSummaries(ctx context.Context, arg ListSummariesParams) ([]ListSummariesRow, error) {
 	rows, err := q.db.Query(ctx, listSummaries, arg.StudentID, arg.Limit, arg.Offset)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []AiSummary
+	var items []ListSummariesRow
 	for rows.Next() {
-		var i AiSummary
+		var i ListSummariesRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.StudentID,
@@ -145,6 +214,9 @@ func (q *Queries) ListSummaries(ctx context.Context, arg ListSummariesParams) ([
 			&i.Status,
 			&i.Error,
 			&i.CreatedAt,
+			&i.Version,
+			&i.Note,
+			&i.AuthorName,
 		); err != nil {
 			return nil, err
 		}
@@ -154,4 +226,16 @@ func (q *Queries) ListSummaries(ctx context.Context, arg ListSummariesParams) ([
 		return nil, err
 	}
 	return items, nil
+}
+
+const nextSummaryVersion = `-- name: NextSummaryVersion :one
+SELECT COALESCE(MAX(version), 0) + 1 AS next_version FROM ai_summaries WHERE student_id = $1
+`
+
+// Nomor versi berikutnya untuk siswa (1 bila belum ada ringkasan).
+func (q *Queries) NextSummaryVersion(ctx context.Context, studentID uuid.UUID) (int32, error) {
+	row := q.db.QueryRow(ctx, nextSummaryVersion, studentID)
+	var next_version int32
+	err := row.Scan(&next_version)
+	return next_version, err
 }

@@ -794,6 +794,29 @@ paths:
                     type: array
                     items: { $ref: "#/components/schemas/SummaryView" }
                   meta: { $ref: "#/components/schemas/Meta" }
+    post:
+      tags: [students]
+      summary: Trigger AI summary generation (async; poll /summaries/latest). Wali Kelas scoped.
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "202":
+          description: Queued
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      status: { type: string, enum: [queued] }
+        "503": { $ref: "#/components/responses/ErrorResponse" }
   /api/v1/students/{id}/summaries/latest:
     get:
       tags: [students]
@@ -1323,12 +1346,63 @@ components:
         chart:
           type: array
           items: { $ref: "#/components/schemas/ChartPoint" }
+    SummaryContent:
+      type: object
+      description: Konten ringkasan terstruktur (dibangun backend dari data siswa)
+      properties:
+        headline: { type: string }
+        narrative: { type: string }
+        metrics:
+          type: array
+          items:
+            type: object
+            properties:
+              label: { type: string }
+              value: { type: string }
+        insights:
+          type: array
+          items:
+            type: object
+            properties:
+              icon: { type: string }
+              title: { type: string }
+              subtitle: { type: string }
+              items:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    text: { type: string }
+              sources:
+                type: array
+                items: { type: string }
+              muted: { type: boolean }
+        data_used:
+          type: array
+          items:
+            type: object
+            properties:
+              source: { type: string }
+              details: { type: string }
+              updated: { type: string }
+              status: { type: string, enum: [used, missing, not_sent] }
+        red_flag:
+          nullable: true
+          type: object
+          properties:
+            title: { type: string }
+            note: { type: string }
     SummaryView:
       type: object
       properties:
         id: { type: string, format: uuid }
-        content: { type: string }
+        version: { type: integer, description: Nomor versi ringkasan per siswa }
+        content: { $ref: "#/components/schemas/SummaryContent" }
+        note: { type: string, description: 'Catatan versi, mis. "Menambahkan data terbaru"' }
+        author: { type: string, description: Nama pembuat ringkasan }
         sources: {}
+        sources_used: { type: integer }
+        sources_total: { type: integer }
         model: { type: string }
         status: { type: string, enum: [ready, failed] }
         error: { type: string }
