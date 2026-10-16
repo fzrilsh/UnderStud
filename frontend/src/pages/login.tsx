@@ -1,6 +1,5 @@
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Link } from 'react-router-dom'
 import { Loader2 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
@@ -48,10 +47,7 @@ export default function LoginPage() {
             </Button>
           </form>
           <p className="mt-4 text-center text-sm text-muted-foreground">
-            Belum punya akun?{' '}
-            <Link to="/register" className="text-foreground underline">
-              Register
-            </Link>
+            Tidak bisa masuk? Hubungi admin sekolah.
           </p>
         </CardContent>
       </Card>

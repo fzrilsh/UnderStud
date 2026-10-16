@@ -5,18 +5,14 @@ import type { UseMutationResult, UseQueryResult } from '@tanstack/react-query'
 import { toast } from 'sonner'
 
 import { api } from '@/lib/api'
+import { getApiErrorMessage } from '@/lib/errors'
 import { useAuthStore, type ApiUser } from '@/stores/auth-store'
 import type { components } from '@/types/api.gen'
-import type { LoginInput, RegisterInput } from './schemas'
+import type { LoginInput } from './schemas'
 
 type AuthResponse = components['schemas']['AuthResponse']
-type ErrorResponse = components['schemas']['ErrorResponse']
 
-/** Ambil pesan error dari axios error (shape backend {"error":{code,message}}). */
-export function getApiErrorMessage(err: unknown, fallback: string): string {
-  const maybe = err as { response?: { data?: ErrorResponse } }
-  return maybe?.response?.data?.error?.message ?? fallback
-}
+export { getApiErrorMessage }
 
 /** GET /auth/me — dipakai ProtectedRoute; sinkron dengan zustand store. */
 export function useMe(): UseQueryResult<ApiUser> {
@@ -69,27 +65,6 @@ export function useLogin(): UseMutationResult<ApiUser, Error, LoginInput> {
     },
     onError: (err) => {
       toast.error(getApiErrorMessage(err, 'Login gagal'))
-    },
-  })
-}
-
-/** POST /auth/register. */
-export function useRegister(): UseMutationResult<ApiUser, Error, RegisterInput> {
-  const setUser = useAuthStore((s) => s.setUser)
-  const navigate = useNavigate()
-
-  return useMutation({
-    mutationFn: async (input: RegisterInput) => {
-      const res = await api.post<AuthResponse>('/auth/register', input)
-      return res.data.user
-    },
-    onSuccess: (user) => {
-      setUser(user)
-      toast.success('Registrasi berhasil')
-      navigate('/', { replace: true })
-    },
-    onError: (err) => {
-      toast.error(getApiErrorMessage(err, 'Registrasi gagal'))
     },
   })
 }
