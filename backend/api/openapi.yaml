@@ -1077,6 +1077,7 @@ components:
         last_message_at: { type: string, format: date-time }
         last_message: { $ref: "#/components/schemas/LastMessage", nullable: true }
         has_new_reply: { type: boolean }
+        unread_count: { type: integer, description: 'Jumlah balasan BK yang belum dibaca siswa' }
     ChatView:
       type: object
       properties:

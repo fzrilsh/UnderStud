@@ -140,7 +140,7 @@ func (q *Queries) CreateAttachment(ctx context.Context, arg CreateAttachmentPara
 const createChat = `-- name: CreateChat :one
 INSERT INTO chats (session_id, identity_mode, snapshot_name, snapshot_kelas)
 VALUES ($1, $2, $3, $4)
-RETURNING id, session_id, status, identity_mode, snapshot_name, snapshot_kelas, pinned_at, drafted_at, hidden_by_student_at, hidden_by_staff_at, last_message_at, created_at, updated_at
+RETURNING id, session_id, status, identity_mode, snapshot_name, snapshot_kelas, pinned_at, drafted_at, hidden_by_student_at, hidden_by_staff_at, last_message_at, created_at, updated_at, student_unread_count
 `
 
 type CreateChatParams struct {
@@ -172,6 +172,7 @@ func (q *Queries) CreateChat(ctx context.Context, arg CreateChatParams) (Chat, e
 		&i.LastMessageAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.StudentUnreadCount,
 	)
 	return i, err
 }
@@ -209,7 +210,7 @@ func (q *Queries) CreateMessage(ctx context.Context, arg CreateMessageParams) (M
 }
 
 const draftChat = `-- name: DraftChat :one
-UPDATE chats SET drafted_at = now(), pinned_at = NULL, updated_at = now() WHERE id = $1 RETURNING id, session_id, status, identity_mode, snapshot_name, snapshot_kelas, pinned_at, drafted_at, hidden_by_student_at, hidden_by_staff_at, last_message_at, created_at, updated_at
+UPDATE chats SET drafted_at = now(), pinned_at = NULL, updated_at = now() WHERE id = $1 RETURNING id, session_id, status, identity_mode, snapshot_name, snapshot_kelas, pinned_at, drafted_at, hidden_by_student_at, hidden_by_staff_at, last_message_at, created_at, updated_at, student_unread_count
 `
 
 func (q *Queries) DraftChat(ctx context.Context, id uuid.UUID) (Chat, error) {
@@ -229,6 +230,7 @@ func (q *Queries) DraftChat(ctx context.Context, id uuid.UUID) (Chat, error) {
 		&i.LastMessageAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.StudentUnreadCount,
 	)
 	return i, err
 }
@@ -271,7 +273,7 @@ func (q *Queries) GetAttachmentByID(ctx context.Context, id uuid.UUID) (Attachme
 }
 
 const getChatByID = `-- name: GetChatByID :one
-SELECT id, session_id, status, identity_mode, snapshot_name, snapshot_kelas, pinned_at, drafted_at, hidden_by_student_at, hidden_by_staff_at, last_message_at, created_at, updated_at FROM chats WHERE id = $1
+SELECT id, session_id, status, identity_mode, snapshot_name, snapshot_kelas, pinned_at, drafted_at, hidden_by_student_at, hidden_by_staff_at, last_message_at, created_at, updated_at, student_unread_count FROM chats WHERE id = $1
 `
 
 func (q *Queries) GetChatByID(ctx context.Context, id uuid.UUID) (Chat, error) {
@@ -291,32 +293,34 @@ func (q *Queries) GetChatByID(ctx context.Context, id uuid.UUID) (Chat, error) {
 		&i.LastMessageAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.StudentUnreadCount,
 	)
 	return i, err
 }
 
 const getChatWithSession = `-- name: GetChatWithSession :one
-SELECT c.id, c.session_id, c.status, c.identity_mode, c.snapshot_name, c.snapshot_kelas, c.pinned_at, c.drafted_at, c.hidden_by_student_at, c.hidden_by_staff_at, c.last_message_at, c.created_at, c.updated_at, a.token_hash AS session_token_hash
+SELECT c.id, c.session_id, c.status, c.identity_mode, c.snapshot_name, c.snapshot_kelas, c.pinned_at, c.drafted_at, c.hidden_by_student_at, c.hidden_by_staff_at, c.last_message_at, c.created_at, c.updated_at, c.student_unread_count, a.token_hash AS session_token_hash
 FROM chats c
 JOIN anon_sessions a ON a.id = c.session_id
 WHERE c.id = $1
 `
 
 type GetChatWithSessionRow struct {
-	ID                uuid.UUID
-	SessionID         uuid.UUID
-	Status            string
-	IdentityMode      string
-	SnapshotName      *string
-	SnapshotKelas     *string
-	PinnedAt          *time.Time
-	DraftedAt         *time.Time
-	HiddenByStudentAt *time.Time
-	HiddenByStaffAt   *time.Time
-	LastMessageAt     time.Time
-	CreatedAt         time.Time
-	UpdatedAt         time.Time
-	SessionTokenHash  string
+	ID                 uuid.UUID
+	SessionID          uuid.UUID
+	Status             string
+	IdentityMode       string
+	SnapshotName       *string
+	SnapshotKelas      *string
+	PinnedAt           *time.Time
+	DraftedAt          *time.Time
+	HiddenByStudentAt  *time.Time
+	HiddenByStaffAt    *time.Time
+	LastMessageAt      time.Time
+	CreatedAt          time.Time
+	UpdatedAt          time.Time
+	StudentUnreadCount int32
+	SessionTokenHash   string
 }
 
 func (q *Queries) GetChatWithSession(ctx context.Context, id uuid.UUID) (GetChatWithSessionRow, error) {
@@ -336,6 +340,7 @@ func (q *Queries) GetChatWithSession(ctx context.Context, id uuid.UUID) (GetChat
 		&i.LastMessageAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.StudentUnreadCount,
 		&i.SessionTokenHash,
 	)
 	return i, err
@@ -373,7 +378,7 @@ func (q *Queries) HasStaffReplied(ctx context.Context, chatID uuid.UUID) (bool, 
 }
 
 const hideByStaff = `-- name: HideByStaff :one
-UPDATE chats SET hidden_by_staff_at = now(), drafted_at = NULL, updated_at = now() WHERE id = $1 RETURNING id, session_id, status, identity_mode, snapshot_name, snapshot_kelas, pinned_at, drafted_at, hidden_by_student_at, hidden_by_staff_at, last_message_at, created_at, updated_at
+UPDATE chats SET hidden_by_staff_at = now(), drafted_at = NULL, updated_at = now() WHERE id = $1 RETURNING id, session_id, status, identity_mode, snapshot_name, snapshot_kelas, pinned_at, drafted_at, hidden_by_student_at, hidden_by_staff_at, last_message_at, created_at, updated_at, student_unread_count
 `
 
 func (q *Queries) HideByStaff(ctx context.Context, id uuid.UUID) (Chat, error) {
@@ -393,12 +398,13 @@ func (q *Queries) HideByStaff(ctx context.Context, id uuid.UUID) (Chat, error) {
 		&i.LastMessageAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.StudentUnreadCount,
 	)
 	return i, err
 }
 
 const hideByStudent = `-- name: HideByStudent :one
-UPDATE chats SET hidden_by_student_at = now(), pinned_at = NULL, drafted_at = NULL, updated_at = now() WHERE id = $1 RETURNING id, session_id, status, identity_mode, snapshot_name, snapshot_kelas, pinned_at, drafted_at, hidden_by_student_at, hidden_by_staff_at, last_message_at, created_at, updated_at
+UPDATE chats SET hidden_by_student_at = now(), pinned_at = NULL, drafted_at = NULL, updated_at = now() WHERE id = $1 RETURNING id, session_id, status, identity_mode, snapshot_name, snapshot_kelas, pinned_at, drafted_at, hidden_by_student_at, hidden_by_staff_at, last_message_at, created_at, updated_at, student_unread_count
 `
 
 func (q *Queries) HideByStudent(ctx context.Context, id uuid.UUID) (Chat, error) {
@@ -418,8 +424,19 @@ func (q *Queries) HideByStudent(ctx context.Context, id uuid.UUID) (Chat, error)
 		&i.LastMessageAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.StudentUnreadCount,
 	)
 	return i, err
+}
+
+const incrementStudentUnread = `-- name: IncrementStudentUnread :exec
+UPDATE chats SET student_unread_count = student_unread_count + 1, updated_at = now() WHERE id = $1
+`
+
+// BK membalas → tambah hitungan belum dibaca sisi siswa.
+func (q *Queries) IncrementStudentUnread(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.Exec(ctx, incrementStudentUnread, id)
+	return err
 }
 
 const listAttachmentsByMessage = `-- name: ListAttachmentsByMessage :many
@@ -490,7 +507,7 @@ func (q *Queries) ListAttachmentsByMessages(ctx context.Context, messageIds []uu
 }
 
 const listChatsBySession = `-- name: ListChatsBySession :many
-SELECT id, session_id, status, identity_mode, snapshot_name, snapshot_kelas, pinned_at, drafted_at, hidden_by_student_at, hidden_by_staff_at, last_message_at, created_at, updated_at FROM chats
+SELECT id, session_id, status, identity_mode, snapshot_name, snapshot_kelas, pinned_at, drafted_at, hidden_by_student_at, hidden_by_staff_at, last_message_at, created_at, updated_at, student_unread_count FROM chats
 WHERE session_id = $1 AND hidden_by_student_at IS NULL
 ORDER BY last_message_at DESC
 LIMIT $2 OFFSET $3
@@ -525,6 +542,7 @@ func (q *Queries) ListChatsBySession(ctx context.Context, arg ListChatsBySession
 			&i.LastMessageAt,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.StudentUnreadCount,
 		); err != nil {
 			return nil, err
 		}
@@ -616,7 +634,7 @@ func (q *Queries) ListMessagesByChat(ctx context.Context, arg ListMessagesByChat
 }
 
 const listStaffHistory = `-- name: ListStaffHistory :many
-SELECT id, session_id, status, identity_mode, snapshot_name, snapshot_kelas, pinned_at, drafted_at, hidden_by_student_at, hidden_by_staff_at, last_message_at, created_at, updated_at FROM chats
+SELECT id, session_id, status, identity_mode, snapshot_name, snapshot_kelas, pinned_at, drafted_at, hidden_by_student_at, hidden_by_staff_at, last_message_at, created_at, updated_at, student_unread_count FROM chats
 WHERE status = 'dilewati' OR hidden_by_staff_at IS NOT NULL
 ORDER BY last_message_at DESC
 LIMIT $1 OFFSET $2
@@ -650,6 +668,7 @@ func (q *Queries) ListStaffHistory(ctx context.Context, arg ListStaffHistoryPara
 			&i.LastMessageAt,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.StudentUnreadCount,
 		); err != nil {
 			return nil, err
 		}
@@ -662,7 +681,7 @@ func (q *Queries) ListStaffHistory(ctx context.Context, arg ListStaffHistoryPara
 }
 
 const listStaffQueue = `-- name: ListStaffQueue :many
-SELECT id, session_id, status, identity_mode, snapshot_name, snapshot_kelas, pinned_at, drafted_at, hidden_by_student_at, hidden_by_staff_at, last_message_at, created_at, updated_at FROM chats
+SELECT id, session_id, status, identity_mode, snapshot_name, snapshot_kelas, pinned_at, drafted_at, hidden_by_student_at, hidden_by_staff_at, last_message_at, created_at, updated_at, student_unread_count FROM chats
 WHERE hidden_by_staff_at IS NULL
   AND hidden_by_student_at IS NULL
   AND status IN ('baru', 'dibuka')
@@ -703,6 +722,7 @@ func (q *Queries) ListStaffQueue(ctx context.Context, arg ListStaffQueueParams) 
 			&i.LastMessageAt,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.StudentUnreadCount,
 		); err != nil {
 			return nil, err
 		}
@@ -716,7 +736,7 @@ func (q *Queries) ListStaffQueue(ctx context.Context, arg ListStaffQueueParams) 
 
 const markChatOpened = `-- name: MarkChatOpened :one
 UPDATE chats SET status = 'dibuka', updated_at = now()
-WHERE id = $1 AND status = 'baru' RETURNING id, session_id, status, identity_mode, snapshot_name, snapshot_kelas, pinned_at, drafted_at, hidden_by_student_at, hidden_by_staff_at, last_message_at, created_at, updated_at
+WHERE id = $1 AND status = 'baru' RETURNING id, session_id, status, identity_mode, snapshot_name, snapshot_kelas, pinned_at, drafted_at, hidden_by_student_at, hidden_by_staff_at, last_message_at, created_at, updated_at, student_unread_count
 `
 
 // Transisi baru→dibuka saat BK pertama membuka laporan (spec §7.1). Audit H2.
@@ -737,12 +757,13 @@ func (q *Queries) MarkChatOpened(ctx context.Context, id uuid.UUID) (Chat, error
 		&i.LastMessageAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.StudentUnreadCount,
 	)
 	return i, err
 }
 
 const pinChat = `-- name: PinChat :one
-UPDATE chats SET pinned_at = now(), drafted_at = NULL, updated_at = now() WHERE id = $1 RETURNING id, session_id, status, identity_mode, snapshot_name, snapshot_kelas, pinned_at, drafted_at, hidden_by_student_at, hidden_by_staff_at, last_message_at, created_at, updated_at
+UPDATE chats SET pinned_at = now(), drafted_at = NULL, updated_at = now() WHERE id = $1 RETURNING id, session_id, status, identity_mode, snapshot_name, snapshot_kelas, pinned_at, drafted_at, hidden_by_student_at, hidden_by_staff_at, last_message_at, created_at, updated_at, student_unread_count
 `
 
 func (q *Queries) PinChat(ctx context.Context, id uuid.UUID) (Chat, error) {
@@ -762,13 +783,24 @@ func (q *Queries) PinChat(ctx context.Context, id uuid.UUID) (Chat, error) {
 		&i.LastMessageAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.StudentUnreadCount,
 	)
 	return i, err
 }
 
+const resetStudentUnread = `-- name: ResetStudentUnread :exec
+UPDATE chats SET student_unread_count = 0, updated_at = now() WHERE id = $1
+`
+
+// Siswa membuka chat → tandai semua terbaca.
+func (q *Queries) ResetStudentUnread(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.Exec(ctx, resetStudentUnread, id)
+	return err
+}
+
 const setChatSkipped = `-- name: SetChatSkipped :one
 UPDATE chats SET pinned_at = NULL, drafted_at = NULL, status = 'dilewati', updated_at = now()
-WHERE id = $1 RETURNING id, session_id, status, identity_mode, snapshot_name, snapshot_kelas, pinned_at, drafted_at, hidden_by_student_at, hidden_by_staff_at, last_message_at, created_at, updated_at
+WHERE id = $1 RETURNING id, session_id, status, identity_mode, snapshot_name, snapshot_kelas, pinned_at, drafted_at, hidden_by_student_at, hidden_by_staff_at, last_message_at, created_at, updated_at, student_unread_count
 `
 
 // Next (dari section mana pun): keluar sidebar total. Audit H1: WAJIB lepas
@@ -790,12 +822,13 @@ func (q *Queries) SetChatSkipped(ctx context.Context, id uuid.UUID) (Chat, error
 		&i.LastMessageAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.StudentUnreadCount,
 	)
 	return i, err
 }
 
 const touchChatMessage = `-- name: TouchChatMessage :one
-UPDATE chats SET last_message_at = now(), updated_at = now() WHERE id = $1 RETURNING id, session_id, status, identity_mode, snapshot_name, snapshot_kelas, pinned_at, drafted_at, hidden_by_student_at, hidden_by_staff_at, last_message_at, created_at, updated_at
+UPDATE chats SET last_message_at = now(), updated_at = now() WHERE id = $1 RETURNING id, session_id, status, identity_mode, snapshot_name, snapshot_kelas, pinned_at, drafted_at, hidden_by_student_at, hidden_by_staff_at, last_message_at, created_at, updated_at, student_unread_count
 `
 
 func (q *Queries) TouchChatMessage(ctx context.Context, id uuid.UUID) (Chat, error) {
@@ -815,12 +848,13 @@ func (q *Queries) TouchChatMessage(ctx context.Context, id uuid.UUID) (Chat, err
 		&i.LastMessageAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.StudentUnreadCount,
 	)
 	return i, err
 }
 
 const undraftChat = `-- name: UndraftChat :one
-UPDATE chats SET drafted_at = NULL, updated_at = now() WHERE id = $1 RETURNING id, session_id, status, identity_mode, snapshot_name, snapshot_kelas, pinned_at, drafted_at, hidden_by_student_at, hidden_by_staff_at, last_message_at, created_at, updated_at
+UPDATE chats SET drafted_at = NULL, updated_at = now() WHERE id = $1 RETURNING id, session_id, status, identity_mode, snapshot_name, snapshot_kelas, pinned_at, drafted_at, hidden_by_student_at, hidden_by_staff_at, last_message_at, created_at, updated_at, student_unread_count
 `
 
 func (q *Queries) UndraftChat(ctx context.Context, id uuid.UUID) (Chat, error) {
@@ -840,12 +874,13 @@ func (q *Queries) UndraftChat(ctx context.Context, id uuid.UUID) (Chat, error) {
 		&i.LastMessageAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.StudentUnreadCount,
 	)
 	return i, err
 }
 
 const unpinChat = `-- name: UnpinChat :one
-UPDATE chats SET pinned_at = NULL, updated_at = now() WHERE id = $1 RETURNING id, session_id, status, identity_mode, snapshot_name, snapshot_kelas, pinned_at, drafted_at, hidden_by_student_at, hidden_by_staff_at, last_message_at, created_at, updated_at
+UPDATE chats SET pinned_at = NULL, updated_at = now() WHERE id = $1 RETURNING id, session_id, status, identity_mode, snapshot_name, snapshot_kelas, pinned_at, drafted_at, hidden_by_student_at, hidden_by_staff_at, last_message_at, created_at, updated_at, student_unread_count
 `
 
 func (q *Queries) UnpinChat(ctx context.Context, id uuid.UUID) (Chat, error) {
@@ -865,6 +900,7 @@ func (q *Queries) UnpinChat(ctx context.Context, id uuid.UUID) (Chat, error) {
 		&i.LastMessageAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.StudentUnreadCount,
 	)
 	return i, err
 }
@@ -897,7 +933,7 @@ func (q *Queries) UpdateAnonProfile(ctx context.Context, arg UpdateAnonProfilePa
 }
 
 const updateChatStatus = `-- name: UpdateChatStatus :one
-UPDATE chats SET status = $2, updated_at = now() WHERE id = $1 RETURNING id, session_id, status, identity_mode, snapshot_name, snapshot_kelas, pinned_at, drafted_at, hidden_by_student_at, hidden_by_staff_at, last_message_at, created_at, updated_at
+UPDATE chats SET status = $2, updated_at = now() WHERE id = $1 RETURNING id, session_id, status, identity_mode, snapshot_name, snapshot_kelas, pinned_at, drafted_at, hidden_by_student_at, hidden_by_staff_at, last_message_at, created_at, updated_at, student_unread_count
 `
 
 type UpdateChatStatusParams struct {
@@ -922,6 +958,7 @@ func (q *Queries) UpdateChatStatus(ctx context.Context, arg UpdateChatStatusPara
 		&i.LastMessageAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.StudentUnreadCount,
 	)
 	return i, err
 }

@@ -44,19 +44,20 @@ type Attachment struct {
 }
 
 type Chat struct {
-	ID                uuid.UUID
-	SessionID         uuid.UUID
-	Status            string
-	IdentityMode      string
-	SnapshotName      *string
-	SnapshotKelas     *string
-	PinnedAt          *time.Time
-	DraftedAt         *time.Time
-	HiddenByStudentAt *time.Time
-	HiddenByStaffAt   *time.Time
-	LastMessageAt     time.Time
-	CreatedAt         time.Time
-	UpdatedAt         time.Time
+	ID                 uuid.UUID
+	SessionID          uuid.UUID
+	Status             string
+	IdentityMode       string
+	SnapshotName       *string
+	SnapshotKelas      *string
+	PinnedAt           *time.Time
+	DraftedAt          *time.Time
+	HiddenByStudentAt  *time.Time
+	HiddenByStaffAt    *time.Time
+	LastMessageAt      time.Time
+	CreatedAt          time.Time
+	UpdatedAt          time.Time
+	StudentUnreadCount int32
 }
 
 type ExportRecord struct {

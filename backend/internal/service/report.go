@@ -292,5 +292,9 @@ func (r *Report) Reply(ctx context.Context, staffID, chatID uuid.UUID, body stri
 	if _, err := r.queries.TouchChatMessage(ctx, ch.ID); err != nil {
 		return MessageView{}, utils.NewErrInternal("gagal memperbarui waktu")
 	}
+	// Tandai belum dibaca sisi siswa (badge di sidebar siswa).
+	if err := r.queries.IncrementStudentUnread(ctx, ch.ID); err != nil {
+		return MessageView{}, utils.NewErrInternal("gagal memperbarui status baca")
+	}
 	return MessageView{ID: msg.ID.String(), Sender: "BK", Body: body, Attachments: []AttachmentView{}, CreatedAt: msg.CreatedAt.Format(time.RFC3339)}, nil
 }

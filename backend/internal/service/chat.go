@@ -78,6 +78,7 @@ type ChatSummary struct {
 	LastMessageAt string       `json:"last_message_at"`
 	LastMessage   *LastMessage `json:"last_message"`  // preview pesan terakhir
 	HasNewReply   bool         `json:"has_new_reply"` // F23: pesan terakhir dari BK
+	UnreadCount   int32        `json:"unread_count"`  // balasan BK belum dibaca siswa
 }
 
 type ChatView struct {
@@ -305,6 +306,7 @@ func (c *Chat) ListBySession(ctx context.Context, session db.AnonSession, limit,
 				ID: ch.ID.String(), IdentityMode: ch.IdentityMode, Status: ch.Status,
 				LastMessageAt: ch.LastMessageAt.Format(time.RFC3339),
 				HasNewReply:   lastByChat[ch.ID].Sender == "BK",
+				UnreadCount:   ch.StudentUnreadCount,
 			}
 			if lm, ok := lastByChat[ch.ID]; ok {
 				sum.LastMessage = &lm
@@ -337,6 +339,8 @@ func (c *Chat) Detail(ctx context.Context, session db.AnonSession, chatID uuid.U
 	if err != nil {
 		return ChatDetail{}, err
 	}
+	// Siswa membuka chat → tandai semua balasan BK terbaca (reset badge).
+	_ = c.queries.ResetStudentUnread(ctx, chat.ID)
 	msgs, err := c.queries.ListMessagesByChat(ctx, db.ListMessagesByChatParams{ChatID: chat.ID, Limit: 200, Offset: 0})
 	if err != nil {
 		return ChatDetail{}, utils.NewErrInternal("gagal memuat pesan")

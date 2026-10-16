@@ -88,6 +88,14 @@ UPDATE chats SET hidden_by_staff_at = now(), drafted_at = NULL, updated_at = now
 -- name: TouchChatMessage :one
 UPDATE chats SET last_message_at = now(), updated_at = now() WHERE id = $1 RETURNING *;
 
+-- name: IncrementStudentUnread :exec
+-- BK membalas → tambah hitungan belum dibaca sisi siswa.
+UPDATE chats SET student_unread_count = student_unread_count + 1, updated_at = now() WHERE id = $1;
+
+-- name: ResetStudentUnread :exec
+-- Siswa membuka chat → tandai semua terbaca.
+UPDATE chats SET student_unread_count = 0, updated_at = now() WHERE id = $1;
+
 -- name: ListStaffQueue :many
 -- Sidebar BK = PIN ∪ DRAFT ∪ ANTREAN (spec §7.2). Chat 'dilewati' TIDAK masuk
 -- section mana pun → keluar dari sidebar. Pin/Draft selalu berstatus baru/dibuka,
