@@ -9,15 +9,22 @@ import { cn } from '@/lib/utils'
  * Section chat BK di sidebar (Disematkan/Draft) — hanya di halaman /reports.
  * Antrean TIDAK tampil di sidebar (mockup): chat antrean dibuka berurutan
  * lewat tombol "Selesai & lanjut".
+ *
+ * Wrapper ini yang mengecek role/halaman SEBELUM memanggil `useReports()`,
+ * supaya Wali Kelas tidak ikut fetch `/reports` (403 di konsol).
  */
 export default function ChatSections() {
   const location = useLocation()
   const user = useCurrentUser()
-  const [params, setParams] = useSearchParams()
-  const { data } = useReports()
 
   // Hanya tampil untuk BK di halaman /reports.
   if (user?.role !== 'BK' || !location.pathname.startsWith('/reports')) return null
+  return <ChatSectionsInner />
+}
+
+function ChatSectionsInner() {
+  const [params, setParams] = useSearchParams()
+  const { data } = useReports()
 
   const items = data?.items ?? []
   // Disematkan: tetap tampil walau statusnya 'dilewati' (Selesai & lanjut tidak

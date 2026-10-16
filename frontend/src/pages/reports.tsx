@@ -35,18 +35,9 @@ export default function ReportsPage() {
   useSeo('Chat', 'Antrean laporan siswa untuk ditinjau Guru BK.')
 
   const user = useCurrentUser()
-  const [params, setParams] = useSearchParams()
-  const activeId = params.get('chat')
-  const { data, isLoading } = useReports()
 
-  const setActive = (id: string | null) => {
-    const next = new URLSearchParams(params)
-    if (id) next.set('chat', id)
-    else next.delete('chat')
-    setParams(next, { replace: true })
-  }
-
-  // Guard: hanya BK.
+  // Guard SEBELUM memanggil useReports() — agar non-BK tidak ikut fetch
+  // `/reports` (yang akan membalas 403 dan mengotori konsol).
   if (user && user.role !== 'BK') {
     return (
       <div className="flex min-h-svh items-center justify-center px-6">
@@ -62,6 +53,20 @@ export default function ReportsPage() {
         </div>
       </div>
     )
+  }
+  return <ReportsInner />
+}
+
+function ReportsInner() {
+  const [params, setParams] = useSearchParams()
+  const activeId = params.get('chat')
+  const { data, isLoading } = useReports()
+
+  const setActive = (id: string | null) => {
+    const next = new URLSearchParams(params)
+    if (id) next.set('chat', id)
+    else next.delete('chat')
+    setParams(next, { replace: true })
   }
 
   const items = data?.items ?? []
@@ -300,7 +305,7 @@ function Bubble({ m }: { m: { sender: string; body: string; created_at: string; 
             <div className="flex flex-col gap-3">
               {m.attachments.map((a) =>
                 a.mime?.startsWith('image/') ? (
-                  <div key={a.id} className="size-[150px] overflow-hidden rounded-[12px] border border-violet-light">
+                  <div key={a.id} className="size-[150px] overflow-hidden rounded-[12px]">
                     <img src={`/api/v1/attachments/${a.id}`} alt={a.name} className="size-full object-cover" />
                   </div>
                 ) : (

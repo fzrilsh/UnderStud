@@ -51,9 +51,9 @@ export const IconLogout = (p: P) => (
   </svg>
 )
 
-/** Ikon pensil (tombol "Chat baru" siswa). */
+/** Ikon pensil (tombol "Chat baru" siswa) — mockup: 15×15. */
 export const IconPencil = (p: P) => (
-  <svg width="18" height="18" viewBox="0 0 15 15" fill="none" {...p}>
+  <svg width="15" height="15" viewBox="0 0 15 15" fill="none" {...p}>
     <path
       d="M12.76 4.34L8.84 8.26c-.79.79-1.18 1.18-1.66 1.45-.47.27-1.6.53-2.68.79.26-1.08.53-2.21.79-2.68.27-.48.66-.87 1.45-1.65L10.66 2.24l1.05-1.06a1.5 1.5 0 0 1 2.1 2.1l-1.05 1.06ZM10.66 2.24l2.1 2.1"
       stroke="currentColor"
@@ -207,11 +207,18 @@ export const IconClock = (p: P) => (
   </svg>
 )
 
-/** Ikon user (avatar sidebar, putih di atas gradient) — mockup `avatarLight`. */
+/** Ikon user (avatar sidebar 36px, putih di atas gradient) — mockup `avatarLight` (20px). */
 export const IconUserLight = (p: P) => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" {...p}>
     <circle cx="12" cy="8.2" r="3.6" stroke="#fcfcfe" strokeWidth="1.7" />
     <path d="M4.8 19.6c0-3.3 3.2-5.5 7.2-5.5s7.2 2.2 7.2 5.5" stroke="#fcfcfe" strokeWidth="1.7" strokeLinecap="round" />
+  </svg>
+)
+
+/** Ikon user besar (avatar floating 48px di /lapor) — mockup: 28×28. */
+export const IconAvatarLg = (p: P) => (
+  <svg width="28" height="28" viewBox="0 0 28 28" fill="none" {...p}>
+    <path d="M22.17 24.5v-2.33a4.67 4.67 0 0 0-4.67-4.67h-7A4.67 4.67 0 0 0 5.83 22.17v2.33M18.67 8.17a4.67 4.67 0 1 1-9.34 0 4.67 4.67 0 0 1 9.34 0Z" stroke="#FCFCFE" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
   </svg>
 )
 

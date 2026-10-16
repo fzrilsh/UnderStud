@@ -6,6 +6,7 @@ import { useConfirm } from '@/components/confirm-provider'
 import {
   IconAnon,
   IconAttach,
+  IconAvatarLg,
   IconChevrons,
   IconClose,
   IconDocAttach,
@@ -15,7 +16,6 @@ import {
   IconSend,
   IconTrash,
   IconUser,
-  IconUserLight,
 } from '@/components/icons'
 import {
   getGeolocation,
@@ -585,7 +585,7 @@ function Bubble({ m }: { m: { sender: string; body: string; created_at: string; 
             <div className={cn('flex flex-col gap-7', own ? 'items-end' : 'items-start')}>
               {m.attachments.map((a) =>
                 a.mime?.startsWith('image/') ? (
-                  <div key={a.id} className="size-[150px] overflow-hidden rounded-[12px] border border-violet-light">
+                  <div key={a.id} className="size-[150px] overflow-hidden rounded-[12px]">
                     {/* Siswa anonim: lewat /lapor/attachments (cookie anon), bukan /attachments (staf). */}
                     <img src={`/api/v1/lapor/attachments/${a.id}`} alt={a.name} className="size-full object-cover" />
                   </div>
@@ -619,7 +619,8 @@ export function LaporAvatar() {
       style={{ backgroundImage: 'linear-gradient(90deg,#3d3ba6 0%,#6462bd 40%,#e9ebf8 100%)' }}
     >
       <span className="flex size-full items-center justify-center rounded-full">
-        <IconUserLight />
+        {/* Mockup: ikon avatar 28×28 di dalam lingkaran 48px. */}
+        <IconAvatarLg />
       </span>
     </span>
   )
