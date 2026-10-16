@@ -7,8 +7,11 @@ import {
 } from '@/features/dashboard/components/dashboard-panels'
 import { useDashboardWK } from '@/features/dashboard/hooks'
 import { useCurrentUser } from '@/features/auth/hooks'
+import { useSeo } from '@/lib/seo'
 
 export default function DashboardWKPage() {
+  useSeo('Dashboard', 'Statistik kelas perwalian: E-Rapor, observasi, dan red flag.')
+
   const user = useCurrentUser()
   const q = useDashboardWK()
   const d = q.data

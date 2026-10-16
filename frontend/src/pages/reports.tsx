@@ -18,8 +18,11 @@ import {
 import { useCurrentUser } from '@/features/auth/hooks'
 import { fmtDateShortID, fmtHM } from '@/lib/format'
 import { cn } from '@/lib/utils'
+import { useSeo } from '@/lib/seo'
 
 export default function ReportsPage() {
+  useSeo('Chat', 'Antrean laporan siswa untuk ditinjau Guru BK.')
+
   const user = useCurrentUser()
   const [params, setParams] = useSearchParams()
   const activeId = params.get('chat')

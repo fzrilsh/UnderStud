@@ -17,8 +17,11 @@ import {
 } from '@/features/lapor/hooks'
 import { fmtHM } from '@/lib/format'
 import { cn } from '@/lib/utils'
+import { useSeo } from '@/lib/seo'
 
 export default function LaporPage() {
+  useSeo('Chat Anonim', 'Kirim laporan anonim tanpa akun. Guru BK akan meninjau laporanmu.')
+
   const bootstrap = useLaporBootstrap()
   const chats = useLaporChats()
   const [params, setParams] = useSearchParams()

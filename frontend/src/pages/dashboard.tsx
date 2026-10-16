@@ -14,8 +14,11 @@ import {
 import { useDashboardBK } from '@/features/dashboard/hooks'
 import { useCurrentUser } from '@/features/auth/hooks'
 import DashboardWKPage from '@/pages/dashboard-wk'
+import { useSeo } from '@/lib/seo'
 
 export default function DashboardPage() {
+  useSeo('Dashboard', 'Ringkasan konseling: statistik chat, data kelas, dan ringkasan terbaru.')
+
   const user = useCurrentUser()
   // Tunggu /me selesai sebelum memilih varian dashboard (hindari request salah peran).
   if (!user) {

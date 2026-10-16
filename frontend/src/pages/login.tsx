@@ -9,8 +9,11 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useLogin } from '@/features/auth/hooks'
 import { loginSchema, type LoginInput } from '@/features/auth/schemas'
+import { useSeo } from '@/lib/seo'
 
 export default function LoginPage() {
+  useSeo('Masuk', 'Masuk ke akun staf sekolah untuk meninjau laporan siswa dan data pendampingan.')
+
   const login = useLogin()
   const [showPw, setShowPw] = useState(false)
   const {

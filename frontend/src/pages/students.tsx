@@ -21,10 +21,13 @@ import { useClasses } from '@/features/dashboard/hooks'
 import { api } from '@/lib/api'
 import { downloadSummary } from '@/features/students/summary-export'
 import { fmtDateID } from '@/lib/format'
+import { useSeo } from '@/lib/seo'
 
 const PAGE_SIZE = 10
 
 export default function StudentsPage() {
+  useSeo('Daftar Siswa', 'Data siswa, status E-Rapor, observasi, dan red flag.')
+
   const user = useCurrentUser()
   if (!user) return null
   return user.role === 'BK' ? <StudentsBK /> : <StudentsWK kelas={user.kelas ?? ''} />

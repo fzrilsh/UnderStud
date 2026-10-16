@@ -23,10 +23,13 @@ import { useCurrentUser } from '@/features/auth/hooks'
 import { fmtDateID } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import type { SummaryView } from '@/features/dashboard/hooks'
+import { useSeo } from '@/lib/seo'
 
 type Tab = 'data' | 'summary'
 
 export default function StudentDetailPage() {
+  useSeo('Detail Siswa', 'Data siswa, observasi, dan ringkasan AI.')
+
   const { id } = useParams<{ id: string }>()
   const [params, setParams] = useSearchParams()
   const user = useCurrentUser()
