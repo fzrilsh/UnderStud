@@ -26,7 +26,7 @@ export default function LoginPage() {
     <main className="flex min-h-svh items-center justify-center bg-base px-4 py-10">
       <div className="w-full max-w-[420px] rounded-2xl border border-violet-light bg-white p-8 shadow-[0_24px_60px_rgba(21,21,58,.10)] md:p-9">
         <div className="flex flex-col items-center">
-          <img src="/understud-logo.png" alt="UnderStud" className="size-10 object-contain" />
+          <img src="/understud-logo.png" alt="Understud" className="size-10 object-contain" />
           <h1 className="text-gradient-heading mt-4 font-heading text-[34px] font-semibold leading-tight">
             Selamat datang
           </h1>

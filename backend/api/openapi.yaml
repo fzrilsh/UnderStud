@@ -1,6 +1,6 @@
 openapi: 3.1.0
 info:
-  title: UnderStud API
+  title: Understud API
   version: 1.0.0
   description: Long-lived JWT via httpOnly cookie; no refresh token. Bearer fallback for curl.
 servers:

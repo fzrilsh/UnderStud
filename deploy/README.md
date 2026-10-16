@@ -1,6 +1,6 @@
-# Deploy UnderStud ke Server
+# Deploy Understud ke Server
 
-Panduan menyalakan UnderStud di server yang sudah menjalankan **infra bersama**
+Panduan menyalakan Understud di server yang sudah menjalankan **infra bersama**
 (compose di `~/infra`, Cloudflare Tunnel bersama, dan Postgres + pgbouncer milik sendiri).
 
 Image dibangun otomatis oleh GitHub Actions dan dipublikasikan ke **GHCR** sebagai
@@ -42,7 +42,7 @@ push ke main  ->  GitHub Actions build image  ->  push ke GHCR
 
 ---
 
-## Langkah 1: Bikin Database UnderStud
+## Langkah 1: Bikin Database Understud
 
 Jalankan di server. Ganti password dengan yang kuat.
 

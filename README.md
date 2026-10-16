@@ -1,4 +1,4 @@
-# UnderStud — Monorepo
+# Understud — Monorepo
 
 Monorepo berisi dua service: **backend** (Go) dan **frontend** (React).
 Docker terpisah per service, plus compose root untuk menjalankan semuanya sekaligus.

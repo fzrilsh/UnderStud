@@ -1,4 +1,4 @@
-# UnderStud — Go Backend
+# Understud — Go Backend
 
 Go 1.26 + chi + pgx/sqlc + goose + Postgres 17.
 Auth: long-lived JWT via httpOnly cookie (no refresh token). Logout = clear cookie.

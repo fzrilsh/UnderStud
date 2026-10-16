@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ============================================================================
-# UnderStud: jalankan migrasi database di server.
+# Understud: jalankan migrasi database di server.
 #
 # Dipakai karena `MIGRATE_ON_START=false` (app tidak migrasi sendiri saat start,
 # supaya aman di balik pgbouncer). Migrasi dijalankan terpisah, LANGSUNG ke

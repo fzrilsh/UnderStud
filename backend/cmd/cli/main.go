@@ -42,7 +42,7 @@ func main() {
 }
 
 func usage() {
-	fmt.Fprintln(os.Stderr, `UnderStud CLI
+	fmt.Fprintln(os.Stderr, `Understud CLI
 
   migrate                                                      jalankan migrasi database lalu keluar
   create-staff --email E --password P --name N --role BK|WALI_KELAS [--kelas XI-IPA-1]

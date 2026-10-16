@@ -1,10 +1,10 @@
 # ============================================================================
-# UnderStud: fragmen service untuk compose infra bersama (~/infra/docker-compose.yml).
+# Understud: fragmen service untuk compose infra bersama (~/infra/docker-compose.yml).
 #
 # Salin blok `understud-api` dan `understud-web` di bawah ke dalam compose infra
 # milikmu (di dalam key `services:`). Sesuaikan:
 #   - `networks:`        -> nama network internal milikmu
-#   - `env_file:`        -> path .env UnderStud di server
+#   - `env_file:`        -> path .env Understud di server
 #   - `ports:`           -> sesuaikan port host kalau 3010 sudah dipakai
 #   - `mem_limit:`       -> longgarkan bila perlu
 #
