@@ -2,11 +2,10 @@ import { Outlet } from 'react-router-dom'
 
 import Sidebar from '@/components/layout/sidebar'
 import { useConfirm } from '@/components/confirm-provider'
-import { useLogout } from '@/features/auth/hooks'
-import { useAuthStore } from '@/stores/auth-store'
+import { useCurrentUser, useLogout } from '@/features/auth/hooks'
 
 export default function AppLayout() {
-  const user = useAuthStore((s) => s.user)
+  const user = useCurrentUser()
   const logout = useLogout()
   const confirm = useConfirm()
 

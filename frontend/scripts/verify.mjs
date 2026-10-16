@@ -146,17 +146,22 @@ async function main() {
   await send(sock, 'Page.enable')
   await send(sock, 'Network.enable')
 
+  // Navigasi dulu ke origin (butuh halaman agar cookie terpasang di origin benar).
+  await send(sock, 'Page.navigate', { url: origin + '/login' })
+  await sleep(800)
+
   // Pasang cookie sesi via API (tanpa lewat UI login).
   let cookie = null
   if (asArg === 'bk') cookie = await loginCookie('bk@demo.local')
   else if (asArg === 'wk') cookie = await loginCookie('wali@demo.local')
   if (cookie) {
-    await send(sock, 'Network.setCookie', {
+    const setRes = await send(sock, 'Network.setCookie', {
       name: 'auth_token',
       value: cookie.replace('auth_token=', ''),
-      domain: 'localhost',
+      url: origin,
       path: '/',
     })
+    if (setRes && setRes.success === false) console.error('setCookie gagal:', JSON.stringify(setRes))
   }
 
   await send(sock, 'Page.navigate', { url })

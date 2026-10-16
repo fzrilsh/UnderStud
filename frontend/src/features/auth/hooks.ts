@@ -51,6 +51,16 @@ export function useMe(): UseQueryResult<ApiUser> {
   return query
 }
 
+/**
+ * Baca user saat ini dari React Query cache (`/me`) — SELALU sinkron, tidak
+ * bergantung timing `useEffect` store. Pakai ini di halaman/komponen untuk
+ * menentukan peran; `useAuthStore` tetap dipakai untuk aksi (setUser/clear).
+ */
+export function useCurrentUser(): ApiUser | null {
+  const me = useMe()
+  return me.data ?? null
+}
+
 /** POST /auth/login. */
 export function useLogin(): UseMutationResult<ApiUser, Error, LoginInput> {
   const setUser = useAuthStore((s) => s.setUser)
