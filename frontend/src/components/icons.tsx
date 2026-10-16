@@ -197,10 +197,11 @@ export const IconClock = (p: P) => (
   </svg>
 )
 
-/** Ikon user (avatar sidebar, putih di atas gradient). */
+/** Ikon user (avatar sidebar, putih di atas gradient) — mockup `avatarLight`. */
 export const IconUserLight = (p: P) => (
-  <svg width="20" height="20" viewBox="0 0 28 28" fill="none" {...p}>
-    <path d="M22.17 24.5v-2.33a4.67 4.67 0 0 0-4.67-4.67h-7A4.67 4.67 0 0 0 5.83 22.17v2.33M18.67 8.17a4.67 4.67 0 1 1-9.34 0 4.67 4.67 0 0 1 9.34 0Z" stroke="#FCFCFE" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" {...p}>
+    <circle cx="12" cy="8.2" r="3.6" stroke="#fcfcfe" strokeWidth="1.7" />
+    <path d="M4.8 19.6c0-3.3 3.2-5.5 7.2-5.5s7.2 2.2 7.2 5.5" stroke="#fcfcfe" strokeWidth="1.7" strokeLinecap="round" />
   </svg>
 )
 

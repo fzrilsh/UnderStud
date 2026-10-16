@@ -11,6 +11,7 @@ import {
   IconStudents,
   IconUserLight,
 } from '@/components/icons'
+import { useDashboardWK } from '@/features/dashboard/hooks'
 import { cn } from '@/lib/utils'
 import type { ApiUser } from '@/stores/auth-store'
 
@@ -35,9 +36,25 @@ export interface SidebarProps {
 
 const navClass = ({ isActive }: { isActive: boolean }) =>
   cn(
-    'flex items-center gap-2.5 rounded-[8px] px-3 py-2 text-[14px] font-medium text-[rgba(21,21,58,.8)] hover:bg-violet-light/60',
-    isActive && 'bg-[rgba(195,194,227,.6)] text-violet-dark',
+    'flex items-center gap-2.5 rounded-[10px] px-2.5 py-2 text-[14px] font-medium text-violet-dark hover:bg-violet-light/60',
+    isActive && 'bg-[rgba(195,194,227,.6)]',
   )
+
+/** Panel "Kelas saya" untuk Wali Kelas (mockup UI.sidebar wkClass). */
+function KelasSaya({ kelas }: { kelas: string }) {
+  const { data } = useDashboardWK()
+  return (
+    <div className="mt-3 flex flex-col gap-3 pl-1.5">
+      <p className="text-[14px] font-semibold text-violet-dark">Kelas saya</p>
+      <div className="flex flex-col gap-1 rounded-[8px] bg-[#e2e2f2] px-3 py-2.5">
+        <p className="text-[14px] font-semibold text-violet-dark">{kelas}</p>
+        <p className="text-[12px] text-[rgba(21,21,58,.7)]">
+          {data?.students ?? 0} siswa · Sem. ganjil 2026/27
+        </p>
+      </div>
+    </div>
+  )
+}
 
 /**
  * Sidebar staf (Figma 84:993 / 474:2926): 240px, gradient, bisa collapse ke 64px
@@ -134,7 +151,7 @@ export default function Sidebar({ user, children, onLogout }: SidebarProps) {
             type="button"
             title="Tutup"
             onClick={closeDrawer}
-            className="flex size-6 shrink-0 items-center justify-center rounded-md text-violet-dark hover:bg-violet-light/60 md:hidden"
+            className="flex size-8 shrink-0 items-center justify-center rounded-md text-violet-dark hover:bg-violet-light/60 md:hidden"
           >
             <IconClose />
           </button>
@@ -142,21 +159,21 @@ export default function Sidebar({ user, children, onLogout }: SidebarProps) {
 
         {/* Nav */}
         <nav className="mt-4 flex w-full flex-col gap-0.5">
-          <NavLink to="/" end className={navClass} title="Dashboard">
+          <NavLink to="/" end className={(s) => cn(navClass(s), collapsed && 'justify-center px-0')} title="Dashboard">
             <span className="shrink-0 text-violet-dark">
               <IconDashboard />
             </span>
             {!collapsed && <span className="truncate">Dashboard</span>}
           </NavLink>
           {isBK && (
-            <NavLink to="/reports" className={navClass} title="Chat">
+            <NavLink to="/reports" className={(s) => cn(navClass(s), collapsed && 'justify-center px-0')} title="Chat">
               <span className="shrink-0 text-violet-dark">
                 <IconChat />
               </span>
               {!collapsed && <span className="truncate">Chat</span>}
             </NavLink>
           )}
-          <NavLink to="/students" className={navClass} title="Daftar siswa">
+          <NavLink to="/students" className={(s) => cn(navClass(s), collapsed && 'justify-center px-0')} title="Daftar siswa">
             <span className="shrink-0 text-violet-dark">
               <IconStudents />
             </span>
@@ -164,7 +181,10 @@ export default function Sidebar({ user, children, onLogout }: SidebarProps) {
           </NavLink>
         </nav>
 
-        {/* Slot tambahan (section chat / kelas saya) */}
+        {/* Panel "Kelas saya" (Wali Kelas) — mockup UI.sidebar wkClass. */}
+        {!collapsed && !isBK && user?.kelas && <KelasSaya kelas={user.kelas} />}
+
+        {/* Slot tambahan (section chat) */}
         {!collapsed && children && (
           <div className="scroll-thin mt-4 flex min-h-0 w-full flex-1 flex-col gap-1 overflow-y-auto">
             {children}
