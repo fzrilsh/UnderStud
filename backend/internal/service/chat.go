@@ -72,11 +72,12 @@ type AttachmentView struct {
 }
 
 type ChatSummary struct {
-	ID            string `json:"id"`
-	IdentityMode  string `json:"identity_mode"`
-	Status        string `json:"status"`
-	LastMessageAt string `json:"last_message_at"`
-	HasNewReply   bool   `json:"has_new_reply"` // F23: pesan terakhir dari BK
+	ID            string       `json:"id"`
+	IdentityMode  string       `json:"identity_mode"`
+	Status        string       `json:"status"`
+	LastMessageAt string       `json:"last_message_at"`
+	LastMessage   *LastMessage `json:"last_message"`  // preview pesan terakhir
+	HasNewReply   bool         `json:"has_new_reply"` // F23: pesan terakhir dari BK
 }
 
 type ChatView struct {
@@ -291,18 +292,24 @@ func (c *Chat) ListBySession(ctx context.Context, session db.AnonSession, limit,
 		for _, ch := range chats {
 			ids = append(ids, ch.ID)
 		}
-		senders := map[uuid.UUID]string{}
-		if rows, err := c.queries.ListLastMessageSenders(ctx, ids); err == nil {
+		lastByChat := map[uuid.UUID]LastMessage{}
+		if rows, err := c.queries.ListLastMessages(ctx, ids); err == nil {
 			for _, r := range rows {
-				senders[r.ChatID] = r.Sender
+				lastByChat[r.ChatID] = LastMessage{
+					Sender: r.Sender, Body: r.Body, CreatedAt: r.CreatedAt.Format(time.RFC3339),
+				}
 			}
 		}
 		for _, ch := range chats {
-			out = append(out, ChatSummary{
+			sum := ChatSummary{
 				ID: ch.ID.String(), IdentityMode: ch.IdentityMode, Status: ch.Status,
 				LastMessageAt: ch.LastMessageAt.Format(time.RFC3339),
-				HasNewReply:   senders[ch.ID] == "BK",
-			})
+				HasNewReply:   lastByChat[ch.ID].Sender == "BK",
+			}
+			if lm, ok := lastByChat[ch.ID]; ok {
+				sum.LastMessage = &lm
+			}
+			out = append(out, sum)
 		}
 	}
 	// H5: total = jumlah seluruh baris (bukan ukuran halaman).

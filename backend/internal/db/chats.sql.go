@@ -536,30 +536,38 @@ func (q *Queries) ListChatsBySession(ctx context.Context, arg ListChatsBySession
 	return items, nil
 }
 
-const listLastMessageSenders = `-- name: ListLastMessageSenders :many
-SELECT DISTINCT ON (m.chat_id) m.chat_id, m.sender
+const listLastMessages = `-- name: ListLastMessages :many
+SELECT DISTINCT ON (m.chat_id)
+  m.chat_id, m.sender, m.body, m.created_at
 FROM messages m
 WHERE m.chat_id = ANY($1::uuid[])
 ORDER BY m.chat_id, m.created_at DESC, m.id DESC
 `
 
-type ListLastMessageSendersRow struct {
-	ChatID uuid.UUID
-	Sender string
+type ListLastMessagesRow struct {
+	ChatID    uuid.UUID
+	Sender    string
+	Body      string
+	CreatedAt time.Time
 }
 
-// F23: pengirim pesan TERAKHIR per chat (batch) — turunkan has_new_reply
-// (siswa) & unread_by_staff (BK) tanpa tabel read-state baru.
-func (q *Queries) ListLastMessageSenders(ctx context.Context, chatIds []uuid.UUID) ([]ListLastMessageSendersRow, error) {
-	rows, err := q.db.Query(ctx, listLastMessageSenders, chatIds)
+// Preview pesan TERAKHIR per chat (batch) untuk daftar chat (BK & siswa):
+// pengirim + isi + waktu. Satu query, hindari N+1.
+func (q *Queries) ListLastMessages(ctx context.Context, chatIds []uuid.UUID) ([]ListLastMessagesRow, error) {
+	rows, err := q.db.Query(ctx, listLastMessages, chatIds)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ListLastMessageSendersRow
+	var items []ListLastMessagesRow
 	for rows.Next() {
-		var i ListLastMessageSendersRow
-		if err := rows.Scan(&i.ChatID, &i.Sender); err != nil {
+		var i ListLastMessagesRow
+		if err := rows.Scan(
+			&i.ChatID,
+			&i.Sender,
+			&i.Body,
+			&i.CreatedAt,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

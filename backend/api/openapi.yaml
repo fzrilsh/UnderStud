@@ -417,6 +417,31 @@ paths:
           schema: { type: string, format: uuid }
       responses:
         "200": { $ref: "#/components/responses/OkResponse" }
+    delete:
+      tags: [reports]
+      summary: Remove from draft (clears pinned/draft, sets status 'dilewati')
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200": { $ref: "#/components/responses/OkResponse" }
+  /api/v1/reports/{id}/skip:
+    post:
+      tags: [reports]
+      summary: Skip to next in queue WITHOUT requiring a reply (sets status 'dilewati')
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200": { $ref: "#/components/responses/OkResponse" }
   /api/v1/reports/{id}/next:
     post:
       tags: [reports]
@@ -1050,6 +1075,8 @@ components:
         identity_mode: { type: string, enum: [anonim, profil] }
         status: { type: string, enum: [baru, dibuka, dilewati] }
         last_message_at: { type: string, format: date-time }
+        last_message: { $ref: "#/components/schemas/LastMessage", nullable: true }
+        has_new_reply: { type: boolean }
     ChatView:
       type: object
       properties:
@@ -1076,6 +1103,12 @@ components:
         mode: { type: string, enum: [anonim, profil] }
         name: { type: string, nullable: true }
         kelas: { type: string, nullable: true }
+    LastMessage:
+      type: object
+      properties:
+        sender: { type: string, enum: [SISWA, BK] }
+        body: { type: string }
+        created_at: { type: string, format: date-time }
     ReportItem:
       type: object
       properties:
@@ -1087,6 +1120,8 @@ components:
         drafted_at: { type: string, format: date-time, nullable: true }
         identity: { $ref: "#/components/schemas/ReportIdentity" }
         last_message_at: { type: string, format: date-time }
+        last_message: { $ref: "#/components/schemas/LastMessage", nullable: true }
+        unread_by_staff: { type: boolean }
     AttachmentView:
       type: object
       properties:

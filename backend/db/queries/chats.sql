@@ -122,10 +122,11 @@ SELECT EXISTS (
   SELECT 1 FROM messages WHERE chat_id = $1 AND sender = 'BK'
 ) AS has_replied;
 
--- name: ListLastMessageSenders :many
--- F23: pengirim pesan TERAKHIR per chat (batch) — turunkan has_new_reply
--- (siswa) & unread_by_staff (BK) tanpa tabel read-state baru.
-SELECT DISTINCT ON (m.chat_id) m.chat_id, m.sender
+-- name: ListLastMessages :many
+-- Preview pesan TERAKHIR per chat (batch) untuk daftar chat (BK & siswa):
+-- pengirim + isi + waktu. Satu query, hindari N+1.
+SELECT DISTINCT ON (m.chat_id)
+  m.chat_id, m.sender, m.body, m.created_at
 FROM messages m
 WHERE m.chat_id = ANY(sqlc.arg(chat_ids)::uuid[])
 ORDER BY m.chat_id, m.created_at DESC, m.id DESC;

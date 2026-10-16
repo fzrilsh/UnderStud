@@ -32,7 +32,15 @@ type ReportItem struct {
 	DraftedAt     *string        `json:"drafted_at"` // M11
 	Identity      ReportIdentity `json:"identity"`
 	LastMessageAt string         `json:"last_message_at"`
+	LastMessage   *LastMessage   `json:"last_message"`    // preview pesan terakhir
 	UnreadByStaff bool           `json:"unread_by_staff"` // F23: pesan terakhir dari siswa
+}
+
+// LastMessage: preview pesan terakhir untuk daftar chat.
+type LastMessage struct {
+	Sender    string `json:"sender"` // SISWA | BK
+	Body      string `json:"body"`
+	CreatedAt string `json:"created_at"`
 }
 
 type ReportDetail struct {
@@ -88,8 +96,8 @@ func (r *Report) History(ctx context.Context, limit, offset int32) ([]ReportItem
 	return r.withUnread(ctx, chats), total, nil
 }
 
-// withUnread: bikin ReportItem + unread_by_staff (F23) lewat satu query batch
-// pengirim pesan terakhir per chat.
+// withUnread: bikin ReportItem + unread_by_staff (F23) + preview pesan terakhir
+// lewat satu query batch pengirim/pesan terakhir per chat.
 func (r *Report) withUnread(ctx context.Context, chats []db.Chat) []ReportItem {
 	out := make([]ReportItem, 0, len(chats))
 	if len(chats) == 0 {
@@ -99,14 +107,20 @@ func (r *Report) withUnread(ctx context.Context, chats []db.Chat) []ReportItem {
 	for _, ch := range chats {
 		ids = append(ids, ch.ID)
 	}
-	senders := map[uuid.UUID]string{}
-	if rows, err := r.queries.ListLastMessageSenders(ctx, ids); err == nil {
+	lastByChat := map[uuid.UUID]LastMessage{}
+	if rows, err := r.queries.ListLastMessages(ctx, ids); err == nil {
 		for _, row := range rows {
-			senders[row.ChatID] = row.Sender
+			lastByChat[row.ChatID] = LastMessage{
+				Sender: row.Sender, Body: row.Body, CreatedAt: row.CreatedAt.Format(time.RFC3339),
+			}
 		}
 	}
 	for _, ch := range chats {
-		out = append(out, toReportItem(ch, senders[ch.ID] == "SISWA"))
+		item := toReportItem(ch, lastByChat[ch.ID].Sender == "SISWA")
+		if lm, ok := lastByChat[ch.ID]; ok {
+			item.LastMessage = &lm
+		}
+		out = append(out, item)
 	}
 	return out
 }
@@ -144,10 +158,16 @@ func (r *Report) Detail(ctx context.Context, chatID uuid.UUID) (ReportDetail, er
 		return ReportDetail{}, err
 	}
 	unread := false
+	item := toReportItem(ch, unread)
 	if len(msgs) > 0 {
-		unread = msgs[len(msgs)-1].Sender == "SISWA"
+		last := msgs[len(msgs)-1]
+		unread = last.Sender == "SISWA"
+		item.UnreadByStaff = unread
+		item.LastMessage = &LastMessage{
+			Sender: last.Sender, Body: last.Body, CreatedAt: last.CreatedAt.Format(time.RFC3339),
+		}
 	}
-	return ReportDetail{Chat: toReportItem(ch, unread), Messages: views}, nil
+	return ReportDetail{Chat: item, Messages: views}, nil
 }
 
 // requireReplied menegakkan syarat "balas ≥1×" (keputusan #40/#53).
@@ -195,6 +215,30 @@ func (r *Report) Draft(ctx context.Context, chatID uuid.UUID) error {
 	}
 	if _, err := r.queries.DraftChat(ctx, chatID); err != nil {
 		return utils.NewErrInternal("gagal menyimpan draft")
+	}
+	return nil
+}
+
+// Undraft = keluarkan dari draft (tombol "Keluarkan dari draft"). Status jadi
+// 'dilewati' agar keluar dari sidebar — sama seperti efek SetChatSkipped.
+func (r *Report) Undraft(ctx context.Context, chatID uuid.UUID) error {
+	if _, err := r.get(ctx, chatID); err != nil {
+		return err
+	}
+	if _, err := r.queries.SetChatSkipped(ctx, chatID); err != nil {
+		return utils.NewErrInternal("gagal mengeluarkan dari draft")
+	}
+	return nil
+}
+
+// Skip = lewati chat ke antrean berikutnya TANPA wajib balas (tombol
+// "Berikutnya" saat belum dibalas). Status 'dilewati', lepas pin + draft.
+func (r *Report) Skip(ctx context.Context, chatID uuid.UUID) error {
+	if _, err := r.get(ctx, chatID); err != nil {
+		return err
+	}
+	if _, err := r.queries.SetChatSkipped(ctx, chatID); err != nil {
+		return utils.NewErrInternal("gagal melewati laporan")
 	}
 	return nil
 }

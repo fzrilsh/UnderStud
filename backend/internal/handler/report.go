@@ -103,6 +103,34 @@ func (h *ReportHandlers) Draft(w http.ResponseWriter, r *http.Request) {
 	OK(w, map[string]any{"ok": true})
 }
 
+// Undraft handles DELETE /api/v1/reports/{id}/draft.
+func (h *ReportHandlers) Undraft(w http.ResponseWriter, r *http.Request) {
+	id, err := chatIDParam(r)
+	if err != nil {
+		Error(w, err)
+		return
+	}
+	if err := h.report.Undraft(r.Context(), id); err != nil {
+		Error(w, err)
+		return
+	}
+	OK(w, map[string]any{"ok": true})
+}
+
+// Skip handles POST /api/v1/reports/{id}/skip (lewati tanpa wajib balas).
+func (h *ReportHandlers) Skip(w http.ResponseWriter, r *http.Request) {
+	id, err := chatIDParam(r)
+	if err != nil {
+		Error(w, err)
+		return
+	}
+	if err := h.report.Skip(r.Context(), id); err != nil {
+		Error(w, err)
+		return
+	}
+	OK(w, map[string]any{"ok": true})
+}
+
 func (h *ReportHandlers) Next(w http.ResponseWriter, r *http.Request) {
 	id, err := chatIDParam(r)
 	if err != nil {
