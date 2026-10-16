@@ -49,7 +49,9 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/AuthResponse"
+                type: object
+                properties:
+                  data: { $ref: "#/components/schemas/AuthResponse" }
         "400":
           $ref: "#/components/responses/ErrorResponse"
         "401":
@@ -66,8 +68,11 @@ paths:
               schema:
                 type: object
                 properties:
-                  ok:
-                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      ok:
+                        type: boolean
   /api/v1/auth/me:
     get:
       tags: [auth]
@@ -81,7 +86,9 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/AuthResponse"
+                type: object
+                properties:
+                  data: { $ref: "#/components/schemas/AuthResponse" }
         "401":
           $ref: "#/components/responses/ErrorResponse"
   /api/v1/lapor:
@@ -1483,7 +1490,7 @@ components:
           $ref: "#/components/schemas/User"
     User:
       type: object
-      required: [id, email, name, created_at]
+      required: [id, email, name, role, created_at]
       properties:
         id:
           type: string
@@ -1493,6 +1500,12 @@ components:
           format: email
         name:
           type: string
+        role:
+          type: string
+          enum: [BK, WALI_KELAS]
+        kelas:
+          type: string
+          description: Kelas yang diampu (hanya Wali Kelas)
         created_at:
           type: string
           format: date-time

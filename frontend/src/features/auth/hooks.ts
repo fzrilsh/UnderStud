@@ -12,6 +12,9 @@ import type { LoginInput } from './schemas'
 
 type AuthResponse = components['schemas']['AuthResponse']
 
+/** Envelope standar backend: {"data": ...}. */
+type DataEnvelope<T> = { data: T }
+
 export { getApiErrorMessage }
 
 /** GET /auth/me — dipakai ProtectedRoute; sinkron dengan zustand store. */
@@ -23,8 +26,8 @@ export function useMe(): UseQueryResult<ApiUser> {
   const query = useQuery({
     queryKey: ['me'],
     queryFn: async () => {
-      const res = await api.get<AuthResponse>('/auth/me')
-      return res.data.user
+      const res = await api.get<DataEnvelope<AuthResponse>>('/auth/me')
+      return res.data.data.user
     },
     retry: 0,
     staleTime: 30_000,
@@ -55,8 +58,8 @@ export function useLogin(): UseMutationResult<ApiUser, Error, LoginInput> {
 
   return useMutation({
     mutationFn: async (input: LoginInput) => {
-      const res = await api.post<AuthResponse>('/auth/login', input)
-      return res.data.user
+      const res = await api.post<DataEnvelope<AuthResponse>>('/auth/login', input)
+      return res.data.data.user
     },
     onSuccess: (user) => {
       setUser(user)

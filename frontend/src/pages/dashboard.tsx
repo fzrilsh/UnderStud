@@ -1,34 +1,22 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import Topbar from '@/components/layout/topbar'
 import { useAuthStore } from '@/stores/auth-store'
 
 export default function DashboardPage() {
   const user = useAuthStore((s) => s.user)
 
   return (
-    <div className="grid gap-4">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
-        <p className="text-sm text-muted-foreground">
-          Halaman protected — ganti ini dengan fiturmu saat requirement keluar.
-        </p>
+    <>
+      <Topbar
+        title="Ringkasan konseling"
+        subtitle={
+          user?.role === 'BK'
+            ? 'Guru BK · Semua kelas'
+            : `Wali Kelas${user?.kelas ? ` · ${user.kelas}` : ''}`
+        }
+      />
+      <div className="px-5 pb-10 md:px-8">
+        <p className="text-sm text-muted-foreground">Dashboard sedang dibangun.</p>
       </div>
-      <Card>
-        <CardHeader>
-          <CardTitle>Akun kamu</CardTitle>
-          <CardDescription>Data dari GET /api/v1/auth/me</CardDescription>
-        </CardHeader>
-        <CardContent className="grid gap-1 text-sm">
-          <p>
-            <span className="text-muted-foreground">Nama:</span> {user?.name}
-          </p>
-          <p>
-            <span className="text-muted-foreground">Email:</span> {user?.email}
-          </p>
-          <p>
-            <span className="text-muted-foreground">ID:</span> {user?.id}
-          </p>
-        </CardContent>
-      </Card>
-    </div>
+    </>
   )
 }

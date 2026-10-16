@@ -80,7 +80,9 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["AuthResponse"];
+                        "application/json": {
+                            data?: components["schemas"]["AuthResponse"];
+                        };
                     };
                 };
                 400: components["responses"]["ErrorResponse"];
@@ -119,7 +121,9 @@ export interface paths {
                     };
                     content: {
                         "application/json": {
-                            ok?: boolean;
+                            data?: {
+                                ok?: boolean;
+                            };
                         };
                     };
                 };
@@ -154,7 +158,9 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["AuthResponse"];
+                        "application/json": {
+                            data?: components["schemas"]["AuthResponse"];
+                        };
                     };
                 };
                 401: components["responses"]["ErrorResponse"];
@@ -2166,6 +2172,10 @@ export interface components {
             /** Format: email */
             email: string;
             name: string;
+            /** @enum {string} */
+            role: "BK" | "WALI_KELAS";
+            /** @description Kelas yang diampu (hanya Wali Kelas) */
+            kelas?: string;
             /** Format: date-time */
             created_at: string;
         };
