@@ -100,11 +100,15 @@ export const useSkipReport = () => useReportAction((id) => api.post(`/reports/${
 export const useHideReport = () => useReportAction((id) => api.delete(`/reports/${id}`), 'Laporan disembunyikan.')
 
 /** POST /reports/{id}/messages — balas sebagai BK. */
-export function useReplyReport(id: string): UseMutationResult<void, Error, string> {
+export function useReplyReport(id: string): UseMutationResult<void, Error, { body: string; files?: File[] }> {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async (body: string) => {
-      await api.post(`/reports/${id}/messages`, { body })
+    mutationFn: async ({ body, files }) => {
+      // Multipart agar BK juga bisa melampirkan file (mockup: attach button).
+      const fd = new FormData()
+      fd.append('body', body)
+      for (const f of files ?? []) fd.append('files', f)
+      await api.post(`/reports/${id}/messages`, fd)
     },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['report', id] })

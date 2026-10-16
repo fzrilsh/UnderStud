@@ -3,6 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom'
 
 import { useConfirm } from '@/components/confirm-provider'
 import {
+  IconAttach,
   IconChatArrowRight,
   IconChatArrowRightMuted,
   IconChatDot,
@@ -11,6 +12,7 @@ import {
   IconChatSave,
   IconChatSaveOff,
   IconChatUnpin,
+  IconClose,
   IconDocAttach,
   IconSend,
 } from '@/components/icons'
@@ -107,6 +109,8 @@ function ReportPanel({ chatId, onClose, onNext }: { chatId: string; onClose: () 
   const { data, isLoading } = useReport(chatId)
   const confirm = useConfirm()
   const [text, setText] = useState('')
+  const [files, setFiles] = useState<File[]>([])
+  const fileRef = useRef<HTMLInputElement>(null)
   const boxRef = useRef<HTMLDivElement>(null)
 
   const pin = usePinReport()
@@ -133,8 +137,16 @@ function ReportPanel({ chatId, onClose, onNext }: { chatId: string; onClose: () 
 
   const send = () => {
     const body = text.trim()
-    if (!body) return
-    reply.mutate(body, { onSuccess: () => setText('') })
+    if (!body && files.length === 0) return
+    reply.mutate(
+      { body, files },
+      {
+        onSuccess: () => {
+          setText('')
+          setFiles([])
+        },
+      },
+    )
   }
 
   // Simpan ke draft dengan dialog konfirmasi (mockup: "Simpan ke draft?").
@@ -216,10 +228,15 @@ function ReportPanel({ chatId, onClose, onNext }: { chatId: string; onClose: () 
         </div>
       </header>
 
-      {/* Konten */}
-      <div className="flex min-h-0 flex-1 flex-col items-center justify-end px-4 pb-6 md:px-6 md:pb-[100px]">
-        <div className="flex w-full max-w-[958px] flex-col gap-8 md:gap-16">
-          <div ref={boxRef} className="scroll-thin flex max-h-[520px] flex-col gap-8 overflow-y-auto md:gap-16">
+      {/* Konten. `min-h-0` pada kolom & daftar pesan wajib agar daftar yang
+          lebih tinggi dari ruang tersedia benar-benar bisa di-scroll (tanpa
+          ini konten meluber ke atas dan menabrak header). */}
+      <div className="flex min-h-0 flex-1 flex-col items-center justify-end overflow-hidden px-4 pb-6 md:px-6 md:pb-[100px]">
+        <div className="flex min-h-0 w-full max-w-[958px] flex-col gap-8 md:gap-16">
+          <div
+            ref={boxRef}
+            className="scroll-thin flex min-h-0 max-h-[520px] flex-1 flex-col gap-8 overflow-y-auto pb-1 md:gap-16"
+          >
             {messages.length === 0 ? (
               <p className="px-4 py-12 text-center text-[14px] text-[rgba(21,21,58,.45)]">Belum ada pesan.</p>
             ) : (
@@ -228,9 +245,52 @@ function ReportPanel({ chatId, onClose, onNext }: { chatId: string; onClose: () 
           </div>
 
           <div className="flex shrink-0 flex-col gap-5">
-            {/* Composer */}
+            {/* Composer (BK juga bisa melampirkan file — mockup: tombol attach). */}
             <div className="flex w-full flex-col rounded-[16px] border border-white bg-[rgba(252,252,254,.8)] px-3 py-2">
+              {files.length > 0 && (
+                <div className="mb-2 flex flex-wrap gap-2">
+                  {files.map((f, i) => (
+                    <span key={i} className="flex items-center gap-2 rounded-xl bg-white/80 p-2 pr-3 text-[12px] text-violet-dark">
+                      {f.type.startsWith('image/') ? (
+                        <img src={URL.createObjectURL(f)} alt={f.name} className="size-14 shrink-0 rounded-[10px] object-cover" />
+                      ) : (
+                        <span className="flex size-14 shrink-0 items-center justify-center rounded-[10px] bg-[#ecebf6] text-violet">
+                          <IconAttach className="size-5" />
+                        </span>
+                      )}
+                      <span className="flex min-w-0 flex-col">
+                        <span className="max-w-[160px] truncate font-medium">{f.name}</span>
+                        <span className="text-[11px] text-[rgba(21,21,58,.55)]">{Math.round(f.size / 1024)} KB</span>
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setFiles((cur) => cur.filter((_, j) => j !== i))}
+                        className="flex size-7 shrink-0 items-center justify-center rounded-md text-violet-dark hover:bg-violet-light/60"
+                        title="Hapus lampiran"
+                      >
+                        <IconClose />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+              <input
+                ref={fileRef}
+                type="file"
+                accept="image/*,application/pdf,text/plain"
+                multiple
+                className="hidden"
+                onChange={(e) => setFiles(Array.from(e.target.files ?? []))}
+              />
               <div className="flex items-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => fileRef.current?.click()}
+                  className="mb-1.5 shrink-0 text-violet-dark hover:opacity-70"
+                  title="Lampirkan file"
+                >
+                  <IconAttach className="size-5" />
+                </button>
                 <textarea
                   value={text}
                   onChange={(e) => setText(e.target.value)}
@@ -247,7 +307,7 @@ function ReportPanel({ chatId, onClose, onNext }: { chatId: string; onClose: () 
                 <button
                   type="button"
                   onClick={send}
-                  disabled={!text.trim() || reply.isPending}
+                  disabled={(!text.trim() && files.length === 0) || reply.isPending}
                   className="flex size-9 shrink-0 items-center justify-center rounded-[10px] bg-violet-dark text-base hover:bg-[#24245c] disabled:opacity-40"
                 >
                   <IconSend />
@@ -276,10 +336,10 @@ function ReportPanel({ chatId, onClose, onNext }: { chatId: string; onClose: () 
                 )}
               >
                 <span className="flex items-center gap-2">
-                  {hasReply ? <IconChatArrowRight /> : <IconChatArrowRightMuted />}
                   <span className={cn('text-[16px] font-semibold leading-[1.5]', hasReply ? 'text-[#e2e2f2]' : 'text-[#71717a]')}>
                     Selesai &amp; lanjut
                   </span>
+                  {hasReply ? <IconChatArrowRight /> : <IconChatArrowRightMuted />}
                 </span>
               </button>
             </div>

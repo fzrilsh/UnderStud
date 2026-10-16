@@ -6,16 +6,24 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgxpool"
 
+	"backend/internal/config"
 	"backend/internal/db"
+	"backend/internal/storage"
 	"backend/internal/utils"
 )
 
 type Report struct {
 	queries *db.Queries
+	pool    *pgxpool.Pool
+	store   *storage.Store
+	cfg     config.Config
 }
 
-func NewReport(q *db.Queries) *Report { return &Report{queries: q} }
+func NewReport(q *db.Queries, pool *pgxpool.Pool, store *storage.Store, cfg config.Config) *Report {
+	return &Report{queries: q, pool: pool, store: store, cfg: cfg}
+}
 
 type ReportIdentity struct {
 	Mode  string  `json:"mode"`
@@ -270,7 +278,9 @@ func (r *Report) Hide(ctx context.Context, chatID uuid.UUID) error {
 	return nil
 }
 
-func (r *Report) Reply(ctx context.Context, staffID, chatID uuid.UUID, body string) (MessageView, error) {
+// Reply = balasan BK (teks dan/atau lampiran). Memakai `ReplyInput` yang
+// sama dengan sisi siswa (chat.go) — `ClientIP` diabaikan di sini.
+func (r *Report) Reply(ctx context.Context, staffID, chatID uuid.UUID, in ReplyInput) (MessageView, error) {
 	ch, err := r.get(ctx, chatID)
 	if err != nil {
 		return MessageView{}, err
@@ -278,25 +288,49 @@ func (r *Report) Reply(ctx context.Context, staffID, chatID uuid.UUID, body stri
 	if ch.HiddenByStudentAt != nil {
 		return MessageView{}, utils.NewErrChatHiddenByStudent("Chat ini disembunyikan oleh siswa.")
 	}
-	body = strings.TrimSpace(body)
-	if body == "" {
-		return MessageView{}, utils.NewErrInvalidInput("Tulis balasan sebelum mengirim.")
-	}
+	body := strings.TrimSpace(in.Body)
 	if len([]rune(body)) > 2000 {
 		return MessageView{}, utils.NewErrInvalidInput("Balasan maksimal 2.000 karakter.")
 	}
-	msg, err := r.queries.CreateMessage(ctx, db.CreateMessageParams{
-		ChatID: ch.ID, Sender: "BK", SenderUserID: &staffID, Body: body,
+	if body == "" && len(in.Files) == 0 {
+		return MessageView{}, utils.NewErrInvalidInput("Tulis balasan sebelum mengirim.")
+	}
+	// Validasi & simpan lampiran (reuse helper Chat — pesan BK juga boleh
+	// melampirkan file, sama seperti pesan siswa).
+	chatSvc := &Chat{store: r.store, cfg: r.cfg}
+	saved, err := chatSvc.saveFiles(in.Files)
+	if err != nil {
+		return MessageView{}, err
+	}
+	var view MessageView
+	err = db.WithTx(ctx, r.pool, func(q *db.Queries) error {
+		msg, err := q.CreateMessage(ctx, db.CreateMessageParams{
+			ChatID: ch.ID, Sender: "BK", SenderUserID: &staffID, Body: body,
+		})
+		if err != nil {
+			return utils.NewErrInternal("gagal menyimpan balasan")
+		}
+		if err := attachFilesTx(ctx, q, msg.ID, saved); err != nil {
+			return err
+		}
+		if _, err := q.TouchChatMessage(ctx, ch.ID); err != nil {
+			return utils.NewErrInternal("gagal memperbarui waktu")
+		}
+		// Tandai belum dibaca sisi siswa (badge di sidebar siswa).
+		if err := q.IncrementStudentUnread(ctx, ch.ID); err != nil {
+			return utils.NewErrInternal("gagal memperbarui status baca")
+		}
+		view = MessageView{ID: msg.ID.String(), Sender: "BK", Body: body, Attachments: []AttachmentView{}, CreatedAt: msg.CreatedAt.Format(time.RFC3339)}
+		return nil
 	})
 	if err != nil {
-		return MessageView{}, utils.NewErrInternal("gagal menyimpan balasan")
+		chatSvc.discardFiles(saved)
+		return MessageView{}, err
 	}
-	if _, err := r.queries.TouchChatMessage(ctx, ch.ID); err != nil {
-		return MessageView{}, utils.NewErrInternal("gagal memperbarui waktu")
+	// Isi lampiran pada view (biar balasan langsung menampilkan lampiran).
+	views, err := fillAttachments(ctx, r.queries, []MessageView{view}, []db.Message{{ID: uuid.MustParse(view.ID)}})
+	if err == nil && len(views) == 1 {
+		view = views[0]
 	}
-	// Tandai belum dibaca sisi siswa (badge di sidebar siswa).
-	if err := r.queries.IncrementStudentUnread(ctx, ch.ID); err != nil {
-		return MessageView{}, utils.NewErrInternal("gagal memperbarui status baca")
-	}
-	return MessageView{ID: msg.ID.String(), Sender: "BK", Body: body, Attachments: []AttachmentView{}, CreatedAt: msg.CreatedAt.Format(time.RFC3339)}, nil
+	return view, nil
 }

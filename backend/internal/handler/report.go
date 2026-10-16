@@ -169,14 +169,13 @@ func (h *ReportHandlers) Reply(w http.ResponseWriter, r *http.Request) {
 		Error(w, utils.NewErrUnauthorized("Sesi tidak valid. Silakan masuk kembali."))
 		return
 	}
-	var in struct {
-		Body string `json:"body"`
-	}
-	if err := Bind(r, &in); err != nil {
+	// Multipart (body + files[]) — BK juga bisa melampirkan file.
+	body, files, err := parseMultipart(r)
+	if err != nil {
 		Error(w, err)
 		return
 	}
-	msg, err := h.report.Reply(r.Context(), staffID, id, in.Body)
+	msg, err := h.report.Reply(r.Context(), staffID, id, service.ReplyInput{Body: body, Files: files})
 	if err != nil {
 		Error(w, err)
 		return

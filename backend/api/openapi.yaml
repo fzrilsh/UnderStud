@@ -466,7 +466,7 @@ paths:
   /api/v1/reports/{id}/messages:
     post:
       tags: [reports]
-      summary: BK reply
+      summary: BK reply (multipart; body + files[])
       security:
         - cookieAuth: []
       parameters:
@@ -477,12 +477,15 @@ paths:
       requestBody:
         required: true
         content:
-          application/json:
+          multipart/form-data:
             schema:
               type: object
-              required: [body]
               properties:
                 body: { type: string, maxLength: 2000 }
+                files:
+                  type: array
+                  maxItems: 3
+                  items: { type: string, format: binary }
       responses:
         "201":
           description: Created

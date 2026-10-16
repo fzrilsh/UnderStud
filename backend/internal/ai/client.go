@@ -198,11 +198,32 @@ func parseNarrative(s string) (Narrative, bool) {
 // stripMarkdown: bersihkan penanda markdown umum (heading, bold, tabel, list)
 // supaya narrative terbaca sebagai teks biasa di UI. Baris tabel dibuang karena
 // angka sudah tersedia di metrics/data_used.
+// isHorizontalRule: baris `---` / `***` / `___` (garis horizontal markdown)
+// yang sering muncul di jawaban model — dibuang agar tidak tampil di UI.
+func isHorizontalRule(t string) bool {
+	if len(t) < 3 {
+		return false
+	}
+	c := t[0]
+	if c != '-' && c != '*' && c != '_' {
+		return false
+	}
+	for i := 0; i < len(t); i++ {
+		if t[i] != c {
+			return false
+		}
+	}
+	return true
+}
+
 func stripMarkdown(s string) string {
 	var lines []string
 	for _, ln := range strings.Split(s, "\n") {
 		t := strings.TrimSpace(ln)
 		if strings.Contains(t, "|") { // baris tabel markdown → buang
+			continue
+		}
+		if isHorizontalRule(t) { // garis horizontal --- / *** / ___
 			continue
 		}
 		t = strings.TrimLeft(t, "#") // heading

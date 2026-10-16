@@ -46,7 +46,7 @@ func New(cfg config.Config, logger *slog.Logger, pool *pgxpool.Pool) http.Handle
 	chatHandler := handler.NewChatHandlers(chatSvc, cfg.TrustProxyHeaders)
 	anonHandler := handler.NewAnonHandlers(anonSvc, chatSvc)
 
-	reportSvc := service.NewReport(queries)
+	reportSvc := service.NewReport(queries, pool, storage.New(cfg.UploadDir), cfg)
 	reportHandler := handler.NewReportHandlers(reportSvc)
 
 	attachmentHandler := handler.NewAttachmentHandlers(chatSvc)
