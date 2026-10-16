@@ -189,6 +189,16 @@ export const IconUsersGroup = (p: P) => (
   </svg>
 )
 
+/** Ikon meta: mengajar/wali kelas (16px). */
+export const IconTeaching = (p: P) => (
+  <svg width="16" height="16" viewBox="0 0 15 13.5" fill="none" {...p}>
+    <path d="M8.08 8.75C6.56 12.75 2.28 8.75.75 12.75" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M9.75 8.75h1c1.57 0 2.36 0 2.85-.49.49-.49.49-1.27.49-2.84v-1.33c0-1.57 0-2.36-.49-2.85-.49-.49-1.27-.49-2.85-.49h-2.66c-1.57 0-2.36 0-2.85.49-.41.41-.48 1.04-.49 2.18" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    <circle cx="4.42" cy="7.08" r="1.67" stroke="currentColor" strokeWidth="1.5" />
+    <path d="M7.42 3.42h4M11.42 6.08h-2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+  </svg>
+)
+
 /** Ikon meta: jam (16px). */
 export const IconClock = (p: P) => (
   <svg width="16" height="16" viewBox="0 0 16 16" fill="none" {...p}>
@@ -325,6 +335,23 @@ export const IconUpload = (p: P) => (
 export const IconUser = (p: P) => (
   <svg width="18" height="18" viewBox="0 0 18 18" fill="none" {...p}>
     <path d="M14.5 15.5v-1.4a3.1 3.1 0 0 0-3.1-3.1H6.6A3.1 3.1 0 0 0 3.5 14.1v1.4M12 5.1a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+)
+
+/** Ikon arsip (16px, violet) — tombol arsipkan siswa. */
+export const IconArchive = (p: P) => (
+  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" {...p}>
+    <rect x="1.9" y="2.6" width="12.2" height="3.2" rx="0.9" stroke="currentColor" strokeWidth="1.3" />
+    <path d="M2.9 5.8v5.8A1.4 1.4 0 0 0 4.3 13h7.4a1.4 1.4 0 0 0 1.4-1.4V5.8" stroke="currentColor" strokeWidth="1.3" />
+    <path d="M6.4 8.4h3.2" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+  </svg>
+)
+
+/** Ikon task-add (16px, violet) — tombol "Observasi". */
+export const IconTaskAdd = (p: P) => (
+  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" {...p}>
+    <path d="M4.66602 9.99967H6.95202M4.66602 7.33301H9.99935M8.99935 1.33301H5.66602C5.53469 1.33301 5.40466 1.35887 5.28333 1.40913C5.16201 1.45938 5.05177 1.53304 4.95891 1.6259C4.86605 1.71876 4.79239 1.829 4.74214 1.95032C4.69188 2.07165 4.66602 2.20169 4.66602 2.33301C4.66602 2.46433 4.69188 2.59437 4.74214 2.71569C4.79239 2.83702 4.86605 2.94726 4.95891 3.04011C5.05177 3.13297 5.16201 3.20663 5.28333 3.25689C5.40466 3.30714 5.53469 3.33301 5.66602 3.33301H8.99935C9.13067 3.33301 9.26071 3.30714 9.38203 3.25689C9.50336 3.20663 9.6136 3.13297 9.70646 3.04011C9.79931 2.94726 9.87297 2.83702 9.92323 2.71569C9.97348 2.59437 9.99935 2.46433 9.99935 2.33301C9.99935 2.20169 9.97348 2.07165 9.92323 1.95032C9.87297 1.829 9.79931 1.71876 9.70646 1.6259C9.6136 1.53304 9.50336 1.45938 9.38203 1.40913C9.26071 1.35887 9.13067 1.33301 8.99935 1.33301Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M12.6654 8.66603V6.32136C12.6654 4.43536 12.6654 3.4927 12.0794 2.9067C11.6527 2.48003 11.0347 2.36403 9.99938 2.3327M9.33138 14.666H5.99805C4.11271 14.666 3.16938 14.666 2.58405 14.0794C1.99805 13.494 1.99805 12.5514 1.99805 10.666V6.3207C1.99805 4.4347 1.99805 3.49203 2.58405 2.90603C3.01138 2.47936 3.62938 2.36336 4.66471 2.33203M13.9987 12.666H11.9987M11.9987 12.666H9.99871M11.9987 12.666V14.666M11.9987 12.666V10.666" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
   </svg>
 )
 

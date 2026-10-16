@@ -1,5 +1,4 @@
-import { ChevronDown } from 'lucide-react'
-
+import { IconArrowDownSm } from '@/components/icons'
 import type { ClassItem } from '@/features/dashboard/hooks'
 import { cn } from '@/lib/utils'
 
@@ -28,7 +27,7 @@ export function ClassNav({
           <div key={g} className="flex flex-col gap-1">
             <div className="flex items-center justify-between pb-2 pl-2">
               <p className="text-[12px] font-semibold leading-[1.5] text-violet-dark opacity-60">Kelas {g}</p>
-              <ChevronDown className="size-4 text-[rgba(21,21,58,.5)]" />
+              <IconArrowDownSm className="text-[rgba(21,21,58,.6)]" />
             </div>
             {grades.get(g)!.map((c) => {
               const on = c.kelas === active

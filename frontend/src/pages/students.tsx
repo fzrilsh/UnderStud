@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
 
 import Topbar from '@/components/layout/topbar'
+import { IconClock, IconDotSm, IconTeaching, IconUsersGroup } from '@/components/icons'
 import { useConfirm } from '@/components/confirm-provider'
 import { ClassNav } from '@/features/students/components/class-nav'
 import { ArchiveToggle, FilterChips, RedFlagToggle, StudentSearch } from '@/features/students/components/filter-chips'
@@ -82,36 +83,36 @@ function StudentsBK() {
 
   return (
     <>
-      <Topbar
-        title="Daftar Siswa"
-        subtitle={
-          <span className="flex flex-wrap items-center gap-x-1 gap-y-0.5">
-            <span className="whitespace-nowrap">Semua siswa di sekolah</span>
-            <span className="text-[rgba(21,21,58,.3)]">·</span>
-            <span className="whitespace-nowrap">{list.length} kelas</span>
-            <span className="text-[rgba(21,21,58,.3)]">·</span>
-            <span className="whitespace-nowrap">{totalStudents.data ?? 0} siswa</span>
-          </span>
-        }
-        actions={
-          <div className="flex w-full flex-wrap items-center gap-3 lg:w-auto">
-            <StudentSearch
-              value={q}
-              onChange={(v) => setParam({ q: v || null, offset: null })}
-            />
-            <RedFlagToggle
-              count={redCount.data ?? 0}
-              active={filter === 'red_flag'}
-              onToggle={() => setParam({ filter: filter === 'red_flag' ? null : 'red_flag', offset: null })}
-            />
-            <ArchiveToggle
-              checked={archived}
-              onToggle={() => setParam({ archived: archived ? null : '1', offset: null })}
-            />
+      {/* Header BK: satu blok flex-col gap-6 dengan filter di dalamnya (mockup). */}
+      <header className="flex flex-col gap-6 border-b border-[#c3c2e3] px-5 pb-6 pt-6 md:px-8 md:pt-9">
+        <div className="flex items-start gap-3">
+          <div className="min-w-0 flex-1 pl-12 md:pl-0">
+            <h1 className="font-heading text-[28px] font-bold leading-[1.25] text-gradient-heading md:text-[36px]">
+              Daftar Siswa
+            </h1>
+            <p className="mt-1.5 flex flex-wrap items-center gap-x-1 gap-y-0.5 text-[15px] text-violet-dark md:text-[16px]">
+              <span className="whitespace-nowrap">Semua siswa di sekolah</span>
+              <IconDotSm className="shrink-0 text-[rgba(21,21,58,.6)]" />
+              <span className="whitespace-nowrap">{list.length} kelas</span>
+              <IconDotSm className="shrink-0 text-[rgba(21,21,58,.6)]" />
+              <span className="whitespace-nowrap">{totalStudents.data ?? 0} siswa</span>
+            </p>
           </div>
-        }
-      />
-      <div className="px-5 pb-10 md:px-8">
+        </div>
+        <div className="flex flex-wrap items-center gap-3">
+          <StudentSearch value={q} onChange={(v) => setParam({ q: v || null, offset: null })} />
+          <RedFlagToggle
+            count={redCount.data ?? 0}
+            active={filter === 'red_flag'}
+            onToggle={() => setParam({ filter: filter === 'red_flag' ? null : 'red_flag', offset: null })}
+          />
+          <ArchiveToggle
+            checked={archived}
+            onToggle={() => setParam({ archived: archived ? null : '1', offset: null })}
+          />
+        </div>
+      </header>
+      <div className="px-5 pb-10 pt-6 md:px-8">
         <div className="flex flex-col gap-4 lg:flex-row">
           <ClassNav
             classes={list}
@@ -132,9 +133,6 @@ function StudentsBK() {
                 onPrev={() => setParam({ offset: String(Math.max(0, offset - PAGE_SIZE)) })}
                 onNext={() => setParam({ offset: String(offset + PAGE_SIZE) })}
               />
-              <p className="text-[12px] text-[rgba(21,21,58,.65)]">
-                Red flag ditandai manual lewat checklist observasi, bukan oleh AI. BK bisa melihat siswa yang ditandai.
-              </p>
             </div>
           </div>
         </div>
@@ -149,11 +147,18 @@ function ClassDetailHead({ kelas, total, homeroom }: { kelas: string; total: num
       <div>
         <h2 className="font-heading text-[24px] font-semibold leading-[1.4] text-violet-dark">{kelas}</h2>
         <div className="mt-1 flex flex-wrap items-center gap-3 text-[12px] leading-[1.5] text-violet-dark opacity-80">
-          <span>{homeroom || 'Belum ada wali kelas'}</span>
-          <span>·</span>
-          <span>{total} siswa</span>
-          <span>·</span>
-          <span>Diperbarui {fmtDateID(new Date().toISOString())}</span>
+          <span className="flex items-center gap-1.5">
+            <IconTeaching />
+            {homeroom || 'Belum ada wali kelas'}
+          </span>
+          <span className="flex items-center gap-1.5">
+            <IconUsersGroup />
+            {total} siswa
+          </span>
+          <span className="flex items-center gap-1.5">
+            <IconClock />
+            Diperbarui {fmtDateID(new Date().toISOString())}
+          </span>
         </div>
       </div>
       <span className="shrink-0 rounded-[6px] bg-[#ecebf6] px-2 py-[3px] text-[12px] font-semibold text-violet">Hanya lihat</span>
@@ -220,28 +225,36 @@ function StudentsWK({ kelas }: { kelas: string }) {
     <>
       <Topbar
         title="Daftar Siswa"
-        subtitle={`Kelas perwalian · ${kelas} · ${total.data ?? 0} siswa`}
+        subtitle={
+          <>
+            <span className="whitespace-nowrap">Kelas perwalian</span>
+            <IconDotSm className="shrink-0 text-[rgba(21,21,58,.6)]" />
+            <span className="whitespace-nowrap">{kelas}</span>
+            <IconDotSm className="shrink-0 text-[rgba(21,21,58,.6)]" />
+            <span className="whitespace-nowrap">{total.data ?? 0} siswa</span>
+          </>
+        }
       />
-      <div className="px-5 pb-10 md:px-8">
+      <div className="px-5 pb-10 pt-6 md:px-8">
         <div className="rounded-[10px] border border-violet-light bg-base p-6 shadow-[0px_4px_8px_0px_rgba(0,0,0,0.1)]">
           <div>
             <h2 className="font-heading text-[24px] font-semibold leading-[1.4] text-violet-dark">Siswa · {kelas}</h2>
             <p className="text-[12px] text-[rgba(21,21,58,.65)]">
-              Impor dari E-Rapor (.xlsx / .csv) atau tambah siswa manual
+              Impor dari E-Rapor (.xlsx / .csv) atau tambah siswa manual · Impor terakhir{' '}
+              {fmtDateID(new Date().toISOString())}
             </p>
           </div>
 
-          <div className="mt-5">
+          {/* Search + chips dalam satu baris (mockup wkToolbar). */}
+          <div className="my-3 flex flex-wrap items-center gap-2">
             <StudentSearch
+              variant="wk"
               value={q}
               onChange={(v) => {
                 setQ(v)
                 setOffset(0)
               }}
             />
-          </div>
-
-          <div className="mt-3">
             <FilterChips
               active={filter}
               onToggle={toggleFilter}
@@ -274,6 +287,7 @@ function StudentsWK({ kelas }: { kelas: string }) {
             pages={pages}
             shown={items.length}
             total={count}
+            note="Red flag ditandai manual lewat checklist observasi, bukan oleh AI. BK bisa melihat siswa yang ditandai."
             onPrev={() => setOffset(Math.max(0, offset - PAGE_SIZE))}
             onNext={() => setOffset(offset + PAGE_SIZE)}
           />
@@ -290,6 +304,7 @@ function Pagination({
   total,
   onPrev,
   onNext,
+  note,
 }: {
   page: number
   pages: number
@@ -297,11 +312,13 @@ function Pagination({
   total: number
   onPrev: () => void
   onNext: () => void
+  /** Catatan opsional di kiri (mockup WK: " · Red flag ditandai manual…"). */
+  note?: string
 }) {
   return (
     <div className="flex flex-wrap items-center justify-between gap-3">
-      <p className="text-[12px] text-[rgba(21,21,58,.65)]">
-        Menampilkan {shown} dari {total}
+      <p className="text-[12px] leading-[normal] text-violet-dark opacity-60">
+        Menampilkan {shown} dari {total} siswa{note ? ` · ${note}` : ''}
       </p>
       <div className="flex items-center gap-2">
         <button
@@ -312,7 +329,7 @@ function Pagination({
         >
           Sebelumnya
         </button>
-        <span className="px-3 py-2 text-[12px] font-medium text-violet-dark">
+        <span className="px-3 py-2 text-[12px] font-medium text-violet-dark opacity-70">
           {page} / {pages}
         </span>
         <button

@@ -1,3 +1,4 @@
+import { IconSearchSm } from '@/components/icons'
 import { cn } from '@/lib/utils'
 import type { StudentFilter } from '@/features/students/hooks'
 
@@ -29,27 +30,25 @@ export function FilterChips({
             onClick={() => onToggle(c.key)}
             aria-pressed={on}
             className={cn(
-              'inline-flex items-center gap-2 rounded-full border px-3.5 py-2 text-[13px] font-medium transition-colors',
+              'inline-flex items-center gap-1.5 rounded-[8px] px-3 py-2.5 whitespace-nowrap transition-colors',
+              // Red chip: selalu putih + border merah, teks 14px medium merah.
               c.red
-                ? 'border-[#fca5a5] text-[#ef4444] hover:bg-[#fef2f2]'
-                : 'border-violet-light text-violet-dark hover:bg-[#F6F6FB]',
-              on && (c.red ? 'bg-[#fee2e2] ring-2 ring-[#ef4444]/20' : 'bg-[#ecebf6] ring-2 ring-violet/20'),
+                ? 'border border-[#ef4444] bg-[#fcfcfe] text-[14px] font-medium text-[#ef4444] hover:bg-[#fef2f2]'
+                : on
+                  ? // Aktif: bg #e2e2f2 tanpa border.
+                    'bg-[#e2e2f2] text-[14px] font-semibold text-violet-dark'
+                  : // Nonaktif: putih + border #E2E2F2.
+                    'border border-[#E2E2F2] bg-white text-[14px] font-semibold text-[rgba(21,21,58,.7)] hover:bg-[#F6F6FB]',
             )}
           >
-            {c.red && (
-              <span className="flex size-[18px] items-center justify-center rounded-full bg-[#ef4444] text-[12px] font-bold text-base">
-                !
-              </span>
-            )}
             {c.label}
-            <span
-              className={cn(
-                'rounded-full px-2 py-[1px] text-[11.5px] font-semibold',
-                c.red ? 'bg-[#ef4444] text-base' : 'bg-violet-light text-violet-dark',
-              )}
-            >
-              {c.count}
-            </span>
+            {c.red ? (
+              <span className="flex size-5 items-center justify-center rounded-full bg-[#ef4444] text-[12px] font-semibold text-[#fcfcfe]">
+                {c.count}
+              </span>
+            ) : (
+              <span className="text-[12px] font-normal opacity-60">{c.count}</span>
+            )}
           </button>
         )
       })}
@@ -101,24 +100,43 @@ export function RedFlagToggle({ count, active, onToggle }: { count: number; acti
   )
 }
 
-/** Input pencarian siswa. */
-export function StudentSearch({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+/**
+ * Input pencarian siswa. `bk` = gaya header BK (radius 8, bg base);
+ * `wk` = gaya `.input` mockup (radius 10, bg putih, min-w 200).
+ */
+export function StudentSearch({
+  value,
+  onChange,
+  variant = 'bk',
+}: {
+  value: string
+  onChange: (v: string) => void
+  variant?: 'bk' | 'wk'
+}) {
+  const bk = variant === 'bk'
   return (
-    <div className="flex min-w-[240px] flex-1 items-center gap-2.5 rounded-[8px] border border-violet-light bg-base px-3.5 py-3">
-      <svg width="16" height="16" viewBox="0 0 18 18" fill="none" className="shrink-0 text-[rgba(21,21,58,.5)]">
-        <path
-          d="M16.5 16.5 12.11 12.11M14.25 7.875a6.375 6.375 0 1 1-12.75 0 6.375 6.375 0 0 1 12.75 0Z"
-          stroke="currentColor"
-          strokeWidth="1.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-      </svg>
+    <div
+      className={cn(
+        'flex flex-1 items-center gap-2.5',
+        bk
+          ? 'min-w-[240px] rounded-[8px] border border-[#e2e2f2] bg-base px-3.5 py-3'
+          : 'relative min-w-[200px]',
+      )}
+    >
+      {!bk && (
+        <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[rgba(21,21,58,.55)]">
+          <IconSearchSm />
+        </span>
+      )}
+      {bk && <IconSearchSm className="shrink-0 text-[rgba(21,21,58,.55)]" />}
       <input
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder="Cari nama atau NISN siswa…"
-        className="w-full bg-transparent text-[14px] text-violet-dark outline-none placeholder:text-violet-dark placeholder:opacity-50"
+        className={cn(
+          'w-full bg-transparent text-[14px] text-violet-dark outline-none placeholder:text-violet-dark placeholder:opacity-50',
+          !bk && 'input pl-10',
+        )}
       />
     </div>
   )
