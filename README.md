@@ -109,7 +109,9 @@ Sistem juga tidak menjanjikan anonimitas absolut terhadap metadata jaringan. UI 
 
 **Live Demo:** https://understud.fazrilsh.com
 
-**Video Demo:** menyusul.
+**Video Demo:** https://www.youtube.com/watch?v=Td66uFwze4o
+
+**Figma Design:** https://www.figma.com/design/HDt8m9ATTJ3srugimjJo2a/JOINTS-UGM?node-id=0-1&t=syTGoaY6ymAgLXzY-0
 
 ---
 
