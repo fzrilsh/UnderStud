@@ -46,36 +46,41 @@ func (q *Queries) CountObservationsByStudent(ctx context.Context, studentID uuid
 const countStudents = `-- name: CountStudents :one
 SELECT count(*) FROM students st
 WHERE ($1::text = '' OR st.kelas = $1)
-  AND ($2::bool = true OR st.archived_at IS NULL)
-  AND ($3::text = '' OR lower(st.name) LIKE '%' || lower($3) || '%' OR st.nisn LIKE '%' || $3 || '%')
+  -- filter='archived' meng-override include_archived (konsisten dengan ListStudents).
   AND (
-    $4::text = '' OR $4::text = 'all'
-    OR ($4::text = 'red_flag' AND EXISTS (
+    $2::text = 'archived'
+    OR $3::bool = true
+    OR st.archived_at IS NULL
+  )
+  AND ($4::text = '' OR lower(st.name) LIKE '%' || lower($4) || '%' OR st.nisn LIKE '%' || $4 || '%')
+  AND (
+    $2::text = '' OR $2::text = 'all'
+    OR ($2::text = 'red_flag' AND EXISTS (
         SELECT 1 FROM observations o
         WHERE o.student_id = st.id AND o.red_flag = true AND o.handled_at IS NULL))
-    OR ($4::text = 'archived' AND st.archived_at IS NOT NULL)
-    OR ($4::text = 'incomplete' AND NOT EXISTS (
+    OR ($2::text = 'archived' AND st.archived_at IS NOT NULL)
+    OR ($2::text = 'incomplete' AND NOT EXISTS (
         SELECT 1 FROM student_profiles p
         WHERE p.student_id = st.id
           AND jsonb_array_length(COALESCE(p.nilai_erapor, '[]'::jsonb)) >= 5))
-    OR ($4::text = 'not_observed' AND NOT EXISTS (
+    OR ($2::text = 'not_observed' AND NOT EXISTS (
         SELECT 1 FROM observations o WHERE o.student_id = st.id))
   )
 `
 
 type CountStudentsParams struct {
 	Kelas           string
+	Filter          string
 	IncludeArchived bool
 	Search          string
-	Filter          string
 }
 
 func (q *Queries) CountStudents(ctx context.Context, arg CountStudentsParams) (int64, error) {
 	row := q.db.QueryRow(ctx, countStudents,
 		arg.Kelas,
+		arg.Filter,
 		arg.IncludeArchived,
 		arg.Search,
-		arg.Filter,
 	)
 	var count int64
 	err := row.Scan(&count)
@@ -222,19 +227,24 @@ SELECT
           WHERE s.student_id = st.id AND s.status = 'ready')                         AS has_summary
 FROM students st
 WHERE ($1::text = '' OR st.kelas = $1)
-  AND ($2::bool = true OR st.archived_at IS NULL)
-  AND ($3::text = '' OR lower(st.name) LIKE '%' || lower($3) || '%' OR st.nisn LIKE '%' || $3 || '%')
+  -- filter='archived' meng-override include_archived (hanya tampilkan yang diarsipkan).
   AND (
-    $4::text = '' OR $4::text = 'all'
-    OR ($4::text = 'red_flag' AND EXISTS (
+    $2::text = 'archived'
+    OR $3::bool = true
+    OR st.archived_at IS NULL
+  )
+  AND ($4::text = '' OR lower(st.name) LIKE '%' || lower($4) || '%' OR st.nisn LIKE '%' || $4 || '%')
+  AND (
+    $2::text = '' OR $2::text = 'all'
+    OR ($2::text = 'red_flag' AND EXISTS (
         SELECT 1 FROM observations o
         WHERE o.student_id = st.id AND o.red_flag = true AND o.handled_at IS NULL))
-    OR ($4::text = 'archived' AND st.archived_at IS NOT NULL)
-    OR ($4::text = 'incomplete' AND NOT EXISTS (
+    OR ($2::text = 'archived' AND st.archived_at IS NOT NULL)
+    OR ($2::text = 'incomplete' AND NOT EXISTS (
         SELECT 1 FROM student_profiles p
         WHERE p.student_id = st.id
           AND jsonb_array_length(COALESCE(p.nilai_erapor, '[]'::jsonb)) >= 5))
-    OR ($4::text = 'not_observed' AND NOT EXISTS (
+    OR ($2::text = 'not_observed' AND NOT EXISTS (
         SELECT 1 FROM observations o WHERE o.student_id = st.id))
   )
 ORDER BY st.name ASC
@@ -243,9 +253,9 @@ LIMIT $6 OFFSET $5
 
 type ListStudentsParams struct {
 	Kelas           string
+	Filter          string
 	IncludeArchived bool
 	Search          string
-	Filter          string
 	Off             int32
 	Lim             int32
 }
@@ -270,9 +280,9 @@ type ListStudentsRow struct {
 func (q *Queries) ListStudents(ctx context.Context, arg ListStudentsParams) ([]ListStudentsRow, error) {
 	rows, err := q.db.Query(ctx, listStudents,
 		arg.Kelas,
+		arg.Filter,
 		arg.IncludeArchived,
 		arg.Search,
-		arg.Filter,
 		arg.Off,
 		arg.Lim,
 	)

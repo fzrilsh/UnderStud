@@ -32,7 +32,12 @@ SELECT
           WHERE s.student_id = st.id AND s.status = 'ready')                         AS has_summary
 FROM students st
 WHERE (sqlc.arg(kelas)::text = '' OR st.kelas = sqlc.arg(kelas))
-  AND (sqlc.arg(include_archived)::bool = true OR st.archived_at IS NULL)
+  -- filter='archived' meng-override include_archived (hanya tampilkan yang diarsipkan).
+  AND (
+    sqlc.arg(filter)::text = 'archived'
+    OR sqlc.arg(include_archived)::bool = true
+    OR st.archived_at IS NULL
+  )
   AND (sqlc.arg(search)::text = '' OR lower(st.name) LIKE '%' || lower(sqlc.arg(search)) || '%' OR st.nisn LIKE '%' || sqlc.arg(search) || '%')
   AND (
     sqlc.arg(filter)::text = '' OR sqlc.arg(filter)::text = 'all'
@@ -53,7 +58,12 @@ LIMIT sqlc.arg(lim) OFFSET sqlc.arg(off);
 -- name: CountStudents :one
 SELECT count(*) FROM students st
 WHERE (sqlc.arg(kelas)::text = '' OR st.kelas = sqlc.arg(kelas))
-  AND (sqlc.arg(include_archived)::bool = true OR st.archived_at IS NULL)
+  -- filter='archived' meng-override include_archived (konsisten dengan ListStudents).
+  AND (
+    sqlc.arg(filter)::text = 'archived'
+    OR sqlc.arg(include_archived)::bool = true
+    OR st.archived_at IS NULL
+  )
   AND (sqlc.arg(search)::text = '' OR lower(st.name) LIKE '%' || lower(sqlc.arg(search)) || '%' OR st.nisn LIKE '%' || sqlc.arg(search) || '%')
   AND (
     sqlc.arg(filter)::text = '' OR sqlc.arg(filter)::text = 'all'
